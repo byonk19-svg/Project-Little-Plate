@@ -1,0 +1,33 @@
+# Dependencies
+/node_modules/
+
+# Next.js
+/.next/
+/out/
+
+# Tests
+/coverage/
+/playwright-report/
+/test-results/
+
+# Supabase local state
+/supabase/.branches/
+/supabase/.temp/
+
+# Environment and deployment state
+.env
+.env.*
+!.env.example
+/.vercel/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs and generated TypeScript state
+*.log
+*.tsbuildinfo
+
+# Local agent runtime state
+/.omx/

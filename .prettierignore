@@ -1,0 +1,14 @@
+.next
+.omx
+.scratch
+coverage
+node_modules
+playwright-report
+test-results
+
+# Preserve imported/generated artifacts without editorial rewrites.
+AGENTS.md
+docs/agents
+pnpm-lock.yaml
+project-little-plate-v1-plan.md
+supabase/config.toml

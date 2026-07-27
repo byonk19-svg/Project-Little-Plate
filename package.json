@@ -12,15 +12,18 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm verify:database && pnpm test:e2e && node scripts/check-whitespace.mjs",
-    "verify:database": "supabase start && supabase db reset --local",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm verify:database && pnpm test:integration && pnpm test:e2e && node scripts/check-whitespace.mjs",
+    "verify:database": "supabase start && supabase db reset --local && supabase stop && supabase start",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset --local"
   },
   "dependencies": {
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "2.110.9",
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4"

@@ -4,9 +4,11 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository currently contains the Ticket 01 walking skeleton only. The
-Today, Week, Kitchen, and Foods destinations are accessible placeholders; they
-do not publish feeding, allergen, preparation, or storage guidance.
+This repository contains the Ticket 01 walking skeleton and Ticket 02's private
+caregiver and baby-profile foundation. A caregiver can request a passwordless
+email link, bootstrap one isolated household, and create one active baby
+profile. Today, Week, Kitchen, and Foods remain workflow placeholders and do not
+publish feeding, allergen, preparation, or storage guidance.
 
 ## Product sources
 
@@ -14,6 +16,7 @@ do not publish feeding, allergen, preparation, or storage guidance.
 - [V1 specification](.scratch/project-little-plate-v1/PRD.md)
 - [V1 implementation plan](project-little-plate-v1-plan.md)
 - [Application foundation decision](docs/adr/0001-application-foundation.md)
+- [Household identity decision](docs/adr/0002-household-identity-boundary.md)
 
 ## Prerequisites
 
@@ -36,10 +39,9 @@ pnpm exec playwright install chromium
 Copy-Item .env.example .env.local
 ```
 
-The placeholder shell does not consume Supabase environment variables yet.
 After `pnpm supabase:start`, replace the example values in `.env.local` with the
-local API URL and publishable key printed by the CLI before a later ticket adds a
-client.
+local API URL and publishable key printed by the CLI. The local passwordless
+email arrives in Mailpit at [http://127.0.0.1:56324](http://127.0.0.1:56324).
 
 ## Local development
 
@@ -79,10 +81,10 @@ pnpm verify
 ```
 
 `pnpm verify` runs formatting checks, lint, strict typechecking, unit tests, the
-production build, local Supabase startup and reset, mobile Playwright smoke
-tests, and whitespace checks over both staged and unstaged local changes or the
-CI commit range. Browser traces, screenshots, and videos are retained only when
-a Playwright test fails.
+production build, local Supabase startup and reset, Supabase integration tests,
+mobile Playwright flows, and whitespace checks over both staged and unstaged
+local changes or the CI commit range. Browser traces, screenshots, and videos
+are retained only when a Playwright test fails.
 
 To isolate a failure, the underlying commands are:
 
@@ -93,6 +95,7 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm verify:database
+pnpm test:integration
 pnpm test:e2e
 git diff --check
 ```

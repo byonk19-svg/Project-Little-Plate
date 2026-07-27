@@ -4,11 +4,17 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the Ticket 01 walking skeleton and Ticket 02's private
-caregiver and baby-profile foundation. A caregiver can request a passwordless
-email link, bootstrap one isolated household, and create one active baby
-profile. Today, Week, Kitchen, and Foods remain workflow placeholders and do not
-publish feeding, allergen, preparation, or storage guidance.
+This repository contains the Ticket 01 walking skeleton, Ticket 02's private
+caregiver and baby-profile foundation, and Ticket 03's reviewed-content
+publication boundary. A caregiver can request a passwordless email link,
+bootstrap one isolated household, and create one active baby profile. Foods can
+list and display only active, approved, source-backed preparations with complete
+skill, allergen, and storage-support records.
+
+The production seed intentionally contains no food or safety-content fixtures.
+Ticket 03's automated fixtures are synthetic and test-only; production content
+must remain unavailable until it receives the qualified review required by the
+product specification.
 
 ## Product sources
 
@@ -17,6 +23,7 @@ publish feeding, allergen, preparation, or storage guidance.
 - [V1 implementation plan](project-little-plate-v1-plan.md)
 - [Application foundation decision](docs/adr/0001-application-foundation.md)
 - [Household identity decision](docs/adr/0002-household-identity-boundary.md)
+- [Reviewed content publication decision](docs/adr/0003-reviewed-content-publication-boundary.md)
 
 ## Prerequisites
 

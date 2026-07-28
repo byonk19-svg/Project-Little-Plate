@@ -117,6 +117,37 @@ async function waitForBlockedServingRequest(): Promise<void> {
   throw new Error("Timed out waiting for the serving RPC to block");
 }
 
+async function waitForBlockedReactionRequest(): Promise<void> {
+  const deadline = Date.now() + 10_000;
+
+  while (Date.now() < deadline) {
+    const { stdout } = await execFileAsync("docker", [
+      "exec",
+      "supabase_db_mealboard-baby",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-Atc",
+      `select count(*)
+         from pg_stat_activity
+        where pid <> pg_backend_pid()
+          and state = 'active'
+          and query like '%report_food_reaction%'
+          and cardinality(pg_blocking_pids(pid)) > 0`
+    ]);
+
+    if (Number(stdout.trim()) > 0) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+
+  throw new Error("Timed out waiting for the reaction RPC to block");
+}
+
 async function runDatabaseCommand(sql: string): Promise<void> {
   await execFileAsync("docker", [
     "exec",
@@ -321,6 +352,7 @@ describe("refrigerated batch creation", () => {
   let lunchMealComponentId: string;
   let dinnerMealComponentId: string;
   let unservedMealComponentId: string;
+  let secondServedMealComponentId: string;
   let unsupportedMealComponentId: string;
   let deadlineRaceComponentId: string;
   let crossBatchComponentId: string;
@@ -1412,6 +1444,10 @@ describe("refrigerated batch creation", () => {
       firstFinalAttempt.data.status === "served"
         ? lunchMealComponentId
         : dinnerMealComponentId;
+    secondServedMealComponentId =
+      firstFinalAttempt.data.status === "served"
+        ? dinnerMealComponentId
+        : lunchMealComponentId;
 
     const events = await household
       .from("batch_events")
@@ -2460,6 +2496,602 @@ describe("refrigerated batch creation", () => {
     );
   });
 
+  test("a reviewed reaction report immediately blocks every planning and serving seam until explicitly resolved", async () => {
+    const importedGuidance = await admin.rpc(
+      "import_reaction_guidance_fixture",
+      {
+        p_records: [
+          {
+            id: "reaction-guidance-ticket-11",
+            guidance_key: "post-serve-reaction-care-direction",
+            version: 1,
+            status: "approved",
+            guidance:
+              "SYNTHETIC REVIEWED REACTION CARE DIRECTION FOR TESTING ONLY",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "reaction-guidance-unrelated",
+            guidance_key: "synthetic-unrelated-direction",
+            version: 99,
+            status: "approved",
+            guidance: "SYNTHETIC UNRELATED GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }
+        ]
+      }
+    );
+    expect(importedGuidance.error).toBeNull();
+
+    const servedEvent = await household
+      .from("batch_events")
+      .select("id, batch_id")
+      .eq("meal_component_id", mealComponentId)
+      .eq("event_type", "served")
+      .single();
+    expect(servedEvent.error).toBeNull();
+
+    const context = await household.rpc("get_reaction_report_context", {
+      p_served_event_id: servedEvent.data!.id
+    });
+    expect(context.error).toBeNull();
+    expect(context.data).toEqual(
+      expect.objectContaining({
+        status: "ready",
+        food_id: "food-ticket-06",
+        food_name: "Ticket 06 Food",
+        guidance_revision_id: "reaction-guidance-ticket-11",
+        guidance: "SYNTHETIC REVIEWED REACTION CARE DIRECTION FOR TESTING ONLY",
+        source_title: "Synthetic Ticket 06 source",
+        source_url: "https://example.test/ticket-06",
+        reviewed_at: "2026-07-28"
+      })
+    );
+
+    const readyBeforeReport = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: unservedMealComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 1,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(readyBeforeReport.error).toBeNull();
+    expect(readyBeforeReport.data.status).toBe("created");
+
+    const unrelatedGuidance = await household.rpc("report_food_reaction", {
+      p_served_event_id: servedEvent.data!.id,
+      p_guidance_revision_id: "reaction-guidance-unrelated",
+      p_preference: "disliked",
+      p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(unrelatedGuidance.error).toBeNull();
+    expect(unrelatedGuidance.data).toEqual({
+      status: "rejected",
+      reason: "reviewed_guidance_unavailable"
+    });
+
+    const importedNextGuidance = await admin.rpc(
+      "import_reaction_guidance_fixture",
+      {
+        p_records: [
+          {
+            id: "reaction-guidance-ticket-11-v2",
+            guidance_key: "post-serve-reaction-care-direction",
+            version: 2,
+            status: "approved",
+            guidance: "SYNTHETIC REVIEWED REACTION DIRECTION VERSION TWO",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }
+        ]
+      }
+    );
+    expect(importedNextGuidance.error).toBeNull();
+
+    const staleGuidance = await household.rpc("report_food_reaction", {
+      p_served_event_id: servedEvent.data!.id,
+      p_guidance_revision_id: "reaction-guidance-ticket-11",
+      p_preference: "disliked",
+      p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(staleGuidance.error).toBeNull();
+    expect(staleGuidance.data).toEqual({
+      status: "rejected",
+      reason: "reviewed_guidance_unavailable"
+    });
+
+    const currentContext = await household.rpc("get_reaction_report_context", {
+      p_served_event_id: servedEvent.data!.id
+    });
+    expect(currentContext.error).toBeNull();
+    expect(currentContext.data).toEqual(
+      expect.objectContaining({
+        status: "ready",
+        guidance_revision_id: "reaction-guidance-ticket-11-v2"
+      })
+    );
+
+    const retirementTransaction = await startHeldDatabaseTransaction(`
+      insert into public.reaction_guidance_retirements (
+        guidance_revision_id,
+        retired_at,
+        reason
+      ) values (
+        'reaction-guidance-ticket-11-v2',
+        '2026-07-28',
+        'SYNTHETIC CONCURRENT RETIREMENT'
+      );
+    `);
+    const retiringGuidanceRequest = household
+      .rpc("report_food_reaction", {
+        p_served_event_id: servedEvent.data!.id,
+        p_guidance_revision_id: "reaction-guidance-ticket-11-v2",
+        p_preference: "disliked",
+        p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+        p_idempotency_key: crypto.randomUUID()
+      })
+      .then((result) => result);
+    await waitForBlockedReactionRequest();
+    retirementTransaction.release();
+    const [retiringGuidance] = await Promise.all([
+      retiringGuidanceRequest,
+      retirementTransaction.completed
+    ]);
+    expect(retiringGuidance.error).toBeNull();
+    expect(retiringGuidance.data).toEqual({
+      status: "rejected",
+      reason: "reviewed_guidance_unavailable"
+    });
+
+    const importedCurrentGuidance = await admin.rpc(
+      "import_reaction_guidance_fixture",
+      {
+        p_records: [
+          {
+            id: "reaction-guidance-ticket-11-v3",
+            guidance_key: "post-serve-reaction-care-direction",
+            version: 3,
+            status: "approved",
+            guidance: "SYNTHETIC REVIEWED REACTION DIRECTION VERSION THREE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }
+        ]
+      }
+    );
+    expect(importedCurrentGuidance.error).toBeNull();
+
+    const publicationTransaction = await startHeldDatabaseTransaction(`
+      insert into public.reaction_guidance_revisions (
+        id,
+        guidance_key,
+        version,
+        status,
+        guidance,
+        source_id,
+        reviewer_role,
+        reviewed_at,
+        approved_at,
+        next_review_at
+      ) values (
+        'reaction-guidance-ticket-11-v4',
+        'post-serve-reaction-care-direction',
+        4,
+        'approved',
+        'SYNTHETIC REVIEWED REACTION DIRECTION VERSION FOUR',
+        'source-ticket-06',
+        'synthetic_test_reviewer',
+        '2026-07-28',
+        '2026-07-28',
+        '2027-07-28'
+      );
+    `);
+    const publishingGuidanceRequest = household
+      .rpc("report_food_reaction", {
+        p_served_event_id: servedEvent.data!.id,
+        p_guidance_revision_id: "reaction-guidance-ticket-11-v3",
+        p_preference: "disliked",
+        p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+        p_idempotency_key: crypto.randomUUID()
+      })
+      .then((result) => result);
+    await waitForBlockedReactionRequest();
+    publicationTransaction.release();
+    const [publishingGuidance] = await Promise.all([
+      publishingGuidanceRequest,
+      publicationTransaction.completed
+    ]);
+    expect(publishingGuidance.error).toBeNull();
+    expect(publishingGuidance.data).toEqual({
+      status: "rejected",
+      reason: "reviewed_guidance_unavailable"
+    });
+
+    const reportKey = crypto.randomUUID();
+    const reported = await household.rpc("report_food_reaction", {
+      p_served_event_id: servedEvent.data!.id,
+      p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+      p_preference: "disliked",
+      p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+      p_idempotency_key: reportKey
+    });
+    expect(reported.error).toBeNull();
+    expect(reported.data).toEqual(
+      expect.objectContaining({
+        status: "reported",
+        food_id: "food-ticket-06",
+        restriction_status: "reaction_reported",
+        preference: "disliked",
+        idempotent_retry: false
+      })
+    );
+
+    const retried = await household.rpc("report_food_reaction", {
+      p_served_event_id: servedEvent.data!.id,
+      p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+      p_preference: "disliked",
+      p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+      p_idempotency_key: reportKey
+    });
+    expect(retried.error).toBeNull();
+    expect(retried.data).toEqual({
+      ...reported.data,
+      idempotent_retry: true
+    });
+
+    const today = await household.rpc("get_today_meal");
+    expect(today.error).toBeNull();
+    expect(today.data.components[0]).toEqual(
+      expect.objectContaining({
+        availability_state: "unavailable",
+        unavailable_reason: "food_restricted"
+      })
+    );
+
+    const week = await household.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(week.error).toBeNull();
+    const plannedComponents = week.data.days.flatMap(
+      (day: {
+        slots: Array<{
+          components: Array<{
+            availability_state: string;
+            unavailable_reason: string | null;
+          }>;
+        }>;
+      }) => day.slots.flatMap((slot) => slot.components)
+    );
+    expect(
+      plannedComponents.some(
+        ({
+          availability_state,
+          unavailable_reason
+        }: {
+          availability_state: string;
+          unavailable_reason: string | null;
+        }) =>
+          availability_state === "replacement_required" &&
+          unavailable_reason === "food_restricted"
+      )
+    ).toBe(true);
+
+    const editOptions = await household.rpc("get_week_edit_options");
+    expect(editOptions.error).toBeNull();
+    expect(
+      editOptions.data.items.some(
+        (item: { preparation_slug: string }) =>
+          item.preparation_slug === "ticket-06-preparation"
+      )
+    ).toBe(false);
+
+    const planningInputs = await household.rpc(
+      "get_planning_preparation_inputs"
+    );
+    expect(planningInputs.error).toBeNull();
+    expect(
+      planningInputs.data.items.some(
+        (item: { preparation_id: string }) =>
+          item.preparation_id === "prep-ticket-06"
+      )
+    ).toBe(false);
+
+    const blockedServe = await household.rpc("serve_planned_portion", {
+      p_meal_component_id: unservedMealComponentId,
+      p_batch_id: readyBeforeReport.data.batch_id,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(blockedServe.error).toBeNull();
+    expect(blockedServe.data).toEqual({
+      status: "rejected",
+      reason: "food_restricted"
+    });
+
+    const blockedBatch = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: unservedMealComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 1,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(blockedBatch.error).toBeNull();
+    expect(blockedBatch.data).toEqual({
+      status: "rejected",
+      reason: "food_restricted"
+    });
+
+    const restriction = await household
+      .from("baby_food_restrictions")
+      .select("status")
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-06")
+      .single();
+    expect(restriction.error).toBeNull();
+    expect(restriction.data).toEqual({ status: "reaction_reported" });
+    const preference = await household
+      .from("baby_food_exposures")
+      .select("state")
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-06")
+      .single();
+    expect(preference.error).toBeNull();
+    expect(preference.data).toEqual({ state: "disliked" });
+
+    const events = await household
+      .from("baby_food_reaction_events")
+      .select(
+        "event_type, private_description, guidance_revision_id, actor_user_id"
+      )
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-06");
+    expect(events.error).toBeNull();
+    expect(events.data).toEqual([
+      {
+        event_type: "reported",
+        private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+        guidance_revision_id: "reaction-guidance-ticket-11-v4",
+        actor_user_id: userId
+      }
+    ]);
+
+    const activeBlocks = await household.rpc("get_active_reaction_blocks");
+    expect(activeBlocks.error).toBeNull();
+    expect(activeBlocks.data).toEqual({
+      status: "ready",
+      baby_id: babyId,
+      items: [{ food_id: "food-ticket-06", food_name: "Ticket 06 Food" }]
+    });
+
+    const mismatchedAuditInsert = await admin
+      .from("baby_food_reaction_events")
+      .insert({
+        baby_id: babyId,
+        food_id: "food-ticket-10-informational",
+        served_event_id: servedEvent.data!.id,
+        event_type: "reported",
+        restriction_before: "no_known_restriction",
+        restriction_after: "reaction_reported",
+        guidance_revision_id: "reaction-guidance-ticket-11-v4",
+        actor_user_id: userId,
+        idempotency_key: crypto.randomUUID()
+      });
+    expect(mismatchedAuditInsert.error).not.toBeNull();
+    const changedBatchIdentity = await admin
+      .from("batches")
+      .update({ preparation_id: "prep-ticket-10-informational" })
+      .eq("id", servedEvent.data!.batch_id);
+    expect(changedBatchIdentity.error).not.toBeNull();
+
+    const otherEmail = `ticket-11-other-${crypto.randomUUID()}@example.test`;
+    const otherPassword = `Ticket-11-${crypto.randomUUID()}`;
+    const otherCreated = await admin.auth.admin.createUser({
+      email: otherEmail,
+      password: otherPassword,
+      email_confirm: true
+    });
+    expect(otherCreated.error).toBeNull();
+    const otherAuth = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const otherSignedIn = await otherAuth.auth.signInWithPassword({
+      email: otherEmail,
+      password: otherPassword
+    });
+    expect(otherSignedIn.error).toBeNull();
+    const other = authenticatedClient(
+      status,
+      otherSignedIn.data.session!.access_token
+    );
+    expect((await other.rpc("bootstrap_account")).error).toBeNull();
+    expect(
+      (
+        await other.rpc("complete_baby_profile", {
+          p_nickname: "Other reaction baby",
+          p_birth_date: "2025-10-15",
+          p_time_zone: "America/New_York",
+          p_feeding_style: "mixed",
+          p_meal_slots: ["breakfast"]
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      (await other.from("baby_food_reaction_events").select("*")).data
+    ).toEqual([]);
+    expect(
+      (
+        await other.rpc("get_reaction_report_context", {
+          p_served_event_id: servedEvent.data!.id
+        })
+      ).data
+    ).toEqual({
+      status: "unavailable",
+      reason: "served_event_unavailable"
+    });
+    expect(
+      (
+        await other.rpc("report_food_reaction", {
+          p_served_event_id: servedEvent.data!.id,
+          p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+          p_preference: null,
+          p_private_description: null,
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).data
+    ).toEqual({
+      status: "rejected",
+      reason: "served_event_unavailable"
+    });
+    const anonymous = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    expect(
+      (await anonymous.from("baby_food_reaction_events").select("*")).error
+    ).not.toBeNull();
+    expect(
+      (
+        await anonymous.rpc("get_reaction_report_context", {
+          p_served_event_id: servedEvent.data!.id
+        })
+      ).error
+    ).not.toBeNull();
+    expect(
+      (await admin.auth.admin.deleteUser(otherCreated.data.user!.id)).error
+    ).toBeNull();
+
+    const resolveKey = crypto.randomUUID();
+    const resolved = await household.rpc("resolve_food_reaction", {
+      p_food_id: "food-ticket-06",
+      p_idempotency_key: resolveKey
+    });
+    expect(resolved.error).toBeNull();
+    expect(resolved.data).toEqual(
+      expect.objectContaining({
+        status: "resolved",
+        food_id: "food-ticket-06",
+        restriction_status: "no_known_restriction",
+        idempotent_retry: false
+      })
+    );
+
+    const audit = await household
+      .from("baby_food_reaction_events")
+      .select("event_type, private_description")
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-06")
+      .order("occurred_at");
+    expect(audit.error).toBeNull();
+    expect(audit.data).toEqual([
+      {
+        event_type: "reported",
+        private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION"
+      },
+      { event_type: "resolved", private_description: null }
+    ]);
+
+    await runDatabaseCommand(`
+      update public.babies
+      set is_active = false
+      where id = '${babyId}';
+    `);
+    const reportRetryAfterLifecycleChange = await household.rpc(
+      "report_food_reaction",
+      {
+        p_served_event_id: servedEvent.data!.id,
+        p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+        p_preference: "disliked",
+        p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+        p_idempotency_key: reportKey
+      }
+    );
+    expect(reportRetryAfterLifecycleChange.error).toBeNull();
+    expect(reportRetryAfterLifecycleChange.data).toEqual({
+      ...reported.data,
+      idempotent_retry: true
+    });
+    const resolveRetryAfterLifecycleChange = await household.rpc(
+      "resolve_food_reaction",
+      {
+        p_food_id: "food-ticket-06",
+        p_idempotency_key: resolveKey
+      }
+    );
+    expect(resolveRetryAfterLifecycleChange.error).toBeNull();
+    expect(resolveRetryAfterLifecycleChange.data).toEqual({
+      ...resolved.data,
+      idempotent_retry: true
+    });
+    await runDatabaseCommand(`
+      update public.babies
+      set is_active = true
+      where id = '${babyId}';
+    `);
+
+    const movedHouseholdId = crypto.randomUUID();
+    await runDatabaseCommand(`
+      insert into public.households (id)
+      values ('${movedHouseholdId}');
+
+      update public.user_profiles
+      set household_id = '${movedHouseholdId}'
+      where user_id = '${userId}';
+    `);
+    const reportRetryAfterHouseholdMove = await household.rpc(
+      "report_food_reaction",
+      {
+        p_served_event_id: servedEvent.data!.id,
+        p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+        p_preference: "disliked",
+        p_private_description: "SYNTHETIC PRIVATE REACTION DESCRIPTION",
+        p_idempotency_key: reportKey
+      }
+    );
+    expect(reportRetryAfterHouseholdMove.error).toBeNull();
+    expect(reportRetryAfterHouseholdMove.data).toEqual({
+      status: "rejected",
+      reason: "idempotency_key_conflict"
+    });
+    const resolveRetryAfterHouseholdMove = await household.rpc(
+      "resolve_food_reaction",
+      {
+        p_food_id: "food-ticket-06",
+        p_idempotency_key: resolveKey
+      }
+    );
+    expect(resolveRetryAfterHouseholdMove.error).toBeNull();
+    expect(resolveRetryAfterHouseholdMove.data).toEqual({
+      status: "rejected",
+      reason: "idempotency_key_conflict"
+    });
+    await runDatabaseCommand(`
+      update public.user_profiles
+      set household_id = (
+        select household_id
+        from public.babies
+        where id = '${babyId}'
+      )
+      where user_id = '${userId}';
+
+      delete from public.households
+      where id = '${movedHouseholdId}';
+    `);
+  });
+
   test("serving fails closed for stale, blocked, expired, cross-household, and unpublished attempts", async () => {
     const recentBatch = await household.rpc("create_refrigerated_batch", {
       p_meal_component_id: unservedMealComponentId,
@@ -2669,5 +3301,94 @@ describe("refrigerated batch creation", () => {
       )
     ).toEqual(expect.objectContaining({ remaining_portions: 2 }));
     fixtureValidated = true;
+  });
+
+  test("a reaction block remains visible and explicitly resolvable after its food content is retired", async () => {
+    const servedEvent = await household
+      .from("batch_events")
+      .select("id")
+      .eq("meal_component_id", secondServedMealComponentId)
+      .eq("event_type", "served")
+      .single();
+    expect(servedEvent.error).toBeNull();
+
+    const reported = await household.rpc("report_food_reaction", {
+      p_served_event_id: servedEvent.data!.id,
+      p_guidance_revision_id: "reaction-guidance-ticket-11-v4",
+      p_preference: null,
+      p_private_description: null,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(reported.error).toBeNull();
+    expect(reported.data).toEqual(
+      expect.objectContaining({
+        status: "reported",
+        restriction_status: "reaction_reported"
+      })
+    );
+
+    const activeBlocks = await household.rpc("get_active_reaction_blocks");
+    expect(activeBlocks.error).toBeNull();
+    expect(activeBlocks.data).toEqual({
+      status: "ready",
+      baby_id: babyId,
+      items: [{ food_id: "food-ticket-06", food_name: "Ticket 06 Food" }]
+    });
+
+    const resolved = await household.rpc("resolve_food_reaction", {
+      p_food_id: "food-ticket-06",
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(resolved.error).toBeNull();
+    expect(resolved.data).toEqual(
+      expect.objectContaining({
+        status: "resolved",
+        restriction_status: "no_known_restriction"
+      })
+    );
+
+    const activeAfterResolution = await household.rpc(
+      "get_active_reaction_blocks"
+    );
+    expect(activeAfterResolution.error).toBeNull();
+    expect(activeAfterResolution.data.items).toEqual([]);
+
+    const retiredGuidance = await admin
+      .from("reaction_guidance_retirements")
+      .insert([
+        {
+          guidance_revision_id: "reaction-guidance-ticket-11",
+          retired_at: "2026-07-28",
+          reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+        },
+        {
+          guidance_revision_id: "reaction-guidance-ticket-11-v3",
+          retired_at: "2026-07-28",
+          reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+        },
+        {
+          guidance_revision_id: "reaction-guidance-ticket-11-v4",
+          retired_at: "2026-07-28",
+          reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+        },
+        {
+          guidance_revision_id: "reaction-guidance-unrelated",
+          retired_at: "2026-07-28",
+          reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+        }
+      ]);
+    expect(retiredGuidance.error).toBeNull();
+    const fixtureRetirements = await admin
+      .from("reaction_guidance_retirements")
+      .select("guidance_revision_id")
+      .in("guidance_revision_id", [
+        "reaction-guidance-ticket-11",
+        "reaction-guidance-ticket-11-v2",
+        "reaction-guidance-ticket-11-v3",
+        "reaction-guidance-ticket-11-v4",
+        "reaction-guidance-unrelated"
+      ]);
+    expect(fixtureRetirements.error).toBeNull();
+    expect(fixtureRetirements.data).toHaveLength(5);
   });
 });

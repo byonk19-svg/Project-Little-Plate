@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ReactionReportForm } from "@/app/today/reaction-report-form";
 import { ServePortionForm } from "@/app/today/serve-portion-form";
 import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mealSlotLabels } from "@/modules/meals/presentation";
 import { getTodayMeal } from "@/modules/meals/today-queries";
+import { getReactionReportContext } from "@/modules/reactions/queries";
 import { formatStorageLocalDateTime } from "@/modules/storage/presentation";
 import { getUseSoonBatches } from "@/modules/storage/queries";
 
@@ -16,7 +18,12 @@ export const metadata: Metadata = {
 };
 
 type TodayPageProps = {
-  searchParams: Promise<{ discarded?: string; served?: string }>;
+  searchParams: Promise<{
+    discarded?: string;
+    reaction?: string;
+    served?: string;
+    servedEvent?: string;
+  }>;
 };
 
 const availabilityLabels = {
@@ -66,11 +73,12 @@ async function getTodayProfileState(): Promise<
 }
 
 export default async function TodayPage({ searchParams }: TodayPageProps) {
-  const [{ discarded, served }, today, profile, useSoon] = await Promise.all([
-    searchParams,
+  const params = await searchParams;
+  const [today, profile, useSoon, reactionContext] = await Promise.all([
     getTodayMeal(),
     getTodayProfileState(),
-    getUseSoonBatches()
+    getUseSoonBatches(),
+    getReactionReportContext(params.servedEvent)
   ]);
 
   return (
@@ -84,16 +92,43 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
         </p>
       </header>
 
-      {served === "1" ? (
+      {params.served === "1" ? (
         <p className="form-message form-message--success" role="status">
           One portion was served as planned.
         </p>
       ) : null}
 
-      {discarded === "1" ? (
+      {params.reaction === "reported" ? (
+        <p className="form-message form-message--success" role="status">
+          Reaction reported. This food is blocked from Today, Week edits, and
+          future planning until the block is explicitly resolved.
+        </p>
+      ) : null}
+
+      {params.discarded === "1" ? (
         <p className="form-message form-message--success" role="status">
           Remaining portions were discarded.
         </p>
+      ) : null}
+
+      {params.servedEvent && params.served === "1" ? (
+        reactionContext ? (
+          <ReactionReportForm
+            context={reactionContext}
+            idempotencyKey={crypto.randomUUID()}
+          />
+        ) : (
+          <section className="foundation-card" role="status">
+            <p className="foundation-card__status">
+              Reaction reporting unavailable
+            </p>
+            <h2>Reviewed reaction direction could not be verified</h2>
+            <p>
+              No reaction guidance is being guessed. Refresh after reviewed
+              content is available.
+            </p>
+          </section>
+        )
       ) : null}
 
       {today.status !== "ready" && profile.status === "signed_out" ? (

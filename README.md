@@ -4,7 +4,7 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the first ten vertical slices. A caregiver can request
+This repository contains the first eleven vertical slices. A caregiver can request
 a passwordless email link, bootstrap one isolated household, create one active
 baby profile, and record observed abilities, food restrictions, exposure state,
 planning preferences, and quick backups. Foods can list and display only active,
@@ -30,8 +30,16 @@ locks, component and meal swaps, quick backups, copying, lifecycle status, and
 one bounded compensating undo. Every attached preparation is revalidated
 against current reviewed content and feeding eligibility, and skipped or
 completed meals cannot appear as the next meal or consume a prepared portion.
+After serving, a caregiver can report a reaction only when active reviewed care
+direction is available. The report stores optional preference separately,
+creates an immediate audited food safety block, removes the food from actionable
+Today and future planner inputs, and marks affected Week meals for replacement.
+Private reaction descriptions stay in household reaction history. Clearing the
+block is a separate explicit audited action; ordinary preference editing cannot
+clear it.
 
-The production seed intentionally contains no food or safety-content fixtures.
+The production seed intentionally contains no food, reaction guidance, or other
+safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
 must remain unavailable until it receives the qualified review required by the
 product specification.
@@ -51,6 +59,7 @@ product specification.
 - [Trusted expiration and discard decision](docs/adr/0008-trusted-expiration-and-discard-boundary.md)
 - [Manual Week edit lifecycle decision](docs/adr/0009-manual-week-edit-lifecycle.md)
 - [Kitchen lifecycle decision](docs/adr/0010-kitchen-lifecycle-boundary.md)
+- [Reaction safety-block decision](docs/adr/0011-reaction-safety-block-boundary.md)
 
 ## Prerequisites
 

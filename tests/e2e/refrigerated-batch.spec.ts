@@ -11,6 +11,8 @@ import {
 import { waitForMagicLink } from "./support/passwordless-auth";
 
 const fixtureRunId = crypto.randomUUID();
+const reactionGuidanceVersion =
+  Number.parseInt(fixtureRunId.replaceAll("-", "").slice(0, 7), 16) + 1_000;
 const fixtureIds = {
   source: `source-e2e-ticket-06-${fixtureRunId}`,
   skill: `skill-e2e-ticket-06-${fixtureRunId}`,
@@ -22,6 +24,7 @@ const fixtureIds = {
   revision: `revision-e2e-ticket-06-${fixtureRunId}`,
   rule: `rule-e2e-ticket-06-${fixtureRunId}`,
   profile: `rule-profile-e2e-ticket-06-${fixtureRunId}`,
+  reactionGuidance: `reaction-guidance-e2e-ticket-11-${fixtureRunId}`,
   freezeRule: `transition-freeze-e2e-ticket-10-${fixtureRunId}`,
   thawRule: `transition-thaw-e2e-ticket-10-${fixtureRunId}`,
   returnRefrigeratedRule: `transition-return-refrigerated-e2e-ticket-10-${fixtureRunId}`,
@@ -227,6 +230,26 @@ test.beforeAll(async () => {
       })
     ).error
   ).toBeNull();
+  expect(
+    (
+      await admin.rpc("import_reaction_guidance_fixture", {
+        p_records: [
+          {
+            id: fixtureIds.reactionGuidance,
+            guidance_key: "post-serve-reaction-care-direction",
+            version: reactionGuidanceVersion,
+            status: "approved",
+            guidance: "SYNTHETIC REVIEWED BROWSER REACTION CARE DIRECTION",
+            source_id: fixtureIds.source,
+            reviewer_role: "synthetic_browser_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }
+        ]
+      })
+    ).error
+  ).toBeNull();
 });
 
 test.afterAll(async () => {
@@ -239,13 +262,22 @@ test.afterAll(async () => {
       })
     ).error
   ).toBeNull();
+  expect(
+    (
+      await admin.from("reaction_guidance_retirements").insert({
+        guidance_revision_id: fixtureIds.reactionGuidance,
+        retired_at: "2026-07-28",
+        reason: "SYNTHETIC BROWSER FIXTURE CLEANUP"
+      })
+    ).error
+  ).toBeNull();
 });
 
 test("a caregiver reviews a conservative deadline and refrigerates two planned portions", async ({
   page,
   request
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const preparedAt = new Date(Date.now() - 60_000);
   const deadlineAt = new Date(preparedAt.getTime() + 24 * 60 * 60 * 1000);
   const chicagoFormatter = new Intl.DateTimeFormat("en-US", {
@@ -276,7 +308,20 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   await expect(page).toHaveURL(/\/week\?planned=1$/, { timeout: 20_000 });
 
   const tomorrow = page.getByTestId("week-day").filter({ hasText: "Tomorrow" });
-  await tomorrow.getByRole("link", { name: "Prepare and refrigerate" }).click();
+  const prepareHref = await tomorrow
+    .getByRole("link", { name: "Prepare and refrigerate" })
+    .getAttribute("href");
+  expect(prepareHref).not.toBeNull();
+  const editMeal = tomorrow
+    .locator("details")
+    .filter({ has: page.getByText("Edit meal", { exact: true }) });
+  await editMeal.locator("summary").click();
+  await editMeal.getByRole("button", { name: "Copy to next day" }).click();
+  await expect(page).toHaveURL(/edited=copy_meal/);
+  await expect(
+    page.getByTestId("week-day").filter({ hasText: "Day 3" })
+  ).toContainText("ZZZ Batch Browser Preparation");
+  await page.goto(prepareHref!);
 
   await expect(page).toHaveURL(/\/kitchen\?componentId=/, { timeout: 20_000 });
   await page.goto(
@@ -361,9 +406,61 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   await todayComponent
     .getByRole("button", { name: "Serve one portion" })
     .click();
-  await expect(page).toHaveURL(/\/today\?served=1$/);
+  await expect(page).toHaveURL(/\/today\?served=1&servedEvent=[0-9a-f-]+$/, {
+    timeout: 20_000
+  });
   await expect(page.getByRole("status")).toContainText(
     "One portion was served as planned"
+  );
+  await expect(
+    page.getByRole("heading", {
+      name: "Report a reaction to ZZZ Batch Browser Food"
+    })
+  ).toBeVisible();
+  await expect(page.getByText("Reviewed care direction")).toBeVisible();
+  await expect(
+    page.getByText("SYNTHETIC REVIEWED BROWSER REACTION CARE DIRECTION")
+  ).toBeVisible();
+  await expect(page.getByText(/does not interpret symptoms/i)).toBeVisible();
+  await page.getByLabel("Optional food preference").selectOption("disliked");
+  await page
+    .getByLabel("Private reaction description (optional)")
+    .fill("SYNTHETIC PRIVATE BROWSER REACTION DESCRIPTION");
+  await page
+    .getByRole("button", { name: "Report reaction and block food" })
+    .click();
+  await expect(page).toHaveURL(/\/today\?reaction=reported$/, {
+    timeout: 20_000
+  });
+  await expect(page.getByRole("status")).toContainText(
+    "blocked from Today, Week edits, and future planning"
+  );
+  await expect(page.getByTestId("today-component")).toContainText(
+    "Unavailable"
+  );
+
+  await page.goto("/week");
+  const replacement = page.getByTestId("week-day").filter({ hasText: "Day 3" });
+  await expect(replacement).toContainText(
+    "This food is blocked by the current feeding setup. Replace or remove it."
+  );
+
+  await page.goto("/feeding-setup");
+  await expect(
+    page.getByRole("heading", {
+      name: "ZZZ Batch Browser Food is blocked"
+    })
+  ).toBeVisible();
+  await page
+    .getByRole("button", {
+      name: "Resolve reaction safety block for ZZZ Batch Browser Food"
+    })
+    .click();
+  await expect(page).toHaveURL(/\/feeding-setup\?reaction=resolved$/, {
+    timeout: 20_000
+  });
+  await expect(page.getByRole("status")).toContainText(
+    "audited reaction history was preserved"
   );
 
   await page.goto("/kitchen");

@@ -82,5 +82,11 @@ export async function servePlannedPortion(
   revalidatePath("/today");
   revalidatePath("/week");
   revalidatePath("/kitchen");
-  redirect("/today?served=1");
+  const servedEventId =
+    typeof data.event_id === "string" ? data.event_id : null;
+  redirect(
+    servedEventId
+      ? `/today?served=1&servedEvent=${encodeURIComponent(servedEventId)}`
+      : "/today?served=1"
+  );
 }

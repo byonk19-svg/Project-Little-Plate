@@ -4,7 +4,7 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the first eight vertical slices. A caregiver can request
+This repository contains the first nine vertical slices. A caregiver can request
 a passwordless email link, bootstrap one isolated household, create one active
 baby profile, and record observed abilities, food restrictions, exposure state,
 planning preferences, and quick backups. Foods can list and display only active,
@@ -21,7 +21,12 @@ Use-soon portions are ordered by their exact reviewed deadline using trusted
 database time. Expired portions move to a separate, non-serveable Kitchen
 section, and a caregiver can discard remaining portions through an idempotent,
 append-only event without erasing their history. No freezer action appears
-until a reviewed transition and thaw policy exist.
+until a reviewed transition and thaw policy exist. Week now supports all seven
+local dates and the profile's configured slots, with versioned atomic edits for
+locks, component and meal swaps, quick backups, copying, lifecycle status, and
+one bounded compensating undo. Every attached preparation is revalidated
+against current reviewed content and feeding eligibility, and skipped or
+completed meals cannot appear as the next meal or consume a prepared portion.
 
 The production seed intentionally contains no food or safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
@@ -41,6 +46,7 @@ product specification.
 - [Refrigerated batch deadline decision](docs/adr/0006-refrigerated-batch-deadline-boundary.md)
 - [Atomic planned serving decision](docs/adr/0007-atomic-planned-serving-boundary.md)
 - [Trusted expiration and discard decision](docs/adr/0008-trusted-expiration-and-discard-boundary.md)
+- [Manual Week edit lifecycle decision](docs/adr/0009-manual-week-edit-lifecycle.md)
 
 ## Prerequisites
 

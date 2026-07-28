@@ -785,6 +785,161 @@ describe("refrigerated batch creation", () => {
     ).toBeNull();
   });
 
+  test("a serving command and meal-status edit with the same key serialize without deadlock", async () => {
+    const initial = await household.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(initial.error).toBeNull();
+    const targetDate = initial.data.days[6].local_date as string;
+    const added = await household.rpc("edit_manual_week", {
+      p_expected_version: initial.data.version,
+      p_operation: "add_component",
+      p_payload: {
+        local_date: targetDate,
+        meal_slot: "dinner",
+        preparation_slug: "ticket-06-preparation"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(added.error).toBeNull();
+    expect(added.data.status).toBe("applied");
+
+    const preparedAt = new Date(Date.now() - 60_000).toISOString();
+    const batch = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: added.data.component_id,
+      p_prepared_or_opened_at: preparedAt,
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(batch.error).toBeNull();
+    expect(batch.data.status).toBe("created");
+
+    const sharedKey = "8b9e3116-6697-4574-93e6-66acdb02b99d";
+    const [edited, served] = await Promise.all([
+      household.rpc("edit_manual_week", {
+        p_expected_version: added.data.version,
+        p_operation: "set_meal_status",
+        p_payload: { meal_id: added.data.meal_id, status: "skipped" },
+        p_idempotency_key: sharedKey
+      }),
+      household.rpc("serve_planned_portion", {
+        p_meal_component_id: added.data.component_id,
+        p_batch_id: batch.data.batch_id,
+        p_idempotency_key: sharedKey
+      })
+    ]);
+    expect(edited.error).toBeNull();
+    expect(served.error).toBeNull();
+    const editWon = edited.data.status === "applied";
+    if (editWon) {
+      expect(served.data).toEqual({
+        status: "rejected",
+        reason: "meal_not_planned"
+      });
+    } else {
+      expect(edited.data).toEqual({
+        status: "rejected",
+        reason: "meal_already_served",
+        version: added.data.version
+      });
+      expect(served.data.status).toBe("served");
+      const completed = await household.rpc("edit_manual_week", {
+        p_expected_version: added.data.version,
+        p_operation: "set_meal_status",
+        p_payload: { meal_id: added.data.meal_id, status: "completed" },
+        p_idempotency_key: crypto.randomUUID()
+      });
+      expect(completed.error).toBeNull();
+      expect(completed.data.status).toBe("applied");
+    }
+
+    const discarded = await household.rpc("discard_batch", {
+      p_batch_id: batch.data.batch_id,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(discarded.error).toBeNull();
+    expect(discarded.data.status).toBe("discarded");
+  });
+
+  test("skipped meals disappear from Today and cannot consume a prepared portion", async () => {
+    const week = await household.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(week.error).toBeNull();
+    const dinnerSlot = week.data.days
+      .flatMap(
+        (day: {
+          slots: Array<{
+            meal_id: string | null;
+            meal_slot: string;
+            components: Array<{ component_id: string }>;
+          }>;
+        }) => day.slots
+      )
+      .find(
+        (slot: {
+          meal_slot: string;
+          components: Array<{ component_id: string }>;
+        }) =>
+          slot.meal_slot === "dinner" &&
+          slot.components.some(
+            ({ component_id }) => component_id === dinnerMealComponentId
+          )
+      );
+    expect(dinnerSlot?.meal_id).toBeTruthy();
+
+    const skipped = await household.rpc("edit_manual_week", {
+      p_expected_version: week.data.version,
+      p_operation: "set_meal_status",
+      p_payload: { meal_id: dinnerSlot!.meal_id, status: "skipped" },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(skipped.error).toBeNull();
+    expect(skipped.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        version: week.data.version + 1
+      })
+    );
+
+    const serveKey = "57d60fd2-519e-47ca-86f1-b7921db94f00";
+    const blocked = await household.rpc("serve_planned_portion", {
+      p_meal_component_id: dinnerMealComponentId,
+      p_batch_id: createdBatchId,
+      p_idempotency_key: serveKey
+    });
+    expect(blocked.error).toBeNull();
+    expect(blocked.data).toEqual({
+      status: "rejected",
+      reason: "meal_not_planned"
+    });
+    const blockedEvents = await household
+      .from("batch_events")
+      .select("id")
+      .eq("idempotency_key", serveKey);
+    expect(blockedEvents.error).toBeNull();
+    expect(blockedEvents.data).toEqual([]);
+
+    const today = await household.rpc("get_today_meal");
+    expect(today.error).toBeNull();
+    expect(
+      today.data.components.some(
+        ({ component_id }: { component_id: string }) =>
+          component_id === dinnerMealComponentId
+      )
+    ).toBe(false);
+
+    const reopened = await household.rpc("edit_manual_week", {
+      p_expected_version: skipped.data.version,
+      p_operation: "set_meal_status",
+      p_payload: { meal_id: dinnerSlot!.meal_id, status: "planned" },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(reopened.error).toBeNull();
+    expect(reopened.data.status).toBe("applied");
+  });
+
   test("Today serves one planned portion idempotently and arbitrates the final portion", async () => {
     const today = await household.rpc("get_today_meal");
     expect(today.error).toBeNull();

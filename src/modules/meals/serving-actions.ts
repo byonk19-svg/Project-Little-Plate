@@ -14,6 +14,8 @@ const rejectionMessages: Record<string, string> = {
     "That planned component is no longer available. Today has been refreshed.",
   component_already_served:
     "This planned component was already served. Today has been refreshed.",
+  meal_not_planned:
+    "This meal is no longer planned, so its portion was not served.",
   preparation_not_approved:
     "This preparation is no longer approved and was not served.",
   food_restricted:

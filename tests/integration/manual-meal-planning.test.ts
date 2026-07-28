@@ -122,6 +122,22 @@ async function waitForBlockedPlannerRequest(): Promise<void> {
   throw new Error("Timed out waiting for the planner RPC to block");
 }
 
+async function runDatabaseCommand(sql: string): Promise<void> {
+  await execFileAsync("docker", [
+    "exec",
+    "supabase_db_mealboard-baby",
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    "postgres",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    sql
+  ]);
+}
+
 function ticketFiveFixture() {
   return {
     sources: [
@@ -349,7 +365,7 @@ describe("manual meal planning", () => {
       p_new_food_pace: "one_per_week",
       p_preparation_time: "under_30_minutes",
       p_prep_day: null,
-      p_quick_backup_food_ids: []
+      p_quick_backup_food_ids: ["food-ticket-05-4"]
     });
     expect(result.error).toBeNull();
   }
@@ -465,6 +481,476 @@ describe("manual meal planning", () => {
         food_name: "Ticket 05 Food 1"
       })
     ]);
+  });
+
+  test("a complete manual week supports locks, edits, swaps, bounded undo, copy, quick backup, and lifecycle state", async () => {
+    const editor = await createTestUser("week-editor");
+    await createBaby(editor, "Week editor baby", "America/Chicago", [
+      "breakfast",
+      "dinner"
+    ]);
+    await configureEligible(editor);
+
+    const initialWeek = await editor.client.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(initialWeek.error).toBeNull();
+    expect(initialWeek.data).toEqual(
+      expect.objectContaining({
+        status: "ready",
+        version: 0,
+        variety_summary: {
+          planned_meals: 0,
+          distinct_foods: 0,
+          copy: "Plan a few reviewed foods when you are ready."
+        }
+      })
+    );
+    expect(initialWeek.data.days).toHaveLength(7);
+    expect(
+      initialWeek.data.days.every(
+        (day: { slots: unknown[] }) => day.slots.length === 2
+      )
+    ).toBe(true);
+
+    let version = 0;
+    const targetDate = initialWeek.data.days[1].local_date as string;
+    const copyDate = initialWeek.data.days[2].local_date as string;
+    const apply = async (
+      operation: string,
+      payload: Record<string, unknown>
+    ) => {
+      const result = await editor.client.rpc("edit_manual_week", {
+        p_expected_version: version,
+        p_operation: operation,
+        p_payload: payload,
+        p_idempotency_key: crypto.randomUUID()
+      });
+      expect(result.error).toBeNull();
+      if (result.data.status === "applied") {
+        version = result.data.version;
+      }
+      return result.data;
+    };
+
+    const added = await apply("add_component", {
+      local_date: targetDate,
+      meal_slot: "breakfast",
+      preparation_slug: "ticket-05-preparation-1"
+    });
+    expect(added).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "add_component",
+        version: 1
+      })
+    );
+    const mealId = added.meal_id as string;
+    const originalComponentId = added.component_id as string;
+
+    expect(
+      await apply("set_component_lock", {
+        component_id: originalComponentId,
+        locked: true
+      })
+    ).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "set_component_lock",
+        version: 2
+      })
+    );
+    const lockedSwap = await apply("swap_component", {
+      component_id: originalComponentId,
+      preparation_slug: "ticket-05-preparation-2"
+    });
+    expect(lockedSwap).toEqual({
+      status: "rejected",
+      reason: "component_locked",
+      version: 2
+    });
+
+    await apply("set_component_lock", {
+      component_id: originalComponentId,
+      locked: false
+    });
+    const swapped = await apply("swap_component", {
+      component_id: originalComponentId,
+      preparation_slug: "ticket-05-preparation-2"
+    });
+    expect(swapped).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "swap_component",
+        version: 4,
+        preparation_id: "prep-ticket-05-2"
+      })
+    );
+
+    const undone = await apply("undo_last_swap", {});
+    expect(undone).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "undo_last_swap",
+        compensated_operation: "swap_component",
+        version: 5
+      })
+    );
+
+    const addedSecond = await apply("add_component", {
+      local_date: targetDate,
+      meal_slot: "breakfast",
+      preparation_slug: "ticket-05-preparation-3"
+    });
+    expect(addedSecond.version).toBe(6);
+
+    await apply("set_meal_lock", { meal_id: mealId, locked: true });
+    const lockedDelete = await apply("delete_component", {
+      component_id: addedSecond.component_id
+    });
+    expect(lockedDelete).toEqual({
+      status: "rejected",
+      reason: "meal_locked",
+      version: 7
+    });
+    await apply("set_meal_lock", { meal_id: mealId, locked: false });
+    expect(
+      await apply("delete_component", {
+        component_id: addedSecond.component_id
+      })
+    ).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "delete_component",
+        version: 9
+      })
+    );
+
+    const copied = await apply("copy_meal", {
+      source_meal_id: mealId,
+      target_local_date: copyDate,
+      target_meal_slot: "dinner"
+    });
+    expect(copied).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "copy_meal",
+        version: 10
+      })
+    );
+    const copiedMealId = copied.meal_id as string;
+
+    const swappedMeal = await apply("swap_meal", {
+      meal_id: copiedMealId,
+      preparation_slug: "ticket-05-preparation-3"
+    });
+    expect(swappedMeal).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "swap_meal",
+        preparation_id: "prep-ticket-05-3",
+        version: 11
+      })
+    );
+
+    const quickBackup = await apply("use_quick_backup", {
+      meal_id: copiedMealId,
+      preparation_slug: "ticket-05-preparation-4"
+    });
+    expect(quickBackup).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "use_quick_backup",
+        preparation_id: "prep-ticket-05-4",
+        version: 12
+      })
+    );
+    expect(
+      await apply("set_meal_status", {
+        meal_id: copiedMealId,
+        status: "skipped"
+      })
+    ).toEqual(expect.objectContaining({ status: "applied", version: 13 }));
+    expect(
+      await apply("set_meal_status", {
+        meal_id: copiedMealId,
+        status: "completed"
+      })
+    ).toEqual(expect.objectContaining({ status: "applied", version: 14 }));
+
+    const stale = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 13,
+      p_operation: "set_meal_status",
+      p_payload: { meal_id: copiedMealId, status: "planned" },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(stale.error).toBeNull();
+    expect(stale.data).toEqual({
+      status: "rejected",
+      reason: "plan_stale",
+      version: 14
+    });
+
+    const blocked = await apply("swap_meal", {
+      meal_id: mealId,
+      preparation_slug: "ticket-05-preparation-5"
+    });
+    expect(blocked).toEqual(
+      expect.objectContaining({
+        status: "rejected",
+        reason: "required_ability_not_observed",
+        version: 14
+      })
+    );
+    expect(
+      await apply("set_meal_status", {
+        meal_id: mealId,
+        status: "skipped"
+      })
+    ).toEqual(expect.objectContaining({ status: "applied", version: 15 }));
+    const crossHousehold = await householdB.client.rpc("edit_manual_week", {
+      p_expected_version: 0,
+      p_operation: "set_meal_lock",
+      p_payload: { meal_id: copiedMealId, locked: true },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(crossHousehold.error).toBeNull();
+    expect(crossHousehold.data).toEqual({
+      status: "rejected",
+      reason: "meal_unavailable",
+      version: 0
+    });
+    const todayAfterStatuses = await editor.client.rpc("get_today_meal");
+    expect(todayAfterStatuses.error).toBeNull();
+    expect(todayAfterStatuses.data).toEqual(
+      expect.objectContaining({ status: "empty" })
+    );
+
+    const refreshed = await editor.client.rpc("get_week_window", {
+      p_window_start: initialWeek.data.window_start
+    });
+    expect(refreshed.error).toBeNull();
+    expect(refreshed.data.version).toBe(15);
+    expect(refreshed.data.variety_summary).toEqual({
+      planned_meals: 0,
+      distinct_foods: 0,
+      copy: "Plan a few reviewed foods when you are ready."
+    });
+    const originalSlot = refreshed.data.days[1].slots[0];
+    expect(originalSlot).toEqual(
+      expect.objectContaining({
+        meal_id: mealId,
+        status: "skipped",
+        is_locked: false,
+        components: [
+          expect.objectContaining({
+            preparation_id: "prep-ticket-05-1",
+            is_locked: false
+          })
+        ]
+      })
+    );
+    const copiedSlot = refreshed.data.days[2].slots[1];
+    expect(copiedSlot).toEqual(
+      expect.objectContaining({
+        meal_id: copiedMealId,
+        status: "completed",
+        is_locked: false,
+        components: [
+          expect.objectContaining({
+            preparation_id: "prep-ticket-05-4",
+            is_quick_backup: true
+          })
+        ]
+      })
+    );
+
+    const priorWindow = await editor.client.rpc("get_week_window", {
+      p_window_start: new Date(`${initialWeek.data.window_start}T00:00:00.000Z`)
+        .toISOString()
+        .slice(0, 10)
+    });
+    expect(priorWindow.error).toBeNull();
+    expect(priorWindow.data.days).toHaveLength(7);
+
+    const editEvents = await editor.client
+      .from("meal_edit_events")
+      .select("operation, compensates_event_id")
+      .eq("plan_id", refreshed.data.plan_id)
+      .order("version");
+    expect(editEvents.error).toBeNull();
+    expect(editEvents.data).toHaveLength(15);
+    expect(
+      editEvents.data?.some(({ operation }) => operation === "swap_component")
+    ).toBe(true);
+    expect(
+      editEvents.data?.some(
+        ({ operation, compensates_event_id }) =>
+          operation === "undo_last_swap" && compensates_event_id !== null
+      )
+    ).toBe(true);
+
+    await configureEligible(editor, {
+      firstFoodStatus: "temporary_avoidance"
+    });
+    const restrictedRefresh = await editor.client.rpc("get_week_window", {
+      p_window_start: initialWeek.data.window_start
+    });
+    expect(restrictedRefresh.error).toBeNull();
+    expect(restrictedRefresh.data.days[1].slots[0].components[0]).toEqual(
+      expect.objectContaining({
+        availability_state: "replacement_required",
+        unavailable_reason: "food_restricted"
+      })
+    );
+    await configureEligible(editor);
+  });
+
+  test("edit retries are payload-bound, concurrent versions serialize, and rejected edits are atomic", async () => {
+    const editor = await createTestUser("week-concurrency");
+    await createBaby(editor, "Concurrent editor baby", "America/Chicago", [
+      "breakfast",
+      "dinner"
+    ]);
+    await configureEligible(editor);
+
+    const initial = await editor.client.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(initial.error).toBeNull();
+    const targetDate = initial.data.days[1].local_date as string;
+    const rejectedWithoutPlan = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 0,
+      p_operation: "set_meal_lock",
+      p_payload: { meal_id: crypto.randomUUID(), locked: true },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(rejectedWithoutPlan.error).toBeNull();
+    expect(rejectedWithoutPlan.data).toEqual({
+      status: "rejected",
+      reason: "meal_unavailable",
+      version: 0
+    });
+    const afterRejectedWithoutPlan = await editor.client.rpc(
+      "get_week_window",
+      { p_window_start: initial.data.window_start }
+    );
+    expect(afterRejectedWithoutPlan.error).toBeNull();
+    expect(afterRejectedWithoutPlan.data).toEqual(initial.data);
+
+    const idempotencyKey = crypto.randomUUID();
+    const firstPayload = {
+      local_date: targetDate,
+      meal_slot: "breakfast",
+      preparation_slug: "ticket-05-preparation-1"
+    };
+    const first = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 0,
+      p_operation: "add_component",
+      p_payload: firstPayload,
+      p_idempotency_key: idempotencyKey
+    });
+    expect(first.error).toBeNull();
+    expect(first.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        version: 1,
+        idempotent_retry: false
+      })
+    );
+
+    const retried = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 0,
+      p_operation: "add_component",
+      p_payload: firstPayload,
+      p_idempotency_key: idempotencyKey
+    });
+    expect(retried.error).toBeNull();
+    expect(retried.data).toEqual({
+      ...first.data,
+      idempotent_retry: true
+    });
+
+    const conflictingRetry = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 1,
+      p_operation: "add_component",
+      p_payload: {
+        ...firstPayload,
+        preparation_slug: "ticket-05-preparation-2"
+      },
+      p_idempotency_key: idempotencyKey
+    });
+    expect(conflictingRetry.error).toBeNull();
+    expect(conflictingRetry.data).toEqual({
+      status: "rejected",
+      reason: "idempotency_key_conflict",
+      version: 1
+    });
+
+    const concurrentPayloads = [
+      {
+        local_date: targetDate,
+        meal_slot: "breakfast",
+        preparation_slug: "ticket-05-preparation-2"
+      },
+      {
+        local_date: targetDate,
+        meal_slot: "dinner",
+        preparation_slug: "ticket-05-preparation-3"
+      }
+    ];
+    const concurrent = await Promise.all(
+      concurrentPayloads.map((payload) =>
+        editor.client.rpc("edit_manual_week", {
+          p_expected_version: 1,
+          p_operation: "add_component",
+          p_payload: payload,
+          p_idempotency_key: crypto.randomUUID()
+        })
+      )
+    );
+    expect(concurrent.every(({ error }) => error === null)).toBe(true);
+    expect(
+      concurrent.filter(({ data }) => data.status === "applied")
+    ).toHaveLength(1);
+    expect(
+      concurrent.filter(
+        ({ data }) =>
+          data.status === "rejected" &&
+          data.reason === "plan_stale" &&
+          data.version === 2
+      )
+    ).toHaveLength(1);
+
+    const beforeRejected = await editor.client.rpc("get_week_window", {
+      p_window_start: initial.data.window_start
+    });
+    expect(beforeRejected.error).toBeNull();
+    expect(beforeRejected.data.version).toBe(2);
+    const invalidLock = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: 2,
+      p_operation: "set_meal_lock",
+      p_payload: { meal_id: first.data.meal_id },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(invalidLock.error).toBeNull();
+    expect(invalidLock.data).toEqual({
+      status: "rejected",
+      reason: "invalid_lock_state",
+      version: 2
+    });
+    const afterRejected = await editor.client.rpc("get_week_window", {
+      p_window_start: initial.data.window_start
+    });
+    expect(afterRejected.error).toBeNull();
+    expect(afterRejected.data).toEqual(beforeRejected.data);
+
+    const events = await editor.client
+      .from("meal_edit_events")
+      .select("version")
+      .eq("plan_id", first.data.plan_id ?? beforeRejected.data.plan_id);
+    expect(events.error).toBeNull();
+    expect(events.data).toHaveLength(2);
   });
 
   test("one meal accepts at most three distinct preparation components", async () => {
@@ -721,5 +1207,154 @@ describe("manual meal planning", () => {
       expect(result.error).toBeNull();
       expect(result.data).toBe(expected);
     }
+  });
+
+  test("copy rejects a source whose reviewed revision was superseded and the read model requires replacement", async () => {
+    const editor = await createTestUser("week-superseded");
+    const babyId = await createBaby(
+      editor,
+      "Superseded revision baby",
+      "America/Chicago",
+      ["breakfast", "dinner"]
+    );
+    const configured = await editor.client.rpc("save_feeding_configuration", {
+      p_skill_statuses: [
+        { skill_id: "skill-ticket-05-observed", status: "observed" }
+      ],
+      p_restrictions: [1, 2, 3, 5].map((index) => ({
+        food_id: `food-ticket-05-${index}`,
+        status: "no_known_restriction"
+      })),
+      p_exposures: [],
+      p_new_food_pace: "one_per_week",
+      p_preparation_time: "under_30_minutes",
+      p_prep_day: null,
+      p_quick_backup_food_ids: []
+    });
+    expect(configured.error).toBeNull();
+    const planned = await editor.client.rpc("plan_preparation_for_tomorrow", {
+      p_baby_id: babyId,
+      p_preparation_slug: "ticket-05-preparation-2",
+      p_meal_slot: "breakfast"
+    });
+    expect(planned.error).toBeNull();
+    expect(planned.data.status).toBe("planned");
+
+    await runDatabaseCommand(`
+      begin;
+      insert into public.content_revisions (
+        id,
+        preparation_id,
+        version,
+        status,
+        method,
+        shape_texture,
+        source_id,
+        reviewer_role,
+        reviewed_at,
+        approved_at,
+        next_review_at
+      ) values (
+        'revision-ticket-05-2-v2',
+        'prep-ticket-05-2',
+        2,
+        'draft',
+        'SYNTHETIC UPDATED TEST METHOD',
+        'SYNTHETIC UPDATED TEST TEXTURE',
+        'source-ticket-05',
+        'synthetic_test_reviewer',
+        '2026-07-28',
+        '2026-07-28',
+        '2027-07-28'
+      );
+      insert into public.revision_tags (revision_id, tag_id)
+      values
+        ('revision-ticket-05-2-v2', 'skill-ticket-05-observed'),
+        ('revision-ticket-05-2-v2', 'allergen-ticket-05');
+      insert into public.storage_rules (
+        id,
+        revision_id,
+        support_status
+      ) values (
+        'rule-ticket-05-2-v2',
+        'revision-ticket-05-2-v2',
+        'unsupported'
+      );
+      update public.content_revisions
+      set status = 'approved'
+      where id = 'revision-ticket-05-2-v2';
+      commit;
+    `);
+
+    const before = await editor.client.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(before.error).toBeNull();
+    const sourceSlot = before.data.days
+      .flatMap(
+        (day: {
+          local_date: string;
+          slots: Array<{
+            meal_id: string | null;
+            meal_slot: string;
+            components: Array<{
+              component_id: string;
+              availability_state: string;
+              unavailable_reason: string | null;
+            }>;
+          }>;
+        }) =>
+          day.slots.map((slot) => ({
+            ...slot,
+            localDate: day.local_date
+          }))
+      )
+      .find((slot: { components: Array<{ component_id: string }> }) =>
+        slot.components.some(
+          ({ component_id }) => component_id === planned.data.component_id
+        )
+      );
+    expect(sourceSlot?.components[0]).toEqual(
+      expect.objectContaining({
+        availability_state: "replacement_required",
+        unavailable_reason: "preparation_not_approved"
+      })
+    );
+
+    const targetDate = new Date(`${sourceSlot!.localDate}T00:00:00Z`);
+    targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+    const copied = await editor.client.rpc("edit_manual_week", {
+      p_expected_version: before.data.version,
+      p_operation: "copy_meal",
+      p_payload: {
+        source_meal_id: sourceSlot!.meal_id,
+        target_local_date: targetDate.toISOString().slice(0, 10),
+        target_meal_slot: "dinner"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(copied.error).toBeNull();
+    expect(copied.data).toEqual({
+      status: "rejected",
+      reason: "source_preparation_changed",
+      version: before.data.version
+    });
+    const after = await editor.client.rpc("get_week_window", {
+      p_window_start: before.data.window_start
+    });
+    expect(after.error).toBeNull();
+    expect(after.data).toEqual(before.data);
+
+    await runDatabaseCommand(`
+      insert into public.content_retirements (
+        revision_id,
+        retired_at,
+        reason
+      ) values (
+        'revision-ticket-05-2-v2',
+        '2026-07-28',
+        'SYNTHETIC TEST FIXTURE CLEANUP'
+      );
+    `);
   });
 });

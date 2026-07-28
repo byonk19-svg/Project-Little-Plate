@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { BatchConfirmationForm } from "@/app/kitchen/batch-confirmation-form";
+import {
+  AddManualGroceryItemForm,
+  DerivedGroceryStateForm,
+  DismissPreparationTaskForm,
+  ManualGroceryItemForms
+} from "@/app/kitchen/derived-work-forms";
 import { BatchLifecycleForm } from "@/components/storage/batch-lifecycle-form";
 import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
+import { getDerivedWork } from "@/modules/derived/queries";
 import {
   getKitchenInventory,
   getRefrigeratedBatchPreview,
@@ -21,6 +29,8 @@ type KitchenPageProps = {
     discarded?: string;
     preparedAt?: string;
     transitioned?: string;
+    grocery?: string;
+    work?: string;
   }>;
 };
 
@@ -183,12 +193,14 @@ function BatchCard({
 export default async function KitchenPage({ searchParams }: KitchenPageProps) {
   const params = await searchParams;
   const inventoryPromise = getKitchenInventory();
+  const derivedWorkPromise = getDerivedWork();
   const previewPromise = params.componentId
     ? getRefrigeratedBatchPreview(params.componentId, params.preparedAt)
     : Promise.resolve(null);
-  const [inventory, preview] = await Promise.all([
+  const [inventory, preview, derivedWork] = await Promise.all([
     inventoryPromise,
-    previewPromise
+    previewPromise,
+    derivedWorkPromise
   ]);
   const timeZone =
     inventory.status === "ready" ? inventory.timeZone : "America/Chicago";
@@ -246,6 +258,18 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
       {params.transitioned ? (
         <p className="form-message form-message--success" role="status">
           Batch inventory updated.
+        </p>
+      ) : null}
+
+      {params.work === "dismissed" ? (
+        <p className="form-message form-message--success" role="status">
+          This reminder is hidden. Its planned meals are unchanged.
+        </p>
+      ) : null}
+
+      {params.grocery ? (
+        <p className="form-message form-message--success" role="status">
+          Grocery list updated.
         </p>
       ) : null}
 
@@ -325,6 +349,150 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
           />
         </section>
       ) : null}
+
+      <section aria-labelledby="preparation-work-title">
+        <p className="foundation-card__status">From the committed week</p>
+        <h2 id="preparation-work-title">Preparation work</h2>
+        <p>
+          Tasks are consolidated by preparation. Quantities are practical
+          portions, and each task links back to the meals it supports.
+        </p>
+        {derivedWork === null ? (
+          <article className="foundation-card" role="alert">
+            <h3>Preparation work unavailable</h3>
+            <p>
+              No task is inferred while the current plan and inventory cannot be
+              verified.
+            </p>
+          </article>
+        ) : derivedWork.preparationTasks.length === 0 ? (
+          <article className="foundation-card">
+            <h3>No preparation reminders</h3>
+            <p>The current week has no uncovered preparation work.</p>
+          </article>
+        ) : (
+          <div className="inventory-groups" data-testid="preparation-work">
+            {derivedWork.preparationTasks.map((task) => (
+              <article className="foundation-card" key={task.preparationId}>
+                <p className="foundation-card__status">Plan-derived task</p>
+                <h3>{task.preparationName}</h3>
+                <p>
+                  {task.neededPortions}{" "}
+                  {task.neededPortions === 1 ? "portion" : "portions"} needed
+                </p>
+                <ul>
+                  {task.supportingMeals.map((meal) => (
+                    <li key={meal.componentId}>
+                      {meal.localDate} · {meal.mealSlot}
+                    </li>
+                  ))}
+                </ul>
+                <div className="batch-actions">
+                  <Link href={`/kitchen?componentId=${task.seedComponentId}`}>
+                    Start this batch
+                  </Link>
+                  <DismissPreparationTaskForm
+                    idempotencyKey={crypto.randomUUID()}
+                    planVersion={derivedWork.planVersion}
+                    preparationId={task.preparationId}
+                    taskFingerprint={task.taskFingerprint}
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="grocery-title">
+        <p className="foundation-card__status">Synchronized list</p>
+        <h2 id="grocery-title">Groceries</h2>
+        <p>
+          Plan-derived needs stay separate from manual items. Prepared
+          inventory, configured quick backups, and already-have choices are
+          accounted for without changing the Week plan.
+        </p>
+        {derivedWork === null ? (
+          <article className="foundation-card" role="alert">
+            <h3>Grocery needs unavailable</h3>
+            <p>
+              No grocery need is guessed while derived state is unavailable.
+            </p>
+          </article>
+        ) : (
+          <>
+            <div data-testid="derived-groceries">
+              {derivedWork.derivedGroceryItems
+                .filter((item) => !item.alreadyHave)
+                .map((item) => (
+                  <article className="foundation-card" key={item.foodId}>
+                    <p className="foundation-card__status">
+                      Plan-derived · {item.storeSection}
+                    </p>
+                    <h3>{item.foodName}</h3>
+                    <p>
+                      {item.neededPortions}{" "}
+                      {item.neededPortions === 1 ? "portion" : "portions"}
+                    </p>
+                    <div className="batch-actions">
+                      <DerivedGroceryStateForm
+                        alreadyHave={item.alreadyHave}
+                        checked={item.checked}
+                        foodId={item.foodId}
+                        idempotencyKey={crypto.randomUUID()}
+                        mode="checked"
+                      />
+                      <DerivedGroceryStateForm
+                        alreadyHave={item.alreadyHave}
+                        checked={item.checked}
+                        foodId={item.foodId}
+                        idempotencyKey={crypto.randomUUID()}
+                        mode="alreadyHave"
+                      />
+                    </div>
+                  </article>
+                ))}
+            </div>
+            {derivedWork.derivedGroceryItems
+              .filter((item) => item.alreadyHave)
+              .map((item) => (
+                <article className="foundation-card" key={item.foodId}>
+                  <p className="foundation-card__status">
+                    Already have · {item.storeSection}
+                  </p>
+                  <h3>{item.foodName}</h3>
+                  <DerivedGroceryStateForm
+                    alreadyHave={item.alreadyHave}
+                    checked={item.checked}
+                    foodId={item.foodId}
+                    idempotencyKey={crypto.randomUUID()}
+                    mode="alreadyHave"
+                  />
+                </article>
+              ))}
+            <div data-testid="manual-groceries">
+              {derivedWork.manualGroceryItems.map((item) => (
+                <article className="foundation-card" key={item.id}>
+                  <p className="foundation-card__status">
+                    Manual item · {item.storeSection}
+                  </p>
+                  <h3>{item.name}</h3>
+                  <p>
+                    {item.quantity} {item.quantity === 1 ? "item" : "items"}
+                  </p>
+                  <ManualGroceryItemForms
+                    checkIdempotencyKey={crypto.randomUUID()}
+                    deleteIdempotencyKey={crypto.randomUUID()}
+                    editIdempotencyKey={crypto.randomUUID()}
+                    item={item}
+                  />
+                </article>
+              ))}
+            </div>
+            <AddManualGroceryItemForm idempotencyKey={crypto.randomUUID()} />
+          </>
+        )}
+      </section>
 
       <section className="kitchen-inventory">
         <div>

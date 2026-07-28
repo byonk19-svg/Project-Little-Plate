@@ -212,6 +212,12 @@ function ticketSixFixture() {
         slug: "ticket-10-quality-thawed-clock-food",
         name: "Ticket 10 Quality Thawed Clock Food",
         category: "synthetic-test-fixture"
+      },
+      {
+        id: "food-ticket-12",
+        slug: "ticket-12-food",
+        name: "Ticket 12 Grocery Food",
+        category: "Synthetic store section"
       }
     ],
     preparations: [
@@ -242,9 +248,39 @@ function ticketSixFixture() {
         slug: "ticket-10-quality-thawed-clock-preparation",
         name: "Ticket 10 Quality Thawed Clock Preparation",
         is_active: true
+      },
+      {
+        id: "prep-ticket-12",
+        food_id: "food-ticket-12",
+        slug: "ticket-12-preparation",
+        name: "Ticket 12 Preparation",
+        is_active: true
       }
     ],
     revisions: [
+      {
+        id: "revision-ticket-12-retired",
+        preparation_id: "prep-ticket-12",
+        version: 1,
+        status: "approved",
+        method: "SYNTHETIC RETIRED TICKET 12 METHOD",
+        shape_texture: "SYNTHETIC RETIRED TICKET 12 TEXTURE",
+        source_id: "source-ticket-06",
+        reviewer_role: "synthetic_test_reviewer",
+        reviewed_at: "2026-07-27",
+        approved_at: "2026-07-27",
+        next_review_at: "2027-07-27",
+        tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        storage_rules: [
+          {
+            id: "rule-ticket-12-retired",
+            support_status: "supported",
+            deadline_kind: "discard_after",
+            duration_hours: 720,
+            guidance: "SYNTHETIC RETIRED TICKET 12 STORAGE GUIDANCE"
+          }
+        ]
+      },
       {
         id: "revision-ticket-06",
         preparation_id: "prep-ticket-06",
@@ -336,9 +372,38 @@ function ticketSixFixture() {
             guidance: "SYNTHETIC QUALITY CLOCK REFRIGERATOR GUIDANCE"
           }
         ]
+      },
+      {
+        id: "revision-ticket-12",
+        preparation_id: "prep-ticket-12",
+        version: 2,
+        status: "approved",
+        method: "SYNTHETIC TICKET 12 METHOD",
+        shape_texture: "SYNTHETIC TICKET 12 TEXTURE",
+        source_id: "source-ticket-06",
+        reviewer_role: "synthetic_test_reviewer",
+        reviewed_at: "2026-07-28",
+        approved_at: "2026-07-28",
+        next_review_at: "2027-07-28",
+        tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        storage_rules: [
+          {
+            id: "rule-ticket-12",
+            support_status: "supported",
+            deadline_kind: "discard_after",
+            duration_hours: 24,
+            guidance: "SYNTHETIC TICKET 12 STORAGE GUIDANCE"
+          }
+        ]
       }
     ],
-    retirements: []
+    retirements: [
+      {
+        revision_id: "revision-ticket-12-retired",
+        retired_at: "2026-07-28",
+        reason: "SYNTHETIC SUPERSEDED REVISION"
+      }
+    ]
   };
 }
 
@@ -359,6 +424,7 @@ describe("refrigerated batch creation", () => {
   let rollbackComponentId: string;
   let informationalComponentId: string;
   let qualityThawedClockComponentId: string;
+  let ticketTwelveComponentIds: string[];
   let createdBatchId: string;
   let storedDeadline: string;
   let fixtureImported = false;
@@ -378,6 +444,21 @@ describe("refrigerated batch creation", () => {
 
     const profileImported = await admin.rpc("import_storage_rule_profiles", {
       p_profiles: [
+        {
+          id: "rule-profile-ticket-12-retired",
+          storage_rule_id: "rule-ticket-12-retired",
+          content_revision_id: "revision-ticket-12-retired",
+          storage_location: "refrigerator",
+          start_event_kind: "prepared_or_opened",
+          precedence: 0,
+          duration_min_hours: 720,
+          duration_max_hours: 720,
+          source_id: "source-ticket-06",
+          reviewer_role: "synthetic_test_reviewer",
+          reviewed_at: "2026-07-27",
+          approved_at: "2026-07-27",
+          next_review_at: "2027-07-27"
+        },
         {
           id: "rule-profile-ticket-06-v1",
           storage_rule_id: "rule-ticket-06",
@@ -422,6 +503,21 @@ describe("refrigerated batch creation", () => {
           reviewed_at: "2026-07-28",
           approved_at: "2026-07-28",
           next_review_at: "2027-07-28"
+        },
+        {
+          id: "rule-profile-ticket-12",
+          storage_rule_id: "rule-ticket-12",
+          content_revision_id: "revision-ticket-12",
+          storage_location: "refrigerator",
+          start_event_kind: "prepared_or_opened",
+          precedence: 0,
+          duration_min_hours: 24,
+          duration_max_hours: 24,
+          source_id: "source-ticket-06",
+          reviewer_role: "synthetic_test_reviewer",
+          reviewed_at: "2026-07-28",
+          approved_at: "2026-07-28",
+          next_review_at: "2027-07-28"
         }
       ]
     });
@@ -431,6 +527,27 @@ describe("refrigerated batch creation", () => {
       "import_storage_transition_rules",
       {
         p_rules: [
+          {
+            id: "transition-ticket-12-freeze",
+            content_revision_id: "revision-ticket-12",
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "quality_by",
+            duration_min_hours: 720,
+            duration_max_hours: 720,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC TICKET 12 FREEZER QUALITY GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
           {
             id: "transition-ticket-10-freeze",
             content_revision_id: "revision-ticket-06",
@@ -636,6 +753,10 @@ describe("refrigerated batch creation", () => {
         {
           food_id: "food-ticket-10-quality-thawed-clock",
           status: "no_known_restriction"
+        },
+        {
+          food_id: "food-ticket-12",
+          status: "no_known_restriction"
         }
       ],
       p_exposures: [],
@@ -729,6 +850,12 @@ describe("refrigerated batch creation", () => {
           preparation_id: "prep-ticket-06",
           revision_id: "revision-ticket-06",
           position: 1
+        })),
+        ...futureDates.slice(1).map((localDate) => ({
+          meal_id: mealIdByDate.get(localDate),
+          preparation_id: "prep-ticket-12",
+          revision_id: "revision-ticket-12",
+          position: 2
         }))
       ])
       .select("id, meal_id, preparation_id");
@@ -755,6 +882,10 @@ describe("refrigerated batch creation", () => {
     deadlineRaceComponentId = componentIdForDate(futureDates[1]);
     crossBatchComponentId = componentIdForDate(futureDates[2]);
     rollbackComponentId = componentIdForDate(futureDates[3]);
+    ticketTwelveComponentIds = futureComponents.data
+      .filter(({ preparation_id }) => preparation_id === "prep-ticket-12")
+      .map(({ id }) => id);
+    expect(ticketTwelveComponentIds).toHaveLength(3);
   }, 60_000);
 
   afterAll(async () => {
@@ -766,7 +897,9 @@ describe("refrigerated batch creation", () => {
         "revision-ticket-06",
         "revision-ticket-06-unsupported",
         "revision-ticket-10-informational",
-        "revision-ticket-10-quality-thawed-clock"
+        "revision-ticket-10-quality-thawed-clock",
+        "revision-ticket-12",
+        "revision-ticket-12-retired"
       ];
       const existing = await admin
         .from("content_retirements")
@@ -2494,6 +2627,605 @@ describe("refrigerated batch creation", () => {
         remaining_portions: 0
       })
     );
+  });
+
+  test("committed plan edits, valid inventory, overrides, and manual groceries derive one synchronized Kitchen plan", async () => {
+    const retiredPreparedAt = new Date(Date.now() - 60_000).toISOString();
+    const retiredBatch = await admin
+      .from("batches")
+      .insert({
+        baby_id: babyId,
+        preparation_id: "prep-ticket-12",
+        content_revision_id: "revision-ticket-12-retired",
+        storage_location: "refrigerator",
+        prepared_or_opened_at: retiredPreparedAt,
+        initial_portions: 1,
+        remaining_portions: 1,
+        idempotency_key: crypto.randomUUID()
+      })
+      .select("id")
+      .single();
+    expect(retiredBatch.error).toBeNull();
+    const retiredEvent = await admin
+      .from("batch_events")
+      .insert({
+        batch_id: retiredBatch.data!.id,
+        event_type: "prepared_or_opened",
+        occurred_at: retiredPreparedAt,
+        actor_user_id: userId,
+        portion_delta: 1
+      })
+      .select("id")
+      .single();
+    expect(retiredEvent.error).toBeNull();
+    expect(
+      (
+        await admin.from("batch_deadlines").insert({
+          batch_id: retiredBatch.data!.id,
+          start_event_id: retiredEvent.data!.id,
+          rule_profile_id: "rule-profile-ticket-12-retired",
+          storage_rule_id: "rule-ticket-12-retired",
+          content_revision_id: "revision-ticket-12-retired",
+          deadline_kind: "discard_after",
+          applied_duration_hours: 720,
+          reviewed_duration_min_hours: 720,
+          reviewed_duration_max_hours: 720,
+          deadline_at: new Date(Date.now() + 720 * 60 * 60 * 1000).toISOString()
+        })
+      ).error
+    ).toBeNull();
+
+    const initial = await household.rpc("get_derived_work_and_groceries");
+    expect(initial.error).toBeNull();
+    const initialTask = initial.data.preparation_tasks.find(
+      ({ preparation_id }: { preparation_id: string }) =>
+        preparation_id === "prep-ticket-12"
+    );
+    expect(initialTask).toEqual(
+      expect.objectContaining({
+        preparation_name: "Ticket 12 Preparation",
+        needed_portions: 3
+      })
+    );
+    expect(initialTask.supporting_meals).toHaveLength(3);
+    expect(
+      (
+        await admin
+          .from("baby_food_restrictions")
+          .update({ status: "no_known_restriction" })
+          .eq("baby_id", babyId)
+          .eq("food_id", "food-ticket-12")
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      ).task_fingerprint
+    ).toBe(initialTask.task_fingerprint);
+    expect(
+      (
+        await household.rpc("save_feeding_configuration", {
+          p_skill_statuses: [
+            { skill_id: "skill-ticket-06", status: "observed" }
+          ],
+          p_restrictions: [
+            {
+              food_id: "food-ticket-06",
+              status: "no_known_restriction"
+            },
+            {
+              food_id: "food-ticket-06-unsupported",
+              status: "no_known_restriction"
+            },
+            {
+              food_id: "food-ticket-10-informational",
+              status: "no_known_restriction"
+            },
+            {
+              food_id: "food-ticket-10-quality-thawed-clock",
+              status: "no_known_restriction"
+            },
+            {
+              food_id: "food-ticket-12",
+              status: "no_known_restriction"
+            }
+          ],
+          p_exposures: [],
+          p_new_food_pace: "one_per_week",
+          p_preparation_time: "flexible",
+          p_prep_day: 3,
+          p_quick_backup_food_ids: []
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      ).task_fingerprint
+    ).toBe(initialTask.task_fingerprint);
+    expect(
+      (
+        await admin
+          .from("baby_food_restrictions")
+          .update({ status: "temporary_avoidance" })
+          .eq("baby_id", babyId)
+          .eq("food_id", "food-ticket-06")
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      ).task_fingerprint
+    ).toBe(initialTask.task_fingerprint);
+    expect(
+      (
+        await admin
+          .from("baby_food_restrictions")
+          .update({ status: "no_known_restriction" })
+          .eq("baby_id", babyId)
+          .eq("food_id", "food-ticket-06")
+      ).error
+    ).toBeNull();
+    expect(
+      initial.data.derived_grocery_items.find(
+        ({ food_id }: { food_id: string }) => food_id === "food-ticket-12"
+      )
+    ).toEqual({
+      food_id: "food-ticket-12",
+      food_name: "Ticket 12 Grocery Food",
+      store_section: "Synthetic store section",
+      needed_portions: 3,
+      already_have: false,
+      is_checked: false
+    });
+
+    const manualKey = crypto.randomUUID();
+    const addedManual = await household.rpc("mutate_manual_grocery_item", {
+      p_operation: "add",
+      p_item_id: null,
+      p_payload: {
+        name: "Synthetic manual grocery",
+        store_section: "Manual section",
+        quantity: "2"
+      },
+      p_idempotency_key: manualKey
+    });
+    expect(addedManual.error).toBeNull();
+    expect(addedManual.data).toEqual(
+      expect.objectContaining({
+        status: "updated",
+        operation: "add",
+        idempotent_retry: false
+      })
+    );
+    const retriedManual = await household.rpc("mutate_manual_grocery_item", {
+      p_operation: "add",
+      p_item_id: null,
+      p_payload: {
+        name: "Synthetic manual grocery",
+        store_section: "Manual section",
+        quantity: "2"
+      },
+      p_idempotency_key: manualKey
+    });
+    expect(retriedManual.error).toBeNull();
+    expect(retriedManual.data).toEqual({
+      ...addedManual.data,
+      idempotent_retry: true
+    });
+    const manualItemId = addedManual.data.item_id as string;
+    const editedManual = await household.rpc("mutate_manual_grocery_item", {
+      p_operation: "edit",
+      p_item_id: manualItemId,
+      p_payload: {
+        name: "Edited synthetic grocery",
+        store_section: "Edited section",
+        quantity: "3"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(editedManual.error).toBeNull();
+    expect(
+      (
+        await household.rpc("mutate_manual_grocery_item", {
+          p_operation: "check",
+          p_item_id: manualItemId,
+          p_payload: { is_checked: "true" },
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+
+    const groceryState = await household.rpc("set_derived_grocery_state", {
+      p_food_id: "food-ticket-12",
+      p_operation: "set_already_have",
+      p_value: true,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(groceryState.error).toBeNull();
+    const checkedState = await household.rpc("set_derived_grocery_state", {
+      p_food_id: "food-ticket-12",
+      p_operation: "set_checked",
+      p_value: true,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(checkedState.error).toBeNull();
+    const dismissed = await household.rpc("dismiss_preparation_task", {
+      p_preparation_id: "prep-ticket-12",
+      p_plan_version: initial.data.plan_version,
+      p_task_fingerprint: initialTask.task_fingerprint,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(dismissed.error).toBeNull();
+    expect(dismissed.data.status).toBe("dismissed");
+
+    const afterOverrides = await household.rpc(
+      "get_derived_work_and_groceries"
+    );
+    expect(afterOverrides.error).toBeNull();
+    expect(
+      afterOverrides.data.preparation_tasks.some(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toBe(false);
+    expect(
+      afterOverrides.data.derived_grocery_items.find(
+        ({ food_id }: { food_id: string }) => food_id === "food-ticket-12"
+      )
+    ).toEqual(
+      expect.objectContaining({ already_have: true, is_checked: true })
+    );
+    expect(afterOverrides.data.manual_grocery_items).toEqual([
+      expect.objectContaining({
+        id: manualItemId,
+        name: "Edited synthetic grocery",
+        store_section: "Edited section",
+        quantity: 3,
+        is_checked: true
+      })
+    ]);
+    const directManualWrite = await household
+      .from("manual_grocery_items")
+      .insert({
+        baby_id: babyId,
+        name: "Bypass",
+        store_section: "Bypass",
+        quantity: 1,
+        actor_user_id: userId
+      });
+    expect(directManualWrite.error).not.toBeNull();
+    const restrictionIdentityChange = await admin
+      .from("baby_food_restrictions")
+      .update({ baby_id: crypto.randomUUID() })
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-12");
+    expect(restrictionIdentityChange.error?.message).toContain(
+      "Food restriction identity is immutable"
+    );
+
+    const otherEmail = `ticket-12-other-${crypto.randomUUID()}@example.test`;
+    const otherPassword = `Ticket-12-${crypto.randomUUID()}`;
+    const otherCreated = await admin.auth.admin.createUser({
+      email: otherEmail,
+      password: otherPassword,
+      email_confirm: true
+    });
+    expect(otherCreated.error).toBeNull();
+    const otherAuth = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const otherSignedIn = await otherAuth.auth.signInWithPassword({
+      email: otherEmail,
+      password: otherPassword
+    });
+    expect(otherSignedIn.error).toBeNull();
+    const other = authenticatedClient(
+      status,
+      otherSignedIn.data.session!.access_token
+    );
+    expect((await other.rpc("bootstrap_account")).error).toBeNull();
+    expect(
+      (
+        await other.rpc("complete_baby_profile", {
+          p_nickname: "Other derived baby",
+          p_birth_date: "2025-10-15",
+          p_time_zone: "America/New_York",
+          p_feeding_style: "mixed",
+          p_meal_slots: ["breakfast"]
+        })
+      ).error
+    ).toBeNull();
+    expect((await other.from("manual_grocery_items").select("*")).data).toEqual(
+      []
+    );
+    expect((await other.from("derived_work_events").select("*")).data).toEqual(
+      []
+    );
+    const crossMutation = await other.rpc("mutate_manual_grocery_item", {
+      p_operation: "delete",
+      p_item_id: manualItemId,
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(crossMutation.error).toBeNull();
+    expect(crossMutation.data.reason).toBe("manual_grocery_item_unavailable");
+    const anonymous = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    expect(
+      (await anonymous.rpc("get_derived_work_and_groceries")).error
+    ).not.toBeNull();
+    expect(
+      (await admin.auth.admin.deleteUser(otherCreated.data.user!.id)).error
+    ).toBeNull();
+
+    const week = await household.rpc("get_week_window", {
+      p_window_start: null
+    });
+    expect(week.error).toBeNull();
+    const swapped = await household.rpc("edit_manual_week", {
+      p_expected_version: week.data.version,
+      p_operation: "swap_component",
+      p_payload: {
+        component_id: ticketTwelveComponentIds[0],
+        preparation_slug: "ticket-10-informational-preparation"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(swapped.error).toBeNull();
+    expect(swapped.data.status).toBe("applied");
+    const afterSwap = await household.rpc("get_derived_work_and_groceries");
+    const afterSwapTask = afterSwap.data.preparation_tasks.find(
+      ({ preparation_id }: { preparation_id: string }) =>
+        preparation_id === "prep-ticket-12"
+    );
+    expect(afterSwapTask).toEqual(
+      expect.objectContaining({ needed_portions: 2 })
+    );
+    expect(
+      (
+        await household.rpc("dismiss_preparation_task", {
+          p_preparation_id: "prep-ticket-12",
+          p_plan_version: afterSwap.data.plan_version,
+          p_task_fingerprint: afterSwapTask.task_fingerprint,
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+
+    const batch = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: ticketTwelveComponentIds[1],
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 1,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(batch.error).toBeNull();
+    expect(batch.data.status).toBe("created");
+    const afterInventory = await household.rpc(
+      "get_derived_work_and_groceries"
+    );
+    expect(
+      afterInventory.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 2 }));
+    expect(
+      (
+        await household.rpc("perform_batch_transition", {
+          p_batch_id: batch.data.batch_id,
+          p_transition: "freeze",
+          p_payload: {},
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    const afterFrozenInventory = await household.rpc(
+      "get_derived_work_and_groceries"
+    );
+    expect(
+      afterFrozenInventory.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 2 }));
+
+    const staleEdit = await household.rpc("edit_manual_week", {
+      p_expected_version: week.data.version,
+      p_operation: "delete_component",
+      p_payload: { component_id: ticketTwelveComponentIds[1] },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(staleEdit.error).toBeNull();
+    expect(staleEdit.data.reason).toBe("plan_stale");
+    expect(
+      (await household.rpc("get_derived_work_and_groceries")).data
+    ).toEqual(afterFrozenInventory.data);
+
+    const quickBackupAdded = await admin.from("quick_backups").insert({
+      baby_id: babyId,
+      food_id: "food-ticket-12"
+    });
+    expect(quickBackupAdded.error).toBeNull();
+    expect(
+      (
+        await household.rpc("set_derived_grocery_state", {
+          p_food_id: "food-ticket-12",
+          p_operation: "set_already_have",
+          p_value: false,
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.derived_grocery_items.some(
+        ({ food_id }: { food_id: string }) => food_id === "food-ticket-12"
+      )
+    ).toBe(true);
+    expect(
+      (
+        await household.rpc("set_derived_grocery_state", {
+          p_food_id: "food-ticket-12",
+          p_operation: "set_already_have",
+          p_value: true,
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.derived_grocery_items.find(
+        ({ food_id }: { food_id: string }) => food_id === "food-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ already_have: true }));
+    expect(
+      (
+        await admin
+          .from("quick_backups")
+          .delete()
+          .eq("baby_id", babyId)
+          .eq("food_id", "food-ticket-12")
+      ).error
+    ).toBeNull();
+
+    const beforeRestrictionTask = (
+      await household.rpc("get_derived_work_and_groceries")
+    ).data.preparation_tasks.find(
+      ({ preparation_id }: { preparation_id: string }) =>
+        preparation_id === "prep-ticket-12"
+    );
+    const restricted = await admin
+      .from("baby_food_restrictions")
+      .update({ status: "temporary_avoidance" })
+      .eq("baby_id", babyId)
+      .eq("food_id", "food-ticket-12");
+    expect(restricted.error).toBeNull();
+    const whileRestricted = await household.rpc(
+      "get_derived_work_and_groceries"
+    );
+    expect(
+      whileRestricted.data.preparation_tasks.some(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toBe(false);
+    expect(whileRestricted.data.manual_grocery_items).toHaveLength(1);
+    expect(
+      (
+        await admin
+          .from("baby_food_restrictions")
+          .update({ status: "no_known_restriction" })
+          .eq("baby_id", babyId)
+          .eq("food_id", "food-ticket-12")
+      ).error
+    ).toBeNull();
+    const afterRestrictionRoundTrip = await household.rpc(
+      "get_derived_work_and_groceries"
+    );
+    expect(
+      afterRestrictionRoundTrip.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      ).task_fingerprint
+    ).not.toBe(beforeRestrictionTask.task_fingerprint);
+
+    const finished = await household.rpc("perform_batch_transition", {
+      p_batch_id: batch.data.batch_id,
+      p_transition: "finish",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(finished.error).toBeNull();
+    const afterFinish = await household.rpc("get_derived_work_and_groceries");
+    expect(
+      afterFinish.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 2 }));
+
+    const currentWeek = await household.rpc("get_week_window", {
+      p_window_start: null
+    });
+    const deleted = await household.rpc("edit_manual_week", {
+      p_expected_version: currentWeek.data.version,
+      p_operation: "delete_component",
+      p_payload: { component_id: ticketTwelveComponentIds[1] },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(deleted.error).toBeNull();
+    const afterDelete = await household.rpc("get_derived_work_and_groceries");
+    expect(
+      afterDelete.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 1 }));
+
+    const trace = afterDelete.data.preparation_tasks.find(
+      ({ preparation_id }: { preparation_id: string }) =>
+        preparation_id === "prep-ticket-12"
+    ).supporting_meals[0];
+    const copied = await household.rpc("edit_manual_week", {
+      p_expected_version: deleted.data.version,
+      p_operation: "copy_meal",
+      p_payload: {
+        source_meal_id: trace.meal_id,
+        target_local_date: trace.local_date,
+        target_meal_slot: "lunch"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(copied.error).toBeNull();
+    const afterCopy = await household.rpc("get_derived_work_and_groceries");
+    expect(
+      afterCopy.data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 2 }));
+
+    const completed = await household.rpc("edit_manual_week", {
+      p_expected_version: copied.data.version,
+      p_operation: "set_meal_status",
+      p_payload: { meal_id: copied.data.meal_id, status: "completed" },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(completed.error).toBeNull();
+    expect(
+      (
+        await household.rpc("get_derived_work_and_groceries")
+      ).data.preparation_tasks.find(
+        ({ preparation_id }: { preparation_id: string }) =>
+          preparation_id === "prep-ticket-12"
+      )
+    ).toEqual(expect.objectContaining({ needed_portions: 1 }));
+
+    const deletedManual = await household.rpc("mutate_manual_grocery_item", {
+      p_operation: "delete",
+      p_item_id: manualItemId,
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(deletedManual.error).toBeNull();
+    expect(
+      (await household.rpc("get_derived_work_and_groceries")).data
+        .manual_grocery_items
+    ).toEqual([]);
   });
 
   test("a reviewed reaction report immediately blocks every planning and serving seam until explicitly resolved", async () => {

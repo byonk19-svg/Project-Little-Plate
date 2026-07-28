@@ -4,7 +4,7 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the first eleven vertical slices. A caregiver can request
+This repository contains the first twelve vertical slices. A caregiver can request
 a passwordless email link, bootstrap one isolated household, create one active
 baby profile, and record observed abilities, food restrictions, exposure state,
 planning preferences, and quick backups. Foods can list and display only active,
@@ -36,7 +36,12 @@ creates an immediate audited food safety block, removes the food from actionable
 Today and future planner inputs, and marks affected Week meals for replacement.
 Private reaction descriptions stay in household reaction history. Clearing the
 block is a separate explicit audited action; ordinary preference editing cannot
-clear it.
+clear it. Kitchen derives consolidated preparation work and grocery needs from
+the committed seven-day plan, current eligibility, and valid ledger-backed
+inventory. Reminder dismissals and grocery checks remain caregiver-owned
+overrides, while manual grocery items use a separate persistence path so plan
+edits cannot erase them. A configured quick backup subtracts grocery need only
+after the caregiver marks that food already available.
 
 The production seed intentionally contains no food, reaction guidance, or other
 safety-content fixtures.
@@ -60,6 +65,7 @@ product specification.
 - [Manual Week edit lifecycle decision](docs/adr/0009-manual-week-edit-lifecycle.md)
 - [Kitchen lifecycle decision](docs/adr/0010-kitchen-lifecycle-boundary.md)
 - [Reaction safety-block decision](docs/adr/0011-reaction-safety-block-boundary.md)
+- [Derived work and grocery decision](docs/adr/0012-derived-work-and-grocery-boundary.md)
 
 ## Prerequisites
 

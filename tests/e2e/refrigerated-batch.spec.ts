@@ -321,7 +321,76 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   await expect(
     page.getByTestId("week-day").filter({ hasText: "Day 3" })
   ).toContainText("ZZZ Batch Browser Preparation");
-  await page.goto(prepareHref!);
+  await page.goto("/kitchen");
+  const preparationWork = page.getByTestId("preparation-work");
+  await expect(preparationWork).toContainText("ZZZ Batch Browser Preparation");
+  await expect(preparationWork).toContainText("2 portions needed");
+  await expect(preparationWork.locator("li")).toHaveCount(2);
+  const taskStartHref = await preparationWork
+    .getByRole("link", { name: "Start this batch" })
+    .getAttribute("href");
+  expect(taskStartHref).toMatch(/^\/kitchen\?componentId=/);
+
+  const derivedGroceries = page.getByTestId("derived-groceries");
+  await expect(derivedGroceries).toContainText("Plan-derived");
+  await expect(derivedGroceries).toContainText("ZZZ Batch Browser Food");
+  await expect(derivedGroceries).toContainText("2 portions");
+  await derivedGroceries
+    .getByRole("button", { name: "I already have this" })
+    .click();
+  await expect(page).toHaveURL(/grocery=updated/);
+  await expect(
+    page.getByText(/Already have · synthetic-test-fixture/)
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Move back to grocery needs" })
+    .click();
+  await expect(page.getByTestId("derived-groceries")).toContainText(
+    "ZZZ Batch Browser Food"
+  );
+
+  await page.getByLabel("Item", { exact: true }).fill("Manual browser item");
+  await page.getByLabel("Store section", { exact: true }).fill("Manual aisle");
+  await page.getByLabel("Quantity (items)", { exact: true }).fill("2");
+  await page.getByRole("button", { name: "Add manual item" }).click();
+  await expect(page).toHaveURL(/grocery=add/);
+  const manualGroceries = page.getByTestId("manual-groceries");
+  await expect(manualGroceries).toContainText("Manual item · Manual aisle");
+  await expect(manualGroceries).toContainText("2 items");
+  await manualGroceries.getByLabel("Item", { exact: true }).fill("Edited item");
+  await manualGroceries
+    .getByRole("button", { name: "Save manual item" })
+    .click();
+  await expect(page.getByTestId("manual-groceries")).toContainText(
+    "Edited item"
+  );
+  await page
+    .getByTestId("manual-groceries")
+    .getByRole("button", { name: "Check off" })
+    .click();
+  await expect(
+    page
+      .getByTestId("manual-groceries")
+      .getByRole("button", { name: "Mark not checked" })
+  ).toBeVisible();
+  await page
+    .getByTestId("manual-groceries")
+    .getByRole("button", { name: "Delete manual item" })
+    .click();
+  await expect(page.getByTestId("manual-groceries")).toBeEmpty();
+
+  await page
+    .getByTestId("preparation-work")
+    .getByRole("button", { name: "Hide this reminder" })
+    .click();
+  await expect(page).toHaveURL(/work=dismissed/);
+  await expect(page.getByTestId("preparation-work")).toHaveCount(0);
+  await page.goto("/week");
+  await expect(
+    page.getByTestId("week-day").filter({ hasText: "Day 3" })
+  ).toContainText("ZZZ Batch Browser Preparation");
+
+  await page.goto(taskStartHref ?? prepareHref!);
 
   await expect(page).toHaveURL(/\/kitchen\?componentId=/, { timeout: 20_000 });
   await page.goto(

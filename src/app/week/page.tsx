@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { getCurrentWeek } from "@/modules/meals/queries";
 import { mealSlotLabels } from "@/modules/meals/presentation";
@@ -86,6 +87,12 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                             <li key={component.componentId}>
                               <strong>{component.preparationName}</strong>
                               <span>{component.foodName}</span>
+                              <Link
+                                className="week-components__action"
+                                href={`/kitchen?componentId=${component.componentId}`}
+                              >
+                                Prepare and refrigerate
+                              </Link>
                             </li>
                           ))}
                         </ol>

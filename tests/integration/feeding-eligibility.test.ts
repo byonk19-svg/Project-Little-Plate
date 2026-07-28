@@ -204,6 +204,7 @@ describe("feeding eligibility configuration", () => {
   let householdA: TestUser;
   let householdB: TestUser;
   let babyAId: string;
+  let fixtureImported = false;
 
   async function createTestUser(label: string): Promise<TestUser> {
     const email = `ticket-04-${label}-${crypto.randomUUID()}@example.test`;
@@ -258,6 +259,7 @@ describe("feeding eligibility configuration", () => {
     const imported = await admin.rpc("import_catalog_fixture", {
       p_fixture: approvedFixture()
     });
+    fixtureImported = imported.error === null;
     expect(imported.error).toBeNull();
 
     householdA = await createTestUser("household-a");
@@ -270,6 +272,38 @@ describe("feeding eligibility configuration", () => {
     await Promise.all(
       createdUserIds.map((userId) => admin.auth.admin.deleteUser(userId))
     );
+    if (!fixtureImported) {
+      return;
+    }
+
+    const approvedRevisions = [
+      ...Array.from(
+        { length: 16 },
+        (_, index) => `revision-ticket-04-${index + 1}`
+      ),
+      "revision-ticket-04-00"
+    ];
+    const existingRetirements = await admin
+      .from("content_retirements")
+      .select("revision_id")
+      .in("revision_id", approvedRevisions);
+    expect(existingRetirements.error).toBeNull();
+    const retiredRevisionIds = new Set(
+      (existingRetirements.data ?? []).map(({ revision_id }) => revision_id)
+    );
+    const missingRetirements = approvedRevisions
+      .filter((revisionId) => !retiredRevisionIds.has(revisionId))
+      .map((revisionId) => ({
+        revision_id: revisionId,
+        retired_at: "2026-07-27",
+        reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+      }));
+    if (missingRetirements.length > 0) {
+      const retired = await admin
+        .from("content_retirements")
+        .insert(missingRetirements);
+      expect(retired.error).toBeNull();
+    }
   });
 
   test("configuration records conservative ability, restriction, exposure, preferences, and backups and can be revised", async () => {

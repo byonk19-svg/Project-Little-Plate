@@ -309,6 +309,76 @@ a {
   font-size: 0.88rem;
 }
 
+.week-components__action {
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-top: 0.35rem;
+  width: fit-content;
+}
+
+.kitchen-page,
+.kitchen-inventory,
+.batch-list,
+.batch-confirmation-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.kitchen-inventory h2 {
+  margin: 0.45rem 0;
+}
+
+.batch-review h2,
+.batch-card h3 {
+  margin-bottom: 0.35rem;
+}
+
+.batch-facts {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.batch-facts div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.batch-facts dt {
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.batch-facts dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.batch-source {
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+}
+
+.batch-status {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.batch-status--ready {
+  color: var(--accent);
+}
+
+.batch-status--use_today,
+.batch-status--expired {
+  color: var(--focus);
+}
+
 .feeding-form__rows,
 .food-setup-list {
   display: grid;

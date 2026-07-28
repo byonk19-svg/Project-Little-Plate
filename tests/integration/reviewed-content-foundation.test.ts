@@ -259,6 +259,7 @@ describe("reviewed content foundation", () => {
   let anonymous: SupabaseClient;
   let caregiver: SupabaseClient;
   let caregiverId: string;
+  let fixtureImported = false;
 
   beforeAll(async () => {
     status = readLocalSupabaseStatus();
@@ -299,6 +300,35 @@ describe("reviewed content foundation", () => {
 
   afterAll(async () => {
     await admin.auth.admin.deleteUser(caregiverId);
+    if (!fixtureImported) {
+      return;
+    }
+
+    const approvedRevisions = [
+      "revision-test-supported-v1",
+      "revision-test-unsupported-v1"
+    ];
+    const existingRetirements = await admin
+      .from("content_retirements")
+      .select("revision_id")
+      .in("revision_id", approvedRevisions);
+    expect(existingRetirements.error).toBeNull();
+    const retiredRevisionIds = new Set(
+      (existingRetirements.data ?? []).map(({ revision_id }) => revision_id)
+    );
+    const missingRetirements = approvedRevisions
+      .filter((revisionId) => !retiredRevisionIds.has(revisionId))
+      .map((revisionId) => ({
+        revision_id: revisionId,
+        retired_at: "2026-07-27",
+        reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+      }));
+    if (missingRetirements.length > 0) {
+      const retired = await admin
+        .from("content_retirements")
+        .insert(missingRetirements);
+      expect(retired.error).toBeNull();
+    }
   });
 
   test("a valid fixture imports idempotently and only approved active content is published", async () => {
@@ -308,6 +338,7 @@ describe("reviewed content foundation", () => {
     const retry = await admin.rpc("import_catalog_fixture", {
       p_fixture: validFixture
     });
+    fixtureImported = first.error === null;
 
     expect(first.error).toBeNull();
     expect(retry.error).toBeNull();

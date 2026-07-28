@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ManualMealForm } from "@/app/foods/[slug]/manual-meal-form";
 import { getPublishedPreparation } from "@/modules/catalog/queries";
 import { getPreparationEligibility } from "@/modules/eligibility/queries";
+import { getCurrentWeek } from "@/modules/meals/queries";
 
 type FoodDetailPageProps = {
   params: Promise<{ slug: string }>;
@@ -26,9 +28,10 @@ function durationLabel(hours: number) {
 
 export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
   const { slug } = await params;
-  const [preparation, eligibility] = await Promise.all([
+  const [preparation, eligibility, week] = await Promise.all([
     getPublishedPreparation(slug),
-    getPreparationEligibility(slug)
+    getPreparationEligibility(slug),
+    getCurrentWeek()
   ]);
 
   if (!preparation) {
@@ -92,6 +95,18 @@ export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
               are recorded as observed, and no blocking safety status is
               recorded for this food.
             </p>
+            {week.status === "ready" ? (
+              <ManualMealForm
+                babyId={week.plan.babyId}
+                mealSlots={week.plan.days[0].slots.map((slot) => slot.mealSlot)}
+                preparationSlug={preparation.slug}
+              />
+            ) : (
+              <p>
+                Tomorrow&apos;s meal slots are unavailable. Refresh after the
+                baby profile is complete.
+              </p>
+            )}
           </>
         ) : eligibility.status === "ineligible" &&
           eligibility.reason === "food_restricted" ? (

@@ -11,7 +11,10 @@ can request a passwordless email link, bootstrap one isolated household, create
 one active baby profile, and record observed abilities, food restrictions,
 exposure state, planning preferences, and quick backups. Foods can list and
 display only active, approved, source-backed preparations and explain whether
-the current profile satisfies their reviewed eligibility requirements.
+the current profile satisfies their reviewed eligibility requirements. Ticket
+05 adds a manual Week boundary: an eligible reviewed preparation can be placed
+into one of tomorrow's configured meal slots, with one to three components per
+meal and dates interpreted in the baby profile's IANA time zone.
 
 The production seed intentionally contains no food or safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
@@ -27,6 +30,7 @@ product specification.
 - [Household identity decision](docs/adr/0002-household-identity-boundary.md)
 - [Reviewed content publication decision](docs/adr/0003-reviewed-content-publication-boundary.md)
 - [Feeding eligibility decision](docs/adr/0004-feeding-eligibility-boundary.md)
+- [Manual meal planning decision](docs/adr/0005-manual-meal-planning-boundary.md)
 
 ## Prerequisites
 

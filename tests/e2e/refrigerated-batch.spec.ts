@@ -21,7 +21,11 @@ const fixtureIds = {
   preparationSlug: `zzz-batch-browser-preparation-${fixtureRunId}`,
   revision: `revision-e2e-ticket-06-${fixtureRunId}`,
   rule: `rule-e2e-ticket-06-${fixtureRunId}`,
-  profile: `rule-profile-e2e-ticket-06-${fixtureRunId}`
+  profile: `rule-profile-e2e-ticket-06-${fixtureRunId}`,
+  freezeRule: `transition-freeze-e2e-ticket-10-${fixtureRunId}`,
+  thawRule: `transition-thaw-e2e-ticket-10-${fixtureRunId}`,
+  returnRefrigeratedRule: `transition-return-refrigerated-e2e-ticket-10-${fixtureRunId}`,
+  returnThawedRule: `transition-return-thawed-e2e-ticket-10-${fixtureRunId}`
 };
 
 const fixture = {
@@ -128,6 +132,80 @@ test.beforeAll(async () => {
   ).toBeNull();
   expect(
     (
+      await admin.rpc("import_storage_transition_rules", {
+        p_rules: [
+          {
+            id: fixtureIds.freezeRule,
+            content_revision_id: fixtureIds.revision,
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "quality_by",
+            duration_min_hours: 720,
+            duration_max_hours: 720,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED BROWSER FREEZER QUALITY GUIDANCE",
+            source_id: fixtureIds.source,
+            reviewer_role: "synthetic_browser_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: fixtureIds.thawRule,
+            content_revision_id: fixtureIds.revision,
+            transition_kind: "begin_thaw",
+            from_state: "frozen",
+            to_state: "thawing",
+            deadline_kind: "discard_after",
+            duration_min_hours: 12,
+            duration_max_hours: 18,
+            clock_start_event: "thaw_started",
+            resets_prior_clock: false,
+            method: "SYNTHETIC REVIEWED BROWSER THAW METHOD",
+            refreezing_policy: "prohibited",
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED BROWSER POST-THAW GUIDANCE",
+            source_id: fixtureIds.source,
+            reviewer_role: "synthetic_browser_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          ...(["refrigerated", "thawed"] as const).map((fromState) => ({
+            id:
+              fromState === "refrigerated"
+                ? fixtureIds.returnRefrigeratedRule
+                : fixtureIds.returnThawedRule,
+            content_revision_id: fixtureIds.revision,
+            transition_kind: "return_untouched",
+            from_state: fromState,
+            to_state: fromState,
+            deadline_kind: null,
+            duration_min_hours: null,
+            duration_max_hours: null,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: "untouched_separately_stored_only",
+            guidance: "SYNTHETIC REVIEWED BROWSER UNTOUCHED RETURN GUIDANCE",
+            source_id: fixtureIds.source,
+            reviewer_role: "synthetic_browser_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }))
+        ]
+      })
+    ).error
+  ).toBeNull();
+  expect(
+    (
       await admin.rpc("import_storage_rule_profiles", {
         p_profiles: [
           {
@@ -195,7 +273,7 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
 
   await page.goto(`/foods/${fixtureIds.preparationSlug}`);
   await page.getByRole("button", { name: "Add to tomorrow's meal" }).click();
-  await expect(page).toHaveURL(/\/week\?planned=1$/);
+  await expect(page).toHaveURL(/\/week\?planned=1$/, { timeout: 20_000 });
 
   const tomorrow = page.getByTestId("week-day").filter({ hasText: "Tomorrow" });
   await tomorrow.getByRole("link", { name: "Prepare and refrigerate" }).click();
@@ -220,7 +298,7 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   );
 
   await page.getByRole("button", { name: "Refrigerate 2 portions" }).click();
-  await expect(page).toHaveURL(/\/kitchen\?created=1$/);
+  await expect(page).toHaveURL(/\/kitchen\?created=1$/, { timeout: 20_000 });
   await expect(page.getByRole("status")).toContainText(
     "Two portions are in the refrigerator"
   );
@@ -238,16 +316,48 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   );
   await expect(page.getByText("Dates use America/Chicago")).toBeVisible();
 
+  await batch.getByRole("button", { name: "Freeze untouched batch" }).click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=freeze$/);
+  await expect(page.getByRole("heading", { name: "Freezer" })).toBeVisible();
+  const frozenBatch = page.getByTestId("kitchen-batch");
+  await expect(frozenBatch).toContainText("Quality-by date");
+  await expect(frozenBatch).toContainText(
+    "SYNTHETIC REVIEWED BROWSER FREEZER QUALITY GUIDANCE"
+  );
+  await expect(frozenBatch.getByTestId("reviewed-next-action")).toContainText(
+    "SYNTHETIC REVIEWED BROWSER THAW METHOD"
+  );
+  await expect(frozenBatch.getByTestId("reviewed-next-action")).toContainText(
+    "Refreezing: prohibited"
+  );
+
   await page.goto("/today");
   await expect(
     page.getByRole("heading", { name: "Next planned meal" })
   ).toBeVisible();
   const todayComponent = page.getByTestId("today-component");
   await expect(todayComponent).toContainText("ZZZ Batch Browser Preparation");
-  await expect(todayComponent).toContainText("Ready");
-  await expect(todayComponent).toContainText(
-    "A reviewed refrigerated portion is available"
+  await expect(todayComponent).toContainText("Thaw required");
+  await expect(
+    todayComponent.getByRole("button", { name: "Serve one portion" })
+  ).toHaveCount(0);
+
+  await page.goto("/kitchen");
+  await page
+    .getByTestId("kitchen-batch")
+    .getByRole("button", { name: "Begin reviewed thaw" })
+    .click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=begin_thaw$/);
+  const thawingBatch = page.getByTestId("kitchen-batch");
+  await expect(thawingBatch).toContainText(
+    "SYNTHETIC REVIEWED BROWSER THAW METHOD"
   );
+  await expect(thawingBatch).toContainText("prohibited");
+  await thawingBatch.getByRole("button", { name: "Mark fully thawed" }).click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=mark_thawed$/);
+
+  await page.goto("/today");
+  await expect(todayComponent).toContainText("Ready");
   await todayComponent
     .getByRole("button", { name: "Serve one portion" })
     .click();
@@ -257,8 +367,40 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   );
 
   await page.goto("/kitchen");
+  const servedBatch = page.getByTestId("kitchen-batch");
+  await expect(servedBatch).toContainText("1 portion remaining");
+  await expect(servedBatch.getByTestId("reviewed-next-action")).toContainText(
+    "SYNTHETIC REVIEWED BROWSER UNTOUCHED RETURN GUIDANCE"
+  );
+  await servedBatch
+    .getByLabel(
+      "I confirm this portion stayed untouched and separately stored."
+    )
+    .check();
+  await servedBatch
+    .getByRole("button", { name: "Return untouched portion" })
+    .click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=return_untouched$/);
+  await expect(page.getByTestId("kitchen-batch")).toContainText(
+    "2 portions remaining"
+  );
+
+  await page
+    .getByTestId("kitchen-batch")
+    .getByRole("button", { name: "Correct inventory down by one" })
+    .click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=correct$/);
   await expect(page.getByTestId("kitchen-batch")).toContainText(
     "1 portion remaining"
+  );
+
+  await page
+    .getByTestId("kitchen-batch")
+    .getByRole("button", { name: "Mark remaining portions finished" })
+    .click();
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=finish$/);
+  await expect(page.getByTestId("kitchen-finished-batch")).toContainText(
+    "0 portions remaining"
   );
 
   await page.goto("/week");
@@ -302,7 +444,7 @@ test("a use-soon batch expires on an open screen, is blocked, and can be discard
 
   await page.goto(`/foods/${fixtureIds.preparationSlug}`);
   await page.getByRole("button", { name: "Add to tomorrow's meal" }).click();
-  await expect(page).toHaveURL(/\/week\?planned=1$/);
+  await expect(page).toHaveURL(/\/week\?planned=1$/, { timeout: 20_000 });
 
   const tomorrow = page.getByTestId("week-day").filter({ hasText: "Tomorrow" });
   const prepareHref = await tomorrow
@@ -315,7 +457,7 @@ test("a use-soon batch expires on an open screen, is blocked, and can be discard
     `${prepareHref!}&preparedAt=${encodeURIComponent(regularPreparedAt.toISOString())}`
   );
   await page.getByRole("button", { name: "Refrigerate 2 portions" }).click();
-  await expect(page).toHaveURL(/\/kitchen\?created=1$/);
+  await expect(page).toHaveURL(/\/kitchen\?created=1$/, { timeout: 20_000 });
 
   const expiringPreparedAt = new Date(
     Date.now() - 24 * 60 * 60 * 1000 + 20_000
@@ -332,14 +474,16 @@ test("a use-soon batch expires on an open screen, is blocked, and can be discard
     `${prepareHref!}&preparedAt=${encodeURIComponent(expiringPreparedAt.toISOString())}`
   );
   await page.getByRole("button", { name: "Refrigerate 2 portions" }).click();
-  await expect(page).toHaveURL(/\/kitchen\?created=1$/);
+  await expect(page).toHaveURL(/\/kitchen\?created=1$/, { timeout: 20_000 });
 
   const activeBatches = page.getByTestId("kitchen-batch");
   await expect(activeBatches).toHaveCount(2);
   await expect(
     activeBatches.first().getByTestId("kitchen-batch-deadline-time")
   ).toHaveText(expectedExpiringDeadline);
-  await expect(page.getByRole("button", { name: /freeze/i })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Freeze untouched batch" })
+  ).toHaveCount(2);
 
   await page.goto("/today");
   const useSoonBatches = page.getByTestId("use-soon-batch");

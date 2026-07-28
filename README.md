@@ -4,7 +4,7 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the first nine vertical slices. A caregiver can request
+This repository contains the first ten vertical slices. A caregiver can request
 a passwordless email link, bootstrap one isolated household, create one active
 baby profile, and record observed abilities, food restrictions, exposure state,
 planning preferences, and quick backups. Foods can list and display only active,
@@ -20,8 +20,11 @@ event. Today, Week, and Kitchen then reflect the same ledger-backed result.
 Use-soon portions are ordered by their exact reviewed deadline using trusted
 database time. Expired portions move to a separate, non-serveable Kitchen
 section, and a caregiver can discard remaining portions through an idempotent,
-append-only event without erasing their history. No freezer action appears
-until a reviewed transition and thaw policy exist. Week now supports all seven
+append-only event without erasing their history. Kitchen now exposes freeze,
+thaw, untouched-return, finish, and downward correction actions only when the
+current state and active reviewed transition records permit them. Freezer
+quality-by guidance is labeled separately from discard-after safety deadlines,
+and frozen or thawing portions cannot be served. Week now supports all seven
 local dates and the profile's configured slots, with versioned atomic edits for
 locks, component and meal swaps, quick backups, copying, lifecycle status, and
 one bounded compensating undo. Every attached preparation is revalidated
@@ -47,6 +50,7 @@ product specification.
 - [Atomic planned serving decision](docs/adr/0007-atomic-planned-serving-boundary.md)
 - [Trusted expiration and discard decision](docs/adr/0008-trusted-expiration-and-discard-boundary.md)
 - [Manual Week edit lifecycle decision](docs/adr/0009-manual-week-edit-lifecycle.md)
+- [Kitchen lifecycle decision](docs/adr/0010-kitchen-lifecycle-boundary.md)
 
 ## Prerequisites
 

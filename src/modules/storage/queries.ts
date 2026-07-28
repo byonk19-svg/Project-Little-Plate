@@ -29,22 +29,52 @@ export type KitchenInventoryItem = {
   preparationId: string;
   contentRevisionId: string;
   preparationName: string;
-  storageLocation: "refrigerator";
+  storageLocation: "refrigerator" | "freezer";
+  lifecycleState: "refrigerated" | "frozen" | "thawing" | "thawed" | "finished";
   remainingPortions: number;
   preparedOrOpenedAt: string;
   deadlineAt: string;
-  storageStatus: "ready" | "use_today" | "expired" | "depleted";
+  originalDeadlineAt: string;
+  deadlineKind: "discard_after";
+  qualityByAt: string | null;
+  storageStatus:
+    | "ready"
+    | "use_today"
+    | "expired"
+    | "frozen"
+    | "quality_due"
+    | "thawing"
+    | "depleted";
   ruleProfileId: string;
   storageRuleId: string;
-  appliedDurationHours: number;
+  appliedDurationHours: number | null;
   reviewedDurationRangeHours: {
     minimum: number;
     maximum: number;
-  };
+  } | null;
   guidance: string;
   reviewedAt: string;
   sourceTitle: string;
   sourceUrl: string;
+  transitionMethod: string | null;
+  refreezingPolicy: string | null;
+  actionGuidance: string | null;
+  actionMethod: string | null;
+  actionRefreezingPolicy: string | null;
+  actionReturnPolicy: string | null;
+  actionSourceTitle: string | null;
+  actionSourceUrl: string | null;
+  availableActions: Array<
+    | "freeze"
+    | "begin_thaw"
+    | "mark_thawed"
+    | "return_untouched"
+    | "finish"
+    | "correct"
+    | "discard"
+  >;
+  returnServedEventId: string | null;
+  correctionEventId: string | null;
 };
 
 export type KitchenInventoryResult =
@@ -164,7 +194,9 @@ function parsePreview(value: unknown): RefrigeratedBatchPreview | null {
     : null;
 }
 
-function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
+export function parseKitchenInventoryItem(
+  value: unknown
+): KitchenInventoryItem | null {
   if (!isJsonRecord(value)) {
     return null;
   }
@@ -176,6 +208,9 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
   const remainingPortions = requiredInteger(value, "remaining_portions");
   const preparedOrOpenedAt = requiredString(value, "prepared_or_opened_at");
   const deadlineAt = requiredString(value, "deadline_at");
+  const originalDeadlineAt = requiredString(value, "original_deadline_at");
+  const deadlineKind = value.deadline_kind;
+  const qualityByAt = nullableString(value, "quality_by_at");
   const ruleProfileId = requiredString(value, "rule_profile_id");
   const storageRuleId = requiredString(value, "storage_rule_id");
   const appliedDurationHours = requiredInteger(value, "applied_duration_hours");
@@ -187,42 +222,117 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
   const sourceTitle = requiredString(value, "source_title");
   const sourceUrl = requiredString(value, "source_url");
   const storageStatus = value.storage_status;
+  const lifecycleState = value.lifecycle_state;
+  const storageLocation = value.storage_location;
+  const transitionMethod = nullableString(value, "transition_method");
+  const refreezingPolicy = nullableString(value, "refreezing_policy");
+  const actionGuidance = nullableString(value, "action_guidance");
+  const actionMethod = nullableString(value, "action_method");
+  const actionRefreezingPolicy = nullableString(
+    value,
+    "action_refreezing_policy"
+  );
+  const actionReturnPolicy = nullableString(value, "action_return_policy");
+  const actionSourceTitle = nullableString(value, "action_source_title");
+  const actionSourceUrl = nullableString(value, "action_source_url");
+  const returnServedEventId = nullableString(value, "return_served_event_id");
+  const correctionEventId = nullableString(value, "correction_event_id");
+  const allowedActions = new Set([
+    "freeze",
+    "begin_thaw",
+    "mark_thawed",
+    "return_untouched",
+    "finish",
+    "correct",
+    "discard"
+  ]);
+  const availableActions = Array.isArray(value.available_actions)
+    ? value.available_actions
+    : null;
+  const actionsAreValid =
+    availableActions !== null &&
+    availableActions.every(
+      (action) => typeof action === "string" && allowedActions.has(action)
+    );
+  const actionMetadataIsValid =
+    availableActions !== null &&
+    (!availableActions.includes("freeze") ||
+      (actionGuidance && actionSourceTitle && actionSourceUrl)) &&
+    (!availableActions.includes("begin_thaw") ||
+      (actionGuidance &&
+        actionMethod &&
+        actionRefreezingPolicy &&
+        actionSourceTitle &&
+        actionSourceUrl)) &&
+    (!availableActions.includes("mark_thawed") ||
+      (transitionMethod && refreezingPolicy)) &&
+    (!availableActions.includes("return_untouched") ||
+      (actionGuidance &&
+        actionReturnPolicy &&
+        actionSourceTitle &&
+        actionSourceUrl &&
+        returnServedEventId)) &&
+    (!availableActions.includes("correct") || correctionEventId);
   const lifecycleIsConsistent =
     (storageStatus === "depleted" && remainingPortions === 0) ||
     ((storageStatus === "ready" ||
       storageStatus === "use_today" ||
-      storageStatus === "expired") &&
+      storageStatus === "expired" ||
+      storageStatus === "frozen" ||
+      storageStatus === "quality_due" ||
+      storageStatus === "thawing") &&
       remainingPortions !== null &&
       remainingPortions > 0);
+  const stateIsValid =
+    lifecycleState === "refrigerated" ||
+    lifecycleState === "frozen" ||
+    lifecycleState === "thawing" ||
+    lifecycleState === "thawed" ||
+    lifecycleState === "finished";
+  const durationMetadataIsValid =
+    (appliedDurationHours === null && reviewedDurationRangeHours === null) ||
+    (appliedDurationHours !== null &&
+      appliedDurationHours > 0 &&
+      reviewedDurationRangeHours !== null) ||
+    (lifecycleState === "thawing" &&
+      appliedDurationHours === null &&
+      reviewedDurationRangeHours !== null);
 
   return batchId &&
     preparationId &&
     contentRevisionId &&
     preparationName &&
-    value.storage_location === "refrigerator" &&
+    (storageLocation === "refrigerator" || storageLocation === "freezer") &&
+    stateIsValid &&
     remainingPortions !== null &&
     remainingPortions >= 0 &&
     preparedOrOpenedAt &&
     deadlineAt &&
+    originalDeadlineAt &&
+    deadlineKind === "discard_after" &&
     lifecycleIsConsistent &&
     ruleProfileId &&
     storageRuleId &&
-    appliedDurationHours !== null &&
-    appliedDurationHours > 0 &&
-    reviewedDurationRangeHours &&
+    durationMetadataIsValid &&
     guidance &&
     reviewedAt &&
     sourceTitle &&
-    sourceUrl
+    sourceUrl &&
+    actionsAreValid &&
+    actionMetadataIsValid
     ? {
         batchId,
         preparationId,
         contentRevisionId,
         preparationName,
-        storageLocation: "refrigerator",
+        storageLocation,
+        lifecycleState,
         remainingPortions,
         preparedOrOpenedAt,
         deadlineAt,
+        originalDeadlineAt,
+        deadlineKind,
+        qualityByAt,
         storageStatus,
         ruleProfileId,
         storageRuleId,
@@ -231,7 +341,19 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
         guidance,
         reviewedAt,
         sourceTitle,
-        sourceUrl
+        sourceUrl,
+        transitionMethod,
+        refreezingPolicy,
+        actionGuidance,
+        actionMethod,
+        actionRefreezingPolicy,
+        actionReturnPolicy,
+        actionSourceTitle,
+        actionSourceUrl,
+        availableActions:
+          availableActions as KitchenInventoryItem["availableActions"],
+        returnServedEventId,
+        correctionEventId
       }
     : null;
 }
@@ -347,7 +469,7 @@ export async function getKitchenInventory(): Promise<KitchenInventoryResult> {
 
   const babyId = requiredString(data, "baby_id");
   const timeZone = requiredString(data, "time_zone");
-  const items = data.items.map(parseInventoryItem);
+  const items = data.items.map(parseKitchenInventoryItem);
 
   return babyId && timeZone && items.every((item) => item !== null)
     ? {

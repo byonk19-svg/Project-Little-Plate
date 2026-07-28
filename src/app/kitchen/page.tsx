@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { BatchConfirmationForm } from "@/app/kitchen/batch-confirmation-form";
+import { BatchLifecycleForm } from "@/components/storage/batch-lifecycle-form";
 import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import {
   getKitchenInventory,
@@ -19,6 +20,7 @@ type KitchenPageProps = {
     created?: string;
     discarded?: string;
     preparedAt?: string;
+    transitioned?: string;
   }>;
 };
 
@@ -26,6 +28,9 @@ const statusLabels = {
   ready: "Ready",
   use_today: "Use Today",
   expired: "Expired",
+  frozen: "Frozen",
+  quality_due: "Quality date reached",
+  thawing: "Thawing",
   depleted: "Finished"
 } as const;
 
@@ -73,25 +78,98 @@ function BatchCard({
             {formatStorageLocalDateTime(item.deadlineAt, timeZone)}
           </dd>
         </div>
+        {item.lifecycleState === "frozen" ? (
+          <div>
+            <dt>Quality-by date</dt>
+            <dd>
+              {item.qualityByAt
+                ? formatStorageLocalDateTime(item.qualityByAt, timeZone)
+                : "No quality date specified by the reviewed rule"}
+            </dd>
+          </div>
+        ) : null}
       </dl>
       <p className="safety-note">
-        <strong>
-          Reviewed range{" "}
-          {formatRange(
-            item.reviewedDurationRangeHours.minimum,
-            item.reviewedDurationRangeHours.maximum
-          )}
-          ; {item.appliedDurationHours} hours applied.
-        </strong>
+        {item.reviewedDurationRangeHours ? (
+          <strong>
+            Reviewed range{" "}
+            {formatRange(
+              item.reviewedDurationRangeHours.minimum,
+              item.reviewedDurationRangeHours.maximum
+            )}
+            {item.appliedDurationHours === null
+              ? null
+              : `; ${item.appliedDurationHours} hours applied.`}
+          </strong>
+        ) : (
+          <strong>
+            No duration is applied to this informational quality guidance; the
+            original discard deadline remains in force.
+          </strong>
+        )}
         <span>{item.guidance}</span>
+        {item.transitionMethod ? (
+          <span>
+            <strong>Reviewed method:</strong> {item.transitionMethod}
+          </span>
+        ) : null}
+        {item.refreezingPolicy ? (
+          <span>
+            <strong>Refreezing:</strong> {item.refreezingPolicy}
+          </span>
+        ) : null}
       </p>
+      {item.actionGuidance ? (
+        <aside className="safety-note" data-testid="reviewed-next-action">
+          <strong>Reviewed guidance for the next action</strong>
+          {item.actionMethod ? <span>{item.actionMethod}</span> : null}
+          <span>{item.actionGuidance}</span>
+          {item.actionRefreezingPolicy ? (
+            <span>Refreezing: {item.actionRefreezingPolicy}</span>
+          ) : null}
+          {item.actionReturnPolicy ? (
+            <span>Return policy: {item.actionReturnPolicy}</span>
+          ) : null}
+          {item.actionSourceTitle && item.actionSourceUrl ? (
+            <a href={item.actionSourceUrl} rel="noreferrer" target="_blank">
+              {item.actionSourceTitle}
+            </a>
+          ) : null}
+        </aside>
+      ) : null}
       <p className="batch-source">
         Reviewed {item.reviewedAt} ·{" "}
         <a href={item.sourceUrl} rel="noreferrer" target="_blank">
           {item.sourceTitle}
         </a>
       </p>
-      {item.remainingPortions > 0 ? (
+      <div className="batch-actions">
+        {item.availableActions
+          .filter((action) => action !== "discard")
+          .map((action) => (
+            <BatchLifecycleForm
+              batchId={item.batchId}
+              correctsEventId={
+                action === "correct"
+                  ? (item.correctionEventId ?? undefined)
+                  : undefined
+              }
+              key={action}
+              servedEventId={
+                action === "return_untouched"
+                  ? (item.returnServedEventId ?? undefined)
+                  : undefined
+              }
+              targetRemaining={
+                action === "correct"
+                  ? Math.max(0, item.remainingPortions - 1)
+                  : undefined
+              }
+              transition={action}
+            />
+          ))}
+      </div>
+      {item.availableActions.includes("discard") ? (
         <DiscardBatchForm
           batchId={item.batchId}
           idempotencyKey={crypto.randomUUID()}
@@ -120,6 +198,18 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
           (item) =>
             item.storageStatus === "ready" || item.storageStatus === "use_today"
         )
+      : [];
+  const frozenItems =
+    inventory.status === "ready"
+      ? inventory.items.filter(
+          (item) =>
+            item.storageStatus === "frozen" ||
+            item.storageStatus === "quality_due"
+        )
+      : [];
+  const thawingItems =
+    inventory.status === "ready"
+      ? inventory.items.filter((item) => item.storageStatus === "thawing")
       : [];
   const expiredItems =
     inventory.status === "ready"
@@ -150,6 +240,12 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
       {params.discarded === "1" ? (
         <p className="form-message form-message--success" role="status">
           Remaining portions were discarded.
+        </p>
+      ) : null}
+
+      {params.transitioned ? (
+        <p className="form-message form-message--success" role="status">
+          Batch inventory updated.
         </p>
       ) : null}
 
@@ -265,6 +361,43 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
                 <p>Earliest exact deadline first.</p>
                 <div className="batch-list">
                   {activeItems.map((item) => (
+                    <BatchCard
+                      item={item}
+                      key={item.batchId}
+                      testId="kitchen-batch"
+                      timeZone={inventory.timeZone}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {frozenItems.length > 0 ? (
+              <section aria-labelledby="frozen-inventory-title">
+                <h3 id="frozen-inventory-title">Freezer</h3>
+                <p>
+                  Quality-by dates describe reviewed quality guidance, not an
+                  automatic discard deadline.
+                </p>
+                <div className="batch-list">
+                  {frozenItems.map((item) => (
+                    <BatchCard
+                      item={item}
+                      key={item.batchId}
+                      testId="kitchen-batch"
+                      timeZone={inventory.timeZone}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {thawingItems.length > 0 ? (
+              <section aria-labelledby="thawing-inventory-title">
+                <h3 id="thawing-inventory-title">Thawing</h3>
+                <p>Follow the reviewed method before marking food thawed.</p>
+                <div className="batch-list">
+                  {thawingItems.map((item) => (
                     <BatchCard
                       item={item}
                       key={item.batchId}

@@ -169,6 +169,18 @@ function ticketSixFixture() {
         slug: "ticket-06-unsupported-food",
         name: "Ticket 06 Unsupported Food",
         category: "synthetic-test-fixture"
+      },
+      {
+        id: "food-ticket-10-informational",
+        slug: "ticket-10-informational-food",
+        name: "Ticket 10 Informational Food",
+        category: "synthetic-test-fixture"
+      },
+      {
+        id: "food-ticket-10-quality-thawed-clock",
+        slug: "ticket-10-quality-thawed-clock-food",
+        name: "Ticket 10 Quality Thawed Clock Food",
+        category: "synthetic-test-fixture"
       }
     ],
     preparations: [
@@ -184,6 +196,20 @@ function ticketSixFixture() {
         food_id: "food-ticket-06-unsupported",
         slug: "ticket-06-unsupported-preparation",
         name: "Ticket 06 Unsupported Preparation",
+        is_active: true
+      },
+      {
+        id: "prep-ticket-10-informational",
+        food_id: "food-ticket-10-informational",
+        slug: "ticket-10-informational-preparation",
+        name: "Ticket 10 Informational Preparation",
+        is_active: true
+      },
+      {
+        id: "prep-ticket-10-quality-thawed-clock",
+        food_id: "food-ticket-10-quality-thawed-clock",
+        slug: "ticket-10-quality-thawed-clock-preparation",
+        name: "Ticket 10 Quality Thawed Clock Preparation",
         is_active: true
       }
     ],
@@ -233,6 +259,52 @@ function ticketSixFixture() {
             guidance: null
           }
         ]
+      },
+      {
+        id: "revision-ticket-10-informational",
+        preparation_id: "prep-ticket-10-informational",
+        version: 1,
+        status: "approved",
+        method: "SYNTHETIC INFORMATIONAL METHOD",
+        shape_texture: "SYNTHETIC INFORMATIONAL TEXTURE",
+        source_id: "source-ticket-06",
+        reviewer_role: "synthetic_test_reviewer",
+        reviewed_at: "2026-07-28",
+        approved_at: "2026-07-28",
+        next_review_at: "2027-07-28",
+        tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        storage_rules: [
+          {
+            id: "rule-ticket-10-informational",
+            support_status: "supported",
+            deadline_kind: "discard_after",
+            duration_hours: 24,
+            guidance: "SYNTHETIC INFORMATIONAL REFRIGERATOR GUIDANCE"
+          }
+        ]
+      },
+      {
+        id: "revision-ticket-10-quality-thawed-clock",
+        preparation_id: "prep-ticket-10-quality-thawed-clock",
+        version: 1,
+        status: "approved",
+        method: "SYNTHETIC QUALITY THAWED CLOCK METHOD",
+        shape_texture: "SYNTHETIC QUALITY THAWED CLOCK TEXTURE",
+        source_id: "source-ticket-06",
+        reviewer_role: "synthetic_test_reviewer",
+        reviewed_at: "2026-07-28",
+        approved_at: "2026-07-28",
+        next_review_at: "2027-07-28",
+        tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        storage_rules: [
+          {
+            id: "rule-ticket-10-quality-thawed-clock",
+            support_status: "supported",
+            deadline_kind: "discard_after",
+            duration_hours: 24,
+            guidance: "SYNTHETIC QUALITY CLOCK REFRIGERATOR GUIDANCE"
+          }
+        ]
       }
     ],
     retirements: []
@@ -253,6 +325,8 @@ describe("refrigerated batch creation", () => {
   let deadlineRaceComponentId: string;
   let crossBatchComponentId: string;
   let rollbackComponentId: string;
+  let informationalComponentId: string;
+  let qualityThawedClockComponentId: string;
   let createdBatchId: string;
   let storedDeadline: string;
   let fixtureImported = false;
@@ -286,10 +360,196 @@ describe("refrigerated batch creation", () => {
           reviewed_at: "2026-07-28",
           approved_at: "2026-07-28",
           next_review_at: "2027-07-28"
+        },
+        {
+          id: "rule-profile-ticket-10-informational",
+          storage_rule_id: "rule-ticket-10-informational",
+          content_revision_id: "revision-ticket-10-informational",
+          storage_location: "refrigerator",
+          start_event_kind: "prepared_or_opened",
+          precedence: 0,
+          duration_min_hours: 24,
+          duration_max_hours: 48,
+          source_id: "source-ticket-06",
+          reviewer_role: "synthetic_test_reviewer",
+          reviewed_at: "2026-07-28",
+          approved_at: "2026-07-28",
+          next_review_at: "2027-07-28"
+        },
+        {
+          id: "rule-profile-ticket-10-quality-thawed-clock",
+          storage_rule_id: "rule-ticket-10-quality-thawed-clock",
+          content_revision_id: "revision-ticket-10-quality-thawed-clock",
+          storage_location: "refrigerator",
+          start_event_kind: "prepared_or_opened",
+          precedence: 0,
+          duration_min_hours: 24,
+          duration_max_hours: 48,
+          source_id: "source-ticket-06",
+          reviewer_role: "synthetic_test_reviewer",
+          reviewed_at: "2026-07-28",
+          approved_at: "2026-07-28",
+          next_review_at: "2027-07-28"
         }
       ]
     });
     expect(profileImported.error).toBeNull();
+
+    const transitionsImported = await admin.rpc(
+      "import_storage_transition_rules",
+      {
+        p_rules: [
+          {
+            id: "transition-ticket-10-freeze",
+            content_revision_id: "revision-ticket-06",
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "quality_by",
+            duration_min_hours: 720,
+            duration_max_hours: 720,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED FREEZER QUALITY GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "transition-ticket-10-thaw",
+            content_revision_id: "revision-ticket-06",
+            transition_kind: "begin_thaw",
+            from_state: "frozen",
+            to_state: "thawing",
+            deadline_kind: "discard_after",
+            duration_min_hours: 12,
+            duration_max_hours: 18,
+            clock_start_event: "thaw_started",
+            resets_prior_clock: false,
+            method: "SYNTHETIC REVIEWED THAW METHOD",
+            refreezing_policy: "prohibited",
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED POST-THAW GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "transition-ticket-10-freeze-informational",
+            content_revision_id: "revision-ticket-10-informational",
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "informational",
+            duration_min_hours: null,
+            duration_max_hours: null,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED INFORMATIONAL FREEZER GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "transition-ticket-10-thaw-on-thawed",
+            content_revision_id: "revision-ticket-10-informational",
+            transition_kind: "begin_thaw",
+            from_state: "frozen",
+            to_state: "thawing",
+            deadline_kind: "discard_after",
+            duration_min_hours: 10,
+            duration_max_hours: 16,
+            clock_start_event: "thawed",
+            resets_prior_clock: false,
+            method: "SYNTHETIC REVIEWED THAW-TO-CLOCK METHOD",
+            refreezing_policy: "prohibited",
+            return_policy: null,
+            guidance: "SYNTHETIC REVIEWED THAWED-CLOCK GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "transition-ticket-10-freeze-quality-thawed-clock",
+            content_revision_id: "revision-ticket-10-quality-thawed-clock",
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "quality_by",
+            duration_min_hours: 720,
+            duration_max_hours: 720,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC QUALITY-BY FREEZER GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          {
+            id: "transition-ticket-10-thaw-quality-thawed-clock",
+            content_revision_id: "revision-ticket-10-quality-thawed-clock",
+            transition_kind: "begin_thaw",
+            from_state: "frozen",
+            to_state: "thawing",
+            deadline_kind: "discard_after",
+            duration_min_hours: 10,
+            duration_max_hours: 16,
+            clock_start_event: "thawed",
+            resets_prior_clock: false,
+            method: "SYNTHETIC QUALITY REVIEWED THAW METHOD",
+            refreezing_policy: "prohibited",
+            return_policy: null,
+            guidance: "SYNTHETIC QUALITY REVIEWED THAW GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          },
+          ...["refrigerated", "thawed"].map((fromState) => ({
+            id: `transition-ticket-10-return-${fromState}`,
+            content_revision_id: "revision-ticket-06",
+            transition_kind: "return_untouched",
+            from_state: fromState,
+            to_state: fromState,
+            deadline_kind: null,
+            duration_min_hours: null,
+            duration_max_hours: null,
+            clock_start_event: null,
+            resets_prior_clock: false,
+            method: null,
+            refreezing_policy: null,
+            return_policy: "untouched_separately_stored_only",
+            guidance: "SYNTHETIC REVIEWED UNTOUCHED RETURN GUIDANCE",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }))
+        ]
+      }
+    );
+    expect(transitionsImported.error).toBeNull();
     fixtureImported = true;
 
     const email = `ticket-06-${crypto.randomUUID()}@example.test`;
@@ -335,6 +595,14 @@ describe("refrigerated batch creation", () => {
         },
         {
           food_id: "food-ticket-06-unsupported",
+          status: "no_known_restriction"
+        },
+        {
+          food_id: "food-ticket-10-informational",
+          status: "no_known_restriction"
+        },
+        {
+          food_id: "food-ticket-10-quality-thawed-clock",
           status: "no_known_restriction"
         }
       ],
@@ -412,6 +680,18 @@ describe("refrigerated batch creation", () => {
           revision_id: "revision-ticket-06-unsupported",
           position: 1
         },
+        {
+          meal_id: mealIdByDate.get(futureDates[0]),
+          preparation_id: "prep-ticket-10-informational",
+          revision_id: "revision-ticket-10-informational",
+          position: 2
+        },
+        {
+          meal_id: mealIdByDate.get(futureDates[0]),
+          preparation_id: "prep-ticket-10-quality-thawed-clock",
+          revision_id: "revision-ticket-10-quality-thawed-clock",
+          position: 3
+        },
         ...futureDates.slice(1).map((localDate) => ({
           meal_id: mealIdByDate.get(localDate),
           preparation_id: "prep-ticket-06",
@@ -419,7 +699,7 @@ describe("refrigerated batch creation", () => {
           position: 1
         }))
       ])
-      .select("id, meal_id");
+      .select("id, meal_id, preparation_id");
     expect(futureComponents.error).toBeNull();
     if (!futureComponents.data) {
       throw new Error("Synthetic future components were not created");
@@ -433,6 +713,13 @@ describe("refrigerated batch creation", () => {
       return component!.id;
     };
     unsupportedMealComponentId = componentIdForDate(futureDates[0]);
+    informationalComponentId = futureComponents.data.find(
+      ({ preparation_id }) => preparation_id === "prep-ticket-10-informational"
+    )!.id;
+    qualityThawedClockComponentId = futureComponents.data.find(
+      ({ preparation_id }) =>
+        preparation_id === "prep-ticket-10-quality-thawed-clock"
+    )!.id;
     deadlineRaceComponentId = componentIdForDate(futureDates[1]);
     crossBatchComponentId = componentIdForDate(futureDates[2]);
     rollbackComponentId = componentIdForDate(futureDates[3]);
@@ -445,7 +732,9 @@ describe("refrigerated batch creation", () => {
     if (fixtureImported && fixtureValidated) {
       const revisionIds = [
         "revision-ticket-06",
-        "revision-ticket-06-unsupported"
+        "revision-ticket-06-unsupported",
+        "revision-ticket-10-informational",
+        "revision-ticket-10-quality-thawed-clock"
       ];
       const existing = await admin
         .from("content_retirements")
@@ -604,6 +893,58 @@ describe("refrigerated batch creation", () => {
     });
     expect(invalidProfile.error?.message).toContain(
       "must reference a supported approved discard rule"
+    );
+
+    const missingClockPolicy = await admin.rpc(
+      "import_storage_transition_rules",
+      {
+        p_rules: [
+          {
+            id: "transition-ticket-10-missing-clock-policy",
+            content_revision_id: "revision-ticket-06",
+            transition_kind: "freeze",
+            from_state: "refrigerated",
+            to_state: "frozen",
+            deadline_kind: "quality_by",
+            duration_min_hours: 24,
+            duration_max_hours: 24,
+            clock_start_event: null,
+            method: null,
+            refreezing_policy: null,
+            return_policy: null,
+            guidance: "SYNTHETIC INVALID CLOCK POLICY",
+            source_id: "source-ticket-06",
+            reviewer_role: "synthetic_test_reviewer",
+            reviewed_at: "2026-07-28",
+            approved_at: "2026-07-28",
+            next_review_at: "2027-07-28"
+          }
+        ]
+      }
+    );
+    expect(missingClockPolicy.error?.message).toContain(
+      "Storage transition rule is incomplete or invalid"
+    );
+    const directMissingClockPolicy = await admin
+      .from("storage_transition_rules")
+      .insert({
+        id: "transition-ticket-10-direct-missing-clock-policy",
+        content_revision_id: "revision-ticket-06",
+        transition_kind: "freeze",
+        from_state: "refrigerated",
+        to_state: "frozen",
+        deadline_kind: "quality_by",
+        duration_min_hours: 24,
+        duration_max_hours: 24,
+        guidance: "SYNTHETIC INVALID DIRECT CLOCK POLICY",
+        source_id: "source-ticket-06",
+        reviewer_role: "synthetic_test_reviewer",
+        reviewed_at: "2026-07-28",
+        approved_at: "2026-07-28",
+        next_review_at: "2027-07-28"
+      });
+    expect(directMissingClockPolicy.error?.message).toContain(
+      'null value in column "resets_prior_clock"'
     );
   });
 
@@ -766,8 +1107,39 @@ describe("refrigerated batch creation", () => {
       status: "rejected",
       reason: "batch_unavailable"
     });
+    const crossHouseholdTransition = await other.rpc(
+      "perform_batch_transition",
+      {
+        p_batch_id: createdBatchId,
+        p_transition: "freeze",
+        p_payload: {},
+        p_idempotency_key: crypto.randomUUID()
+      }
+    );
+    expect(crossHouseholdTransition.error).toBeNull();
+    expect(crossHouseholdTransition.data).toEqual({
+      status: "rejected",
+      reason: "batch_unavailable"
+    });
+    expect(
+      (
+        await other.rpc("project_batch_lifecycle", {
+          p_batch_id: createdBatchId
+        })
+      ).data
+    ).toBeNull();
 
     expect((await other.from("batches").select("*")).data).toEqual([]);
+    const anonymous = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    expect(
+      (
+        await anonymous.rpc("project_batch_lifecycle", {
+          p_batch_id: createdBatchId
+        })
+      ).error
+    ).not.toBeNull();
     expect(
       (
         await household.from("batch_events").insert({
@@ -1482,6 +1854,612 @@ describe("refrigerated batch creation", () => {
     ).not.toBeNull();
   });
 
+  test("reviewed freezer, thaw, untouched return, correction, finish, and reconciliation remain append-only", async () => {
+    const expiringCreated = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: rollbackComponentId,
+      p_prepared_or_opened_at: new Date(
+        Date.now() - 24 * 60 * 60 * 1000 + 8_000
+      ).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(expiringCreated.error).toBeNull();
+    const expiringFrozen = await household.rpc("perform_batch_transition", {
+      p_batch_id: expiringCreated.data.batch_id,
+      p_transition: "freeze",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(expiringFrozen.error).toBeNull();
+    const frozenInventoryRead = await household.rpc("get_kitchen_inventory");
+    const expiringInventory = frozenInventoryRead.data.items.find(
+      ({ batch_id }: { batch_id: string }) =>
+        batch_id === expiringCreated.data.batch_id
+    );
+    expect(expiringInventory).toEqual(
+      expect.objectContaining({
+        deadline_kind: "discard_after",
+        deadline_at: expiringCreated.data.deadline_at,
+        original_deadline_at: expiringCreated.data.deadline_at
+      })
+    );
+    expect(new Date(expiringInventory.quality_by_at).getTime()).toBeGreaterThan(
+      new Date(expiringInventory.deadline_at).getTime()
+    );
+
+    const thawingCreated = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: rollbackComponentId,
+      p_prepared_or_opened_at: new Date(
+        Date.now() - 24 * 60 * 60 * 1000 + 8_000
+      ).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(thawingCreated.error).toBeNull();
+    expect(
+      (
+        await household.rpc("perform_batch_transition", {
+          p_batch_id: thawingCreated.data.batch_id,
+          p_transition: "freeze",
+          p_payload: {},
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    const startedBeforeExpiry = await household.rpc(
+      "perform_batch_transition",
+      {
+        p_batch_id: thawingCreated.data.batch_id,
+        p_transition: "begin_thaw",
+        p_payload: {},
+        p_idempotency_key: crypto.randomUUID()
+      }
+    );
+    expect(startedBeforeExpiry.error).toBeNull();
+    expect(startedBeforeExpiry.data.lifecycle_state).toBe("thawing");
+
+    const waitUntilExpired =
+      Math.max(
+        new Date(expiringCreated.data.deadline_at).getTime(),
+        new Date(thawingCreated.data.deadline_at).getTime()
+      ) -
+      Date.now() +
+      250;
+    if (waitUntilExpired > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitUntilExpired));
+    }
+    const expiredThaw = await household.rpc("perform_batch_transition", {
+      p_batch_id: expiringCreated.data.batch_id,
+      p_transition: "begin_thaw",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(expiredThaw.error).toBeNull();
+    expect(expiredThaw.data).toEqual({
+      status: "rejected",
+      reason: "batch_expired"
+    });
+    const expiredMarkThawed = await household.rpc("perform_batch_transition", {
+      p_batch_id: thawingCreated.data.batch_id,
+      p_transition: "mark_thawed",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(expiredMarkThawed.error).toBeNull();
+    expect(expiredMarkThawed.data).toEqual({
+      status: "rejected",
+      reason: "batch_expired"
+    });
+    const afterExpiry = await household.rpc("get_kitchen_inventory");
+    expect(
+      afterExpiry.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === thawingCreated.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        storage_status: "expired",
+        available_actions: ["finish", "correct", "discard"],
+        action_guidance: null
+      })
+    );
+
+    const created = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: rollbackComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: "c5ad04ae-9f34-4c0a-a6a7-606419a9ec0b",
+      p_storage_location: "refrigerator"
+    });
+    expect(created.error).toBeNull();
+    expect(created.data.status).toBe("created");
+
+    const invalidThaw = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "begin_thaw",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(invalidThaw.error).toBeNull();
+    expect(invalidThaw.data).toEqual({
+      status: "rejected",
+      reason: "invalid_batch_transition"
+    });
+
+    const freezeKeys = [
+      "14453061-88bb-46d2-8a46-1584598aa567",
+      "24453061-88bb-46d2-8a46-1584598aa567"
+    ];
+    const concurrentFreeze = await Promise.all(
+      freezeKeys.map((p_idempotency_key) =>
+        household.rpc("perform_batch_transition", {
+          p_batch_id: created.data.batch_id,
+          p_transition: "freeze",
+          p_payload: {},
+          p_idempotency_key
+        })
+      )
+    );
+    expect(concurrentFreeze.every(({ error }) => error === null)).toBe(true);
+    const appliedFreeze = concurrentFreeze.find(
+      ({ data }) => data.status === "applied"
+    )!;
+    const rejectedFreeze = concurrentFreeze.find(
+      ({ data }) => data.status === "rejected"
+    )!;
+    expect(appliedFreeze.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        transition: "freeze",
+        lifecycle_state: "frozen",
+        remaining_portions: 2,
+        idempotent_retry: false
+      })
+    );
+    expect(rejectedFreeze.data).toEqual({
+      status: "rejected",
+      reason: "invalid_batch_transition"
+    });
+    const freezeKey =
+      concurrentFreeze.indexOf(appliedFreeze) === 0
+        ? freezeKeys[0]
+        : freezeKeys[1];
+    const freezeRetry = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "freeze",
+      p_payload: {},
+      p_idempotency_key: freezeKey
+    });
+    expect(freezeRetry.error).toBeNull();
+    expect(freezeRetry.data).toEqual({
+      ...appliedFreeze.data,
+      idempotent_retry: true
+    });
+    const freezeEvents = await household
+      .from("batch_events")
+      .select("id")
+      .eq("batch_id", created.data.batch_id)
+      .eq("event_type", "frozen");
+    expect(freezeEvents.error).toBeNull();
+    expect(freezeEvents.data).toHaveLength(1);
+
+    const frozenDeadline = await household
+      .from("batch_lifecycle_deadlines")
+      .select(
+        "deadline_kind, applied_duration_hours, reviewed_duration_min_hours, reviewed_duration_max_hours"
+      )
+      .eq("batch_id", created.data.batch_id)
+      .single();
+    expect(frozenDeadline.error).toBeNull();
+    expect(frozenDeadline.data).toEqual({
+      deadline_kind: "quality_by",
+      applied_duration_hours: 720,
+      reviewed_duration_min_hours: 720,
+      reviewed_duration_max_hours: 720
+    });
+
+    const thawing = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "begin_thaw",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(thawing.error).toBeNull();
+    expect(thawing.data.lifecycle_state).toBe("thawing");
+    const thawed = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "mark_thawed",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(thawed.error).toBeNull();
+    expect(thawed.data.lifecycle_state).toBe("thawed");
+
+    const deadlines = await household
+      .from("batch_lifecycle_deadlines")
+      .select(
+        "deadline_kind, applied_duration_hours, reviewed_duration_min_hours, reviewed_duration_max_hours"
+      )
+      .eq("batch_id", created.data.batch_id)
+      .order("created_at");
+    expect(deadlines.error).toBeNull();
+    expect(deadlines.data).toEqual([
+      {
+        deadline_kind: "quality_by",
+        applied_duration_hours: 720,
+        reviewed_duration_min_hours: 720,
+        reviewed_duration_max_hours: 720
+      },
+      {
+        deadline_kind: "discard_after",
+        applied_duration_hours: 12,
+        reviewed_duration_min_hours: 12,
+        reviewed_duration_max_hours: 18
+      }
+    ]);
+
+    const preparedEvent = await household
+      .from("batch_events")
+      .select("id")
+      .eq("batch_id", created.data.batch_id)
+      .eq("event_type", "prepared_or_opened")
+      .single();
+    expect(preparedEvent.error).toBeNull();
+    const frozenEvent = await household
+      .from("batch_events")
+      .select("id")
+      .eq("batch_id", created.data.batch_id)
+      .eq("event_type", "frozen")
+      .single();
+    expect(frozenEvent.error).toBeNull();
+    const invalidCorrection = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "correct",
+      p_payload: {
+        target_remaining_portions: 1,
+        corrects_event_id: frozenEvent.data!.id,
+        reason: "inventory_overcount"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(invalidCorrection.error).toBeNull();
+    expect(invalidCorrection.data).toEqual({
+      status: "rejected",
+      reason: "invalid_correction"
+    });
+    const corrected = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "correct",
+      p_payload: {
+        target_remaining_portions: 1,
+        corrects_event_id: preparedEvent.data!.id,
+        reason: "inventory_overcount"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(corrected.error).toBeNull();
+    expect(corrected.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        remaining_portions: 1,
+        lifecycle_state: "thawed"
+      })
+    );
+
+    const served = await household.rpc("serve_planned_portion", {
+      p_meal_component_id: rollbackComponentId,
+      p_batch_id: created.data.batch_id,
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(served.error).toBeNull();
+    expect(served.data.status).toBe("served");
+
+    const salivaReturn = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "return_untouched",
+      p_payload: {
+        served_event_id: served.data.event_id,
+        exposure_state: "saliva_exposed"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(salivaReturn.error).toBeNull();
+    expect(salivaReturn.data).toEqual({
+      status: "rejected",
+      reason: "portion_not_returnable"
+    });
+
+    const returned = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "return_untouched",
+      p_payload: {
+        served_event_id: served.data.event_id,
+        exposure_state: "untouched_separately_stored"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(returned.error).toBeNull();
+    expect(returned.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        remaining_portions: 1,
+        lifecycle_state: "thawed"
+      })
+    );
+
+    const finished = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "finish",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(finished.error).toBeNull();
+    expect(finished.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        remaining_portions: 0,
+        lifecycle_state: "finished"
+      })
+    );
+
+    const projection = await household.rpc("project_batch_lifecycle", {
+      p_batch_id: created.data.batch_id
+    });
+    expect(projection.error).toBeNull();
+    expect(projection.data).toEqual(
+      expect.objectContaining({
+        cached_remaining_portions: 0,
+        ledger_remaining_portions: 0,
+        projection_matches_ledger: true,
+        lifecycle_state: "finished",
+        latest_event_state: "finished"
+      })
+    );
+
+    const events = await household
+      .from("batch_events")
+      .select(
+        "event_type, occurred_at, actor_user_id, portion_delta, resulting_portions, transition_rule_id, compensates_event_id, metadata"
+      )
+      .eq("batch_id", created.data.batch_id)
+      .order("occurred_at");
+    expect(events.error).toBeNull();
+    expect(events.data?.map(({ event_type }) => event_type)).toEqual([
+      "prepared_or_opened",
+      "frozen",
+      "thaw_started",
+      "thawed",
+      "corrected",
+      "served",
+      "returned_untouched",
+      "finished"
+    ]);
+    expect(
+      events.data
+        ?.slice(1)
+        .every(
+          ({ occurred_at, actor_user_id, resulting_portions }) =>
+            typeof occurred_at === "string" &&
+            actor_user_id === userId &&
+            typeof resulting_portions === "number"
+        )
+    ).toBe(true);
+    expect(
+      events.data?.find(({ event_type }) => event_type === "corrected")
+        ?.compensates_event_id
+    ).toBe(preparedEvent.data!.id);
+    expect(
+      events.data?.find(({ event_type }) => event_type === "returned_untouched")
+        ?.metadata
+    ).toEqual(
+      expect.objectContaining({
+        exposure_state: "untouched_separately_stored",
+        served_event_id: served.data.event_id
+      })
+    );
+  });
+
+  test("informational freezer guidance preserves the original discard deadline without inventing a quality date", async () => {
+    const created = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: informationalComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(created.error).toBeNull();
+    expect(created.data.status).toBe("created");
+
+    const frozen = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "freeze",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(frozen.error).toBeNull();
+    expect(frozen.data.lifecycle_state).toBe("frozen");
+
+    const inventory = await household.rpc("get_kitchen_inventory");
+    expect(inventory.error).toBeNull();
+    expect(
+      inventory.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === created.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        lifecycle_state: "frozen",
+        deadline_kind: "discard_after",
+        deadline_at: created.data.deadline_at,
+        original_deadline_at: created.data.deadline_at,
+        quality_by_at: null,
+        applied_duration_hours: null,
+        reviewed_duration_range_hours: {
+          minimum: null,
+          maximum: null
+        },
+        guidance: "SYNTHETIC REVIEWED INFORMATIONAL FREEZER GUIDANCE",
+        available_actions: ["begin_thaw", "finish", "correct", "discard"],
+        action_method: "SYNTHETIC REVIEWED THAW-TO-CLOCK METHOD",
+        action_refreezing_policy: "prohibited"
+      })
+    );
+
+    const thawing = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "begin_thaw",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(thawing.error).toBeNull();
+    const whileThawing = await household.rpc("get_kitchen_inventory");
+    expect(
+      whileThawing.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === created.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        lifecycle_state: "thawing",
+        transition_method: "SYNTHETIC REVIEWED THAW-TO-CLOCK METHOD",
+        refreezing_policy: "prohibited",
+        available_actions: ["mark_thawed", "finish", "correct", "discard"]
+      })
+    );
+    expect(
+      (
+        await household
+          .from("batch_lifecycle_deadlines")
+          .select("id")
+          .eq("batch_id", created.data.batch_id)
+      ).data
+    ).toHaveLength(1);
+    const thawed = await household.rpc("perform_batch_transition", {
+      p_batch_id: created.data.batch_id,
+      p_transition: "mark_thawed",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(thawed.error).toBeNull();
+    const informationalDeadlines = await household
+      .from("batch_lifecycle_deadlines")
+      .select("deadline_kind, applied_duration_hours")
+      .eq("batch_id", created.data.batch_id)
+      .order("created_at");
+    expect(informationalDeadlines.error).toBeNull();
+    expect(informationalDeadlines.data).toEqual([
+      { deadline_kind: "informational", applied_duration_hours: null },
+      { deadline_kind: "discard_after", applied_duration_hours: 10 }
+    ]);
+
+    const qualityClockCreated = await household.rpc(
+      "create_refrigerated_batch",
+      {
+        p_meal_component_id: qualityThawedClockComponentId,
+        p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+        p_portion_count: 2,
+        p_idempotency_key: crypto.randomUUID(),
+        p_storage_location: "refrigerator"
+      }
+    );
+    expect(qualityClockCreated.error).toBeNull();
+    for (const transition of ["freeze", "begin_thaw"] as const) {
+      const result = await household.rpc("perform_batch_transition", {
+        p_batch_id: qualityClockCreated.data.batch_id,
+        p_transition: transition,
+        p_payload: {},
+        p_idempotency_key: crypto.randomUUID()
+      });
+      expect(result.error).toBeNull();
+      expect(result.data.status).toBe("applied");
+    }
+    const qualityClockThawing = await household.rpc("get_kitchen_inventory");
+    expect(
+      qualityClockThawing.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === qualityClockCreated.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        lifecycle_state: "thawing",
+        applied_duration_hours: null,
+        reviewed_duration_range_hours: { minimum: 10, maximum: 16 },
+        guidance: "SYNTHETIC QUALITY REVIEWED THAW GUIDANCE",
+        transition_method: "SYNTHETIC QUALITY REVIEWED THAW METHOD"
+      })
+    );
+    expect(
+      (
+        await household.rpc("perform_batch_transition", {
+          p_batch_id: qualityClockCreated.data.batch_id,
+          p_transition: "mark_thawed",
+          p_payload: {},
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    const qualityClockThawed = await household.rpc("get_kitchen_inventory");
+    expect(
+      qualityClockThawed.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === qualityClockCreated.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        lifecycle_state: "thawed",
+        applied_duration_hours: 10,
+        reviewed_duration_range_hours: { minimum: 10, maximum: 16 }
+      })
+    );
+
+    const concurrentCreated = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: informationalComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(concurrentCreated.error).toBeNull();
+    expect(
+      (
+        await household.rpc("perform_batch_transition", {
+          p_batch_id: concurrentCreated.data.batch_id,
+          p_transition: "freeze",
+          p_payload: {},
+          p_idempotency_key: crypto.randomUUID()
+        })
+      ).error
+    ).toBeNull();
+    const [serveFrozen, finishFrozen] = await Promise.all([
+      household.rpc("serve_planned_portion", {
+        p_meal_component_id: informationalComponentId,
+        p_batch_id: concurrentCreated.data.batch_id,
+        p_idempotency_key: crypto.randomUUID()
+      }),
+      household.rpc("perform_batch_transition", {
+        p_batch_id: concurrentCreated.data.batch_id,
+        p_transition: "finish",
+        p_payload: {},
+        p_idempotency_key: crypto.randomUUID()
+      })
+    ]);
+    expect(serveFrozen.error).toBeNull();
+    expect(serveFrozen.data).toEqual({
+      status: "rejected",
+      reason: "batch_not_ready_to_serve"
+    });
+    expect(finishFrozen.error).toBeNull();
+    expect(finishFrozen.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        lifecycle_state: "finished",
+        remaining_portions: 0
+      })
+    );
+  });
+
   test("serving fails closed for stale, blocked, expired, cross-household, and unpublished attempts", async () => {
     const recentBatch = await household.rpc("create_refrigerated_batch", {
       p_meal_component_id: unservedMealComponentId,
@@ -1576,6 +2554,24 @@ describe("refrigerated batch creation", () => {
       ).error
     ).not.toBeNull();
 
+    const cleanupBatch = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: unservedMealComponentId,
+      p_prepared_or_opened_at: new Date(Date.now() - 60_000).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: crypto.randomUUID(),
+      p_storage_location: "refrigerator"
+    });
+    expect(cleanupBatch.error).toBeNull();
+    const cleanupFreezeKey = crypto.randomUUID();
+    const cleanupFrozen = await household.rpc("perform_batch_transition", {
+      p_batch_id: cleanupBatch.data.batch_id,
+      p_transition: "freeze",
+      p_payload: {},
+      p_idempotency_key: cleanupFreezeKey
+    });
+    expect(cleanupFrozen.error).toBeNull();
+    expect(cleanupFrozen.data.status).toBe("applied");
+
     const retirementTransaction = await startHeldDatabaseTransaction(`
       insert into public.content_retirements (
         revision_id,
@@ -1587,6 +2583,14 @@ describe("refrigerated batch creation", () => {
         'SYNTHETIC TICKET 07 UNPUBLISHED CHECK'
       );
     `);
+    const unpublishedTransitionRequest = household
+      .rpc("perform_batch_transition", {
+        p_batch_id: recentBatch.data.batch_id,
+        p_transition: "freeze",
+        p_payload: {},
+        p_idempotency_key: crypto.randomUUID()
+      })
+      .then((result) => result);
     const unpublishedRequest = household
       .rpc("serve_planned_portion", {
         p_meal_component_id: unservedMealComponentId,
@@ -1596,8 +2600,9 @@ describe("refrigerated batch creation", () => {
       .then((result) => result);
     await waitForBlockedServingRequest();
     retirementTransaction.release();
-    const [unpublishedServe] = await Promise.all([
+    const [unpublishedServe, unpublishedTransition] = await Promise.all([
       unpublishedRequest,
+      unpublishedTransitionRequest,
       retirementTransaction.completed
     ]);
     expect(unpublishedServe.error).toBeNull();
@@ -1605,6 +2610,56 @@ describe("refrigerated batch creation", () => {
       status: "rejected",
       reason: "preparation_not_approved"
     });
+    expect(unpublishedTransition.error).toBeNull();
+    expect(unpublishedTransition.data).toEqual({
+      status: "rejected",
+      reason: "preparation_not_approved"
+    });
+
+    const retiredRetry = await household.rpc("perform_batch_transition", {
+      p_batch_id: cleanupBatch.data.batch_id,
+      p_transition: "freeze",
+      p_payload: {},
+      p_idempotency_key: cleanupFreezeKey
+    });
+    expect(retiredRetry.error).toBeNull();
+    expect(retiredRetry.data).toEqual({
+      ...cleanupFrozen.data,
+      idempotent_retry: true
+    });
+    const preparedEvent = await household
+      .from("batch_events")
+      .select("id")
+      .eq("batch_id", cleanupBatch.data.batch_id)
+      .eq("event_type", "prepared_or_opened")
+      .single();
+    expect(preparedEvent.error).toBeNull();
+    const retiredCorrection = await household.rpc("perform_batch_transition", {
+      p_batch_id: cleanupBatch.data.batch_id,
+      p_transition: "correct",
+      p_payload: {
+        target_remaining_portions: 1,
+        corrects_event_id: preparedEvent.data!.id,
+        reason: "inventory_overcount"
+      },
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(retiredCorrection.error).toBeNull();
+    expect(retiredCorrection.data.remaining_portions).toBe(1);
+    const retiredFinish = await household.rpc("perform_batch_transition", {
+      p_batch_id: cleanupBatch.data.batch_id,
+      p_transition: "finish",
+      p_payload: {},
+      p_idempotency_key: crypto.randomUUID()
+    });
+    expect(retiredFinish.error).toBeNull();
+    expect(retiredFinish.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        lifecycle_state: "finished",
+        remaining_portions: 0
+      })
+    );
 
     const unchanged = await household.rpc("get_kitchen_inventory");
     expect(

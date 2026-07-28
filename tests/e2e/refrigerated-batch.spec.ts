@@ -238,6 +238,35 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   );
   await expect(page.getByText("Dates use America/Chicago")).toBeVisible();
 
+  await page.goto("/today");
+  await expect(
+    page.getByRole("heading", { name: "Next planned meal" })
+  ).toBeVisible();
+  const todayComponent = page.getByTestId("today-component");
+  await expect(todayComponent).toContainText("ZZZ Batch Browser Preparation");
+  await expect(todayComponent).toContainText("Ready");
+  await expect(todayComponent).toContainText(
+    "A reviewed refrigerated portion is available"
+  );
+  await todayComponent
+    .getByRole("button", { name: "Serve one portion" })
+    .click();
+  await expect(page).toHaveURL(/\/today\?served=1$/);
+  await expect(page.getByRole("status")).toContainText(
+    "One portion was served as planned"
+  );
+
+  await page.goto("/kitchen");
+  await expect(page.getByTestId("kitchen-batch")).toContainText(
+    "1 portion remaining"
+  );
+
+  await page.goto("/week");
+  const servedTomorrow = page
+    .getByTestId("week-day")
+    .filter({ hasText: "Tomorrow" });
+  await expect(servedTomorrow).toContainText("Served");
+
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth

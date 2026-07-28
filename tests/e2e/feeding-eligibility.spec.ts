@@ -175,6 +175,7 @@ test("a caregiver configures conservative eligibility and revises it later", asy
     .getByLabel("Safety status for AAA Eligibility Browser Food")
     .selectOption("temporary_avoidance");
   await page.getByRole("button", { name: "Save feeding setup" }).click();
+  await expect(page.getByRole("status")).toContainText("Feeding setup saved");
 
   await page.goto("/foods/aaa-eligibility-browser-preparation");
   await expect(

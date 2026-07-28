@@ -375,8 +375,53 @@ a {
 }
 
 .batch-status--use_today,
-.batch-status--expired {
+.batch-status--expired,
+.batch-status--depleted {
   color: var(--focus);
+}
+
+.today-page,
+.today-meal,
+.today-components,
+.serve-portion-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.today-meal > header h2,
+.today-meal > header p,
+.today-component h3,
+.today-component__food {
+  margin: 0;
+}
+
+.today-meal > header h2 {
+  margin-top: 0.45rem;
+}
+
+.today-meal > header p:last-child,
+.today-component__food {
+  color: var(--ink-muted);
+}
+
+.today-component > p:not(.batch-status, .safety-note, .batch-source) {
+  line-height: 1.5;
+}
+
+.batch-status--quick_preparation,
+.batch-status--thaw_required,
+.batch-status--served {
+  color: var(--accent);
+}
+
+.batch-status--unavailable {
+  color: var(--focus);
+}
+
+.week-components__served {
+  color: var(--accent) !important;
+  font-weight: 800;
+  margin-top: 0.35rem;
 }
 
 .feeding-form__rows,

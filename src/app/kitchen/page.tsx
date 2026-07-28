@@ -21,7 +21,8 @@ type KitchenPageProps = {
 const statusLabels = {
   ready: "Ready",
   use_today: "Use Today",
-  expired: "Expired"
+  expired: "Expired",
+  depleted: "Finished"
 } as const;
 
 function formatLocalDateTime(instant: string, timeZone: string): string {
@@ -184,7 +185,11 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
                     {statusLabels[item.storageStatus]}
                   </p>
                   <h3>{item.preparationName}</h3>
-                  <strong>{item.remainingPortions} portions remaining</strong>
+                  <strong>
+                    {item.remainingPortions}{" "}
+                    {item.remainingPortions === 1 ? "portion" : "portions"}{" "}
+                    remaining
+                  </strong>
                 </header>
                 <dl className="batch-facts">
                   <div>

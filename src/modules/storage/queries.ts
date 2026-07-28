@@ -33,7 +33,7 @@ export type KitchenInventoryItem = {
   remainingPortions: number;
   preparedOrOpenedAt: string;
   deadlineAt: string;
-  storageStatus: "ready" | "use_today" | "expired";
+  storageStatus: "ready" | "use_today" | "expired" | "depleted";
   ruleProfileId: string;
   storageRuleId: string;
   appliedDurationHours: number;
@@ -174,7 +174,8 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
     deadlineAt &&
     (storageStatus === "ready" ||
       storageStatus === "use_today" ||
-      storageStatus === "expired") &&
+      storageStatus === "expired" ||
+      storageStatus === "depleted") &&
     ruleProfileId &&
     storageRuleId &&
     appliedDurationHours !== null &&

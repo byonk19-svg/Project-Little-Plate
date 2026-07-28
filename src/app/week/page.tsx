@@ -87,12 +87,18 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                             <li key={component.componentId}>
                               <strong>{component.preparationName}</strong>
                               <span>{component.foodName}</span>
-                              <Link
-                                className="week-components__action"
-                                href={`/kitchen?componentId=${component.componentId}`}
-                              >
-                                Prepare and refrigerate
-                              </Link>
+                              {component.servingStatus === "served" ? (
+                                <span className="week-components__served">
+                                  Served
+                                </span>
+                              ) : (
+                                <Link
+                                  className="week-components__action"
+                                  href={`/kitchen?componentId=${component.componentId}`}
+                                >
+                                  Prepare and refrigerate
+                                </Link>
+                              )}
                             </li>
                           ))}
                         </ol>

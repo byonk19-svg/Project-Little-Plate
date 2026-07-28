@@ -11,6 +11,7 @@ export type WeekComponent = {
   preparationSlug: string;
   preparationName: string;
   foodName: string;
+  servingStatus: "planned" | "served";
 };
 
 export type WeekPlan = {
@@ -49,6 +50,7 @@ function parseComponent(value: unknown): WeekComponent | null {
   const preparationSlug = requiredString(value, "preparation_slug");
   const preparationName = requiredString(value, "preparation_name");
   const foodName = requiredString(value, "food_name");
+  const servingStatus = value.serving_status;
   const position = value.position;
 
   return componentId &&
@@ -57,6 +59,7 @@ function parseComponent(value: unknown): WeekComponent | null {
     preparationSlug &&
     preparationName &&
     foodName &&
+    (servingStatus === "planned" || servingStatus === "served") &&
     typeof position === "number" &&
     Number.isInteger(position) &&
     position >= 1 &&
@@ -68,7 +71,8 @@ function parseComponent(value: unknown): WeekComponent | null {
         revisionId,
         preparationSlug,
         preparationName,
-        foodName
+        foodName,
+        servingStatus
       }
     : null;
 }

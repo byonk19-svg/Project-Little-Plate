@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ServePortionForm } from "@/app/today/serve-portion-form";
+import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mealSlotLabels } from "@/modules/meals/presentation";
 import { getTodayMeal } from "@/modules/meals/today-queries";
+import { formatStorageLocalDateTime } from "@/modules/storage/presentation";
+import { getUseSoonBatches } from "@/modules/storage/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 type TodayPageProps = {
-  searchParams: Promise<{ served?: string }>;
+  searchParams: Promise<{ discarded?: string; served?: string }>;
 };
 
 const availabilityLabels = {
@@ -31,14 +34,6 @@ function formatLocalDate(localDate: string): string {
     day: "numeric",
     timeZone: "UTC"
   }).format(new Date(`${localDate}T00:00:00Z`));
-}
-
-function formatLocalDateTime(instant: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone
-  }).format(new Date(instant));
 }
 
 async function getTodayProfileState(): Promise<
@@ -71,10 +66,11 @@ async function getTodayProfileState(): Promise<
 }
 
 export default async function TodayPage({ searchParams }: TodayPageProps) {
-  const [{ served }, today, profile] = await Promise.all([
+  const [{ discarded, served }, today, profile, useSoon] = await Promise.all([
     searchParams,
     getTodayMeal(),
-    getTodayProfileState()
+    getTodayProfileState(),
+    getUseSoonBatches()
   ]);
 
   return (
@@ -91,6 +87,12 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
       {served === "1" ? (
         <p className="form-message form-message--success" role="status">
           One portion was served as planned.
+        </p>
+      ) : null}
+
+      {discarded === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          Remaining portions were discarded.
         </p>
       ) : null}
 
@@ -173,7 +175,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
                       <div>
                         <dt>Exact discard deadline</dt>
                         <dd>
-                          {formatLocalDateTime(
+                          {formatStorageLocalDateTime(
                             component.deadlineAt,
                             today.timeZone
                           )}
@@ -223,6 +225,95 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           </div>
         </section>
       )}
+
+      {useSoon.status === "ready" && useSoon.items.length > 0 ? (
+        <section className="use-soon-section" aria-labelledby="use-soon-title">
+          <header>
+            <p className="foundation-card__status">Refrigerator priority</p>
+            <h2 id="use-soon-title">Use soon</h2>
+            <p>
+              Unexpired portions due within the next 24 elapsed hours, earliest
+              deadline first.
+            </p>
+          </header>
+          <div className="use-soon-list">
+            {useSoon.items.map((item) => (
+              <article
+                className="foundation-card use-soon-card"
+                data-testid="use-soon-batch"
+                key={item.batchId}
+              >
+                <p className="batch-status batch-status--use_today">
+                  Use within 24 hours
+                </p>
+                <h3>{item.preparationName}</h3>
+                <p>{item.foodName}</p>
+                <p>
+                  {item.remainingPortions}{" "}
+                  {item.remainingPortions === 1 ? "portion" : "portions"}{" "}
+                  remaining
+                </p>
+                <dl className="batch-facts">
+                  <div>
+                    <dt>Exact discard deadline</dt>
+                    <dd>
+                      {formatStorageLocalDateTime(
+                        item.deadlineAt,
+                        useSoon.timeZone
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="safety-note">
+                  <strong>Reviewed storage guidance</strong>
+                  <span>{item.guidance}</span>
+                </p>
+                <p className="batch-source">
+                  Reviewed {item.reviewedAt} ·{" "}
+                  <a href={item.sourceUrl} rel="noreferrer" target="_blank">
+                    {item.sourceTitle}
+                  </a>
+                </p>
+                <div className="inventory-actions">
+                  {item.nextComponentId ? (
+                    <ServePortionForm
+                      batchId={item.batchId}
+                      idempotencyKey={crypto.randomUUID()}
+                      label="Use in next meal"
+                      mealComponentId={item.nextComponentId}
+                    />
+                  ) : (
+                    <Link
+                      className="primary-action primary-action--link"
+                      href={`/foods/${item.preparationSlug}`}
+                    >
+                      Plan this preparation
+                    </Link>
+                  )}
+                  <DiscardBatchForm
+                    batchId={item.batchId}
+                    idempotencyKey={crypto.randomUUID()}
+                    returnTo="/today"
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+          <Link href="/kitchen">See all refrigerator inventory</Link>
+        </section>
+      ) : useSoon.status === "unavailable" ? (
+        <section className="foundation-card" aria-labelledby="use-soon-title">
+          <p className="foundation-card__status">Use-soon unavailable</p>
+          <h2 id="use-soon-title">
+            Refrigerator priority could not be verified
+          </h2>
+          <p>
+            Refresh or open Kitchen. No near-term refrigerator task is being
+            inferred while current inventory cannot be checked.
+          </p>
+          <Link href="/kitchen">Open Kitchen</Link>
+        </section>
+      ) : null}
     </div>
   );
 }

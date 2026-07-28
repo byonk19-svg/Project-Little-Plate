@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 
 import { BatchConfirmationForm } from "@/app/kitchen/batch-confirmation-form";
+import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import {
   getKitchenInventory,
-  getRefrigeratedBatchPreview
+  getRefrigeratedBatchPreview,
+  type KitchenInventoryItem
 } from "@/modules/storage/queries";
+import { formatStorageLocalDateTime } from "@/modules/storage/presentation";
 
 export const metadata: Metadata = {
   title: "Kitchen"
@@ -14,6 +17,7 @@ type KitchenPageProps = {
   searchParams: Promise<{
     componentId?: string;
     created?: string;
+    discarded?: string;
     preparedAt?: string;
   }>;
 };
@@ -25,18 +29,77 @@ const statusLabels = {
   depleted: "Finished"
 } as const;
 
-function formatLocalDateTime(instant: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone
-  }).format(new Date(instant));
-}
-
 function formatRange(minimum: number, maximum: number): string {
   return minimum === maximum
     ? `${minimum} hours`
     : `${minimum}–${maximum} hours`;
+}
+
+function BatchCard({
+  item,
+  timeZone,
+  testId
+}: {
+  item: KitchenInventoryItem;
+  timeZone: string;
+  testId: "kitchen-batch" | "kitchen-expired-batch" | "kitchen-finished-batch";
+}) {
+  return (
+    <article
+      className="foundation-card batch-card"
+      data-testid={testId}
+      key={item.batchId}
+    >
+      <header>
+        <p className={`batch-status batch-status--${item.storageStatus}`}>
+          {statusLabels[item.storageStatus]}
+        </p>
+        <h3>{item.preparationName}</h3>
+        <strong>
+          {item.remainingPortions}{" "}
+          {item.remainingPortions === 1 ? "portion" : "portions"} remaining
+        </strong>
+      </header>
+      <dl className="batch-facts">
+        <div>
+          <dt>Prepared/opened</dt>
+          <dd data-testid="kitchen-batch-prepared-time">
+            {formatStorageLocalDateTime(item.preparedOrOpenedAt, timeZone)}
+          </dd>
+        </div>
+        <div>
+          <dt>Discard deadline</dt>
+          <dd data-testid="kitchen-batch-deadline-time">
+            {formatStorageLocalDateTime(item.deadlineAt, timeZone)}
+          </dd>
+        </div>
+      </dl>
+      <p className="safety-note">
+        <strong>
+          Reviewed range{" "}
+          {formatRange(
+            item.reviewedDurationRangeHours.minimum,
+            item.reviewedDurationRangeHours.maximum
+          )}
+          ; {item.appliedDurationHours} hours applied.
+        </strong>
+        <span>{item.guidance}</span>
+      </p>
+      <p className="batch-source">
+        Reviewed {item.reviewedAt} ·{" "}
+        <a href={item.sourceUrl} rel="noreferrer" target="_blank">
+          {item.sourceTitle}
+        </a>
+      </p>
+      {item.remainingPortions > 0 ? (
+        <DiscardBatchForm
+          batchId={item.batchId}
+          idempotencyKey={crypto.randomUUID()}
+          returnTo="/kitchen"
+        />
+      ) : null}
+    </article>
+  );
 }
 
 export default async function KitchenPage({ searchParams }: KitchenPageProps) {
@@ -51,6 +114,21 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
   ]);
   const timeZone =
     inventory.status === "ready" ? inventory.timeZone : "America/Chicago";
+  const activeItems =
+    inventory.status === "ready"
+      ? inventory.items.filter(
+          (item) =>
+            item.storageStatus === "ready" || item.storageStatus === "use_today"
+        )
+      : [];
+  const expiredItems =
+    inventory.status === "ready"
+      ? inventory.items.filter((item) => item.storageStatus === "expired")
+      : [];
+  const finishedItems =
+    inventory.status === "ready"
+      ? inventory.items.filter((item) => item.storageStatus === "depleted")
+      : [];
 
   return (
     <div className="kitchen-page">
@@ -66,6 +144,12 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
       {params.created === "1" ? (
         <p className="form-message form-message--success" role="status">
           Two portions are in the refrigerator.
+        </p>
+      ) : null}
+
+      {params.discarded === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          Remaining portions were discarded.
         </p>
       ) : null}
 
@@ -95,7 +179,7 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
             <div>
               <dt>Prepared/opened</dt>
               <dd data-testid="batch-preview-prepared-time">
-                {formatLocalDateTime(
+                {formatStorageLocalDateTime(
                   preview.preview.preparedOrOpenedAt,
                   timeZone
                 )}
@@ -114,7 +198,10 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
             <div>
               <dt>Applied deadline</dt>
               <dd data-testid="batch-preview-deadline-time">
-                {formatLocalDateTime(preview.preview.deadlineAt, timeZone)}
+                {formatStorageLocalDateTime(
+                  preview.preview.deadlineAt,
+                  timeZone
+                )}
               </dd>
             </div>
           </dl>
@@ -171,62 +258,63 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
             </p>
           </article>
         ) : (
-          <div className="batch-list">
-            {inventory.items.map((item) => (
-              <article
-                className="foundation-card batch-card"
-                data-testid="kitchen-batch"
-                key={item.batchId}
+          <div className="inventory-groups">
+            {activeItems.length > 0 ? (
+              <section aria-labelledby="active-inventory-title">
+                <h3 id="active-inventory-title">Available refrigerator</h3>
+                <p>Earliest exact deadline first.</p>
+                <div className="batch-list">
+                  {activeItems.map((item) => (
+                    <BatchCard
+                      item={item}
+                      key={item.batchId}
+                      testId="kitchen-batch"
+                      timeZone={inventory.timeZone}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {expiredItems.length > 0 ? (
+              <section
+                aria-labelledby="expired-inventory-title"
+                className="expired-inventory"
               >
-                <header>
-                  <p
-                    className={`batch-status batch-status--${item.storageStatus}`}
-                  >
-                    {statusLabels[item.storageStatus]}
-                  </p>
-                  <h3>{item.preparationName}</h3>
-                  <strong>
-                    {item.remainingPortions}{" "}
-                    {item.remainingPortions === 1 ? "portion" : "portions"}{" "}
-                    remaining
-                  </strong>
-                </header>
-                <dl className="batch-facts">
-                  <div>
-                    <dt>Prepared/opened</dt>
-                    <dd data-testid="kitchen-batch-prepared-time">
-                      {formatLocalDateTime(
-                        item.preparedOrOpenedAt,
-                        inventory.timeZone
-                      )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Discard deadline</dt>
-                    <dd data-testid="kitchen-batch-deadline-time">
-                      {formatLocalDateTime(item.deadlineAt, inventory.timeZone)}
-                    </dd>
-                  </div>
-                </dl>
-                <p className="safety-note">
-                  <strong>
-                    Reviewed range{" "}
-                    {formatRange(
-                      item.reviewedDurationRangeHours.minimum,
-                      item.reviewedDurationRangeHours.maximum
-                    )}
-                    ; {item.appliedDurationHours} hours applied.
-                  </strong>
-                  <span>{item.guidance}</span>
+                <h3 id="expired-inventory-title">Expired</h3>
+                <p>
+                  These exact discard deadlines have passed. They cannot be
+                  served or selected for a meal.
                 </p>
-                <p className="batch-source">
-                  Reviewed {item.reviewedAt} ·{" "}
-                  <a href={item.sourceUrl} rel="noreferrer" target="_blank">
-                    {item.sourceTitle}
-                  </a>
-                </p>
-              </article>
-            ))}
+                <div className="batch-list">
+                  {expiredItems.map((item) => (
+                    <BatchCard
+                      item={item}
+                      key={item.batchId}
+                      testId="kitchen-expired-batch"
+                      timeZone={inventory.timeZone}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {finishedItems.length > 0 ? (
+              <section aria-labelledby="finished-inventory-title">
+                <h3 id="finished-inventory-title">Finished</h3>
+                <p>No portions remain in these batches.</p>
+                <div className="batch-list">
+                  {finishedItems.map((item) => (
+                    <BatchCard
+                      item={item}
+                      key={item.batchId}
+                      testId="kitchen-finished-batch"
+                      timeZone={inventory.timeZone}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         )}
       </section>

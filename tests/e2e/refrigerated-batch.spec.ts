@@ -273,3 +273,125 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
     )
   ).toBe(false);
 });
+
+test("a use-soon batch expires on an open screen, is blocked, and can be discarded", async ({
+  page,
+  request
+}) => {
+  test.setTimeout(150_000);
+  const chicagoFormatter = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/Chicago"
+  });
+  await createProfile(page, request);
+
+  await page.goto("/feeding-setup");
+  await page
+    .getByLabel("Synthetic browser batch ability")
+    .selectOption("observed");
+  await page
+    .getByLabel("Safety status for ZZZ Batch Browser Food")
+    .selectOption("no_known_restriction");
+  await page.getByLabel("New-food pace").selectOption("one_per_week");
+  await page
+    .getByLabel("Preparation-time preference")
+    .selectOption("under_30_minutes");
+  await page.getByRole("button", { name: "Save feeding setup" }).click();
+  await expect(page.getByRole("status")).toContainText("Feeding setup saved");
+
+  await page.goto(`/foods/${fixtureIds.preparationSlug}`);
+  await page.getByRole("button", { name: "Add to tomorrow's meal" }).click();
+  await expect(page).toHaveURL(/\/week\?planned=1$/);
+
+  const tomorrow = page.getByTestId("week-day").filter({ hasText: "Tomorrow" });
+  const prepareHref = await tomorrow
+    .getByRole("link", { name: "Prepare and refrigerate" })
+    .getAttribute("href");
+  expect(prepareHref).not.toBeNull();
+
+  const regularPreparedAt = new Date();
+  await page.goto(
+    `${prepareHref!}&preparedAt=${encodeURIComponent(regularPreparedAt.toISOString())}`
+  );
+  await page.getByRole("button", { name: "Refrigerate 2 portions" }).click();
+  await expect(page).toHaveURL(/\/kitchen\?created=1$/);
+
+  const expiringPreparedAt = new Date(
+    Date.now() - 24 * 60 * 60 * 1000 + 20_000
+  );
+  const expiringDeadlineAt = new Date(
+    expiringPreparedAt.getTime() + 24 * 60 * 60 * 1000
+  );
+  const expectedExpiringDeadline = chicagoFormatter.format(expiringDeadlineAt);
+  const expectedRegularDeadline = chicagoFormatter.format(
+    new Date(regularPreparedAt.getTime() + 24 * 60 * 60 * 1000)
+  );
+
+  await page.goto(
+    `${prepareHref!}&preparedAt=${encodeURIComponent(expiringPreparedAt.toISOString())}`
+  );
+  await page.getByRole("button", { name: "Refrigerate 2 portions" }).click();
+  await expect(page).toHaveURL(/\/kitchen\?created=1$/);
+
+  const activeBatches = page.getByTestId("kitchen-batch");
+  await expect(activeBatches).toHaveCount(2);
+  await expect(
+    activeBatches.first().getByTestId("kitchen-batch-deadline-time")
+  ).toHaveText(expectedExpiringDeadline);
+  await expect(page.getByRole("button", { name: /freeze/i })).toHaveCount(0);
+
+  await page.goto("/today");
+  const useSoonBatches = page.getByTestId("use-soon-batch");
+  await expect(useSoonBatches).toHaveCount(2);
+  await expect(useSoonBatches.first()).toContainText(expectedExpiringDeadline);
+  await expect(useSoonBatches.first()).toContainText(
+    "SYNTHETIC REVIEWED BROWSER STORAGE GUIDANCE"
+  );
+  await expect(
+    useSoonBatches.first().getByRole("button", { name: "Use in next meal" })
+  ).toBeVisible();
+
+  const todayComponent = page.getByTestId("today-component");
+  await expect(todayComponent).toContainText(expectedExpiringDeadline);
+
+  const millisecondsUntilExpired =
+    expiringDeadlineAt.getTime() - Date.now() + 1_000;
+  if (millisecondsUntilExpired > 0) {
+    await page.waitForTimeout(millisecondsUntilExpired);
+  }
+
+  await todayComponent
+    .getByRole("button", { name: "Serve one portion" })
+    .click();
+  await expect(todayComponent.getByRole("alert")).toContainText(
+    "The reviewed deadline has passed. This portion was not served."
+  );
+
+  await page.goto("/today");
+  await expect(page.getByTestId("today-component")).toContainText(
+    expectedRegularDeadline
+  );
+  await expect(page.getByTestId("use-soon-batch")).toHaveCount(1);
+
+  await page.goto("/kitchen");
+  await expect(
+    page
+      .getByTestId("kitchen-batch")
+      .first()
+      .getByTestId("kitchen-batch-deadline-time")
+  ).toHaveText(expectedRegularDeadline);
+  const expiredBatch = page.getByTestId("kitchen-expired-batch");
+  await expect(expiredBatch).toContainText(expectedExpiringDeadline);
+  await expect(expiredBatch).toContainText(
+    "SYNTHETIC REVIEWED BROWSER STORAGE GUIDANCE"
+  );
+  await expiredBatch
+    .getByRole("button", { name: "Discard remaining portions" })
+    .click();
+  await expect(page).toHaveURL(/\/kitchen\?discarded=1$/);
+  await expect(page.getByRole("status")).toContainText(
+    "Remaining portions were discarded."
+  );
+  await expect(page.getByTestId("kitchen-expired-batch")).toHaveCount(0);
+});

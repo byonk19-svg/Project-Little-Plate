@@ -538,9 +538,7 @@ describe("refrigerated batch creation", () => {
     createdBatchId = created.data.batch_id;
     storedDeadline = created.data.deadline_at;
 
-    const kitchen = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: referenceAt
-    });
+    const kitchen = await household.rpc("get_kitchen_inventory");
     expect(kitchen.error).toBeNull();
     expect(kitchen.data.items).toEqual([
       expect.objectContaining({
@@ -568,11 +566,10 @@ describe("refrigerated batch creation", () => {
       reason: "invalid_prepared_time"
     });
 
-    const nullClockInventory = await household.rpc("get_kitchen_inventory", {
+    const clientClockInventory = await household.rpc("get_kitchen_inventory", {
       p_reference_at: null
     });
-    expect(nullClockInventory.error).toBeNull();
-    expect(nullClockInventory.data.items[0].storage_status).not.toBe("ready");
+    expect(clientClockInventory.error).not.toBeNull();
 
     const unsupported = await household.rpc("preview_refrigerated_batch", {
       p_meal_component_id: unsupportedMealComponentId,
@@ -632,25 +629,19 @@ describe("refrigerated batch creation", () => {
     expect(
       (
         await household.rpc("plan_preparation_for_tomorrow", {
-          p_baby_id: (
-            await household.rpc("get_kitchen_inventory", {
-              p_reference_at: "2026-07-28T14:00:00.000Z"
-            })
-          ).data.baby_id,
+          p_baby_id: (await household.rpc("get_kitchen_inventory")).data
+            .baby_id,
           p_preparation_slug: "ticket-06-preparation",
           p_meal_slot: "breakfast"
         })
       ).error
     ).toBeNull();
 
-    const laterRead = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: "2026-07-29T13:00:00.000Z"
-    });
+    const laterRead = await household.rpc("get_kitchen_inventory");
     expect(laterRead.error).toBeNull();
     expect(laterRead.data.items[0]).toEqual(
       expect.objectContaining({
-        deadline_at: storedDeadline,
-        storage_status: "expired"
+        deadline_at: storedDeadline
       })
     );
 
@@ -670,9 +661,7 @@ describe("refrigerated batch creation", () => {
       .eq("id", createdBatchId);
     expect(corrupted.error).toBeNull();
 
-    const stale = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: "2026-07-28T14:00:00.000Z"
-    });
+    const stale = await household.rpc("get_kitchen_inventory");
     expect(stale.data.items[0]).toEqual(
       expect.objectContaining({
         remaining_portions: 2,
@@ -685,9 +674,7 @@ describe("refrigerated batch creation", () => {
       .update({ remaining_portions: 99 })
       .eq("id", createdBatchId);
     expect(staleHighUpdate.error).toBeNull();
-    const staleHigh = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: "2026-07-28T14:00:00.000Z"
-    });
+    const staleHigh = await household.rpc("get_kitchen_inventory");
     expect(staleHigh.data.items[0]).toEqual(
       expect.objectContaining({
         remaining_portions: 2,
@@ -705,9 +692,7 @@ describe("refrigerated batch creation", () => {
       remaining_portions: 2
     });
 
-    const ready = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: "2026-07-28T14:00:00.000Z"
-    });
+    const ready = await household.rpc("get_kitchen_inventory");
     expect(ready.data.items[0]).toEqual(
       expect.objectContaining({
         remaining_portions: 2,
@@ -769,6 +754,15 @@ describe("refrigerated batch creation", () => {
     });
     expect(crossHouseholdServe.error).toBeNull();
     expect(crossHouseholdServe.data).toEqual({
+      status: "rejected",
+      reason: "batch_unavailable"
+    });
+    const crossHouseholdDiscard = await other.rpc("discard_batch", {
+      p_batch_id: createdBatchId,
+      p_idempotency_key: "12acaebc-cdd9-458c-bd1e-3b3eeb6f6bd4"
+    });
+    expect(crossHouseholdDiscard.error).toBeNull();
+    expect(crossHouseholdDiscard.data).toEqual({
       status: "rejected",
       reason: "batch_unavailable"
     });
@@ -903,9 +897,7 @@ describe("refrigerated batch creation", () => {
       events.data?.every(({ portion_delta }) => portion_delta === -1)
     ).toBe(true);
 
-    const kitchen = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: new Date().toISOString()
-    });
+    const kitchen = await household.rpc("get_kitchen_inventory");
     expect(kitchen.error).toBeNull();
     expect(kitchen.data.items[0]).toEqual(
       expect.objectContaining({
@@ -1097,6 +1089,244 @@ describe("refrigerated batch creation", () => {
     }
   });
 
+  test("use-soon inventory is deadline ordered and expired cleanup is append-only and idempotent", async () => {
+    const now = Date.now();
+    const earlier = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: deadlineRaceComponentId,
+      p_prepared_or_opened_at: new Date(
+        now - 22 * 60 * 60 * 1000
+      ).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: "495783e5-8854-4b7b-9184-0664aec26547",
+      p_storage_location: "refrigerator"
+    });
+    const later = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: deadlineRaceComponentId,
+      p_prepared_or_opened_at: new Date(
+        now - 20 * 60 * 60 * 1000
+      ).toISOString(),
+      p_portion_count: 1,
+      p_idempotency_key: "e7ffb552-1ce0-428d-b701-ec6445e90255",
+      p_storage_location: "refrigerator"
+    });
+    const expired = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: deadlineRaceComponentId,
+      p_prepared_or_opened_at: new Date(
+        now - 25 * 60 * 60 * 1000
+      ).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: "1db62e2e-2a42-4542-b3b0-3ccb451261e3",
+      p_storage_location: "refrigerator"
+    });
+    expect(earlier.error).toBeNull();
+    expect(later.error).toBeNull();
+    expect(expired.error).toBeNull();
+
+    const concurrent = await household.rpc("create_refrigerated_batch", {
+      p_meal_component_id: deadlineRaceComponentId,
+      p_prepared_or_opened_at: new Date(now - 60_000).toISOString(),
+      p_portion_count: 2,
+      p_idempotency_key: "18f9d19f-cfaa-4fa2-a768-8e6ae47acde1",
+      p_storage_location: "refrigerator"
+    });
+    expect(concurrent.error).toBeNull();
+
+    const concurrentDiscards = await Promise.all([
+      household.rpc("discard_batch", {
+        p_batch_id: concurrent.data.batch_id,
+        p_idempotency_key: "b017a1c6-ea16-47e7-a287-f566a5163af4"
+      }),
+      household.rpc("discard_batch", {
+        p_batch_id: concurrent.data.batch_id,
+        p_idempotency_key: "b80222e4-becb-4ee5-a22a-81ed84ca6f62"
+      })
+    ]);
+    expect(concurrentDiscards.every(({ error }) => error === null)).toBe(true);
+    expect(
+      concurrentDiscards
+        .map(({ data }) => data)
+        .sort((left, right) => left.status.localeCompare(right.status))
+    ).toEqual([
+      expect.objectContaining({
+        status: "discarded",
+        batch_id: concurrent.data.batch_id,
+        remaining_portions: 0
+      }),
+      {
+        status: "rejected",
+        reason: "batch_already_discarded"
+      }
+    ]);
+    const concurrentEvents = await household
+      .from("batch_events")
+      .select("portion_delta, resulting_portions")
+      .eq("batch_id", concurrent.data.batch_id)
+      .eq("event_type", "discarded");
+    expect(concurrentEvents.error).toBeNull();
+    expect(concurrentEvents.data).toEqual([
+      { portion_delta: -2, resulting_portions: 0 }
+    ]);
+
+    const useSoon = await household.rpc("get_use_soon_batches");
+    expect(useSoon.error).toBeNull();
+    expect(useSoon.data.items.length).toBeLessThanOrEqual(3);
+    expect(useSoon.data.items.slice(0, 2)).toEqual([
+      expect.objectContaining({
+        batch_id: earlier.data.batch_id,
+        remaining_portions: 2,
+        source_url: "https://example.test/ticket-06"
+      }),
+      expect.objectContaining({
+        batch_id: later.data.batch_id,
+        remaining_portions: 1
+      })
+    ]);
+    const today = await household.rpc("get_today_meal");
+    expect(today.error).toBeNull();
+    const todaySelectedComponent = today.data.components.find(
+      ({
+        availability_state,
+        batch_id
+      }: {
+        availability_state: string;
+        batch_id: string | null;
+      }) =>
+        availability_state === "ready" &&
+        useSoon.data.items.some(
+          ({ batch_id: useSoonBatchId }: { batch_id: string }) =>
+            useSoonBatchId === batch_id
+        )
+    );
+    expect(todaySelectedComponent).toBeDefined();
+    const selectedUseSoonBatch = useSoon.data.items.find(
+      ({ batch_id }: { batch_id: string }) =>
+        batch_id === todaySelectedComponent.batch_id
+    );
+    expect(selectedUseSoonBatch).toEqual(
+      expect.objectContaining({
+        next_component_id: todaySelectedComponent.component_id
+      })
+    );
+    expect(
+      useSoon.data.items
+        .filter(
+          ({ batch_id }: { batch_id: string }) =>
+            batch_id !== todaySelectedComponent.batch_id
+        )
+        .every(
+          ({ next_component_id }: { next_component_id: string | null }) =>
+            next_component_id === null
+        )
+    ).toBe(true);
+    expect(
+      useSoon.data.items.some(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === expired.data.batch_id
+      )
+    ).toBe(false);
+
+    const kitchen = await household.rpc("get_kitchen_inventory");
+    expect(kitchen.error).toBeNull();
+    const deadlines = kitchen.data.items.map(
+      ({ deadline_at }: { deadline_at: string }) =>
+        new Date(deadline_at).getTime()
+    );
+    expect(deadlines).toEqual([...deadlines].sort((a, b) => a - b));
+    expect(
+      kitchen.data.items.find(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === expired.data.batch_id
+      )
+    ).toEqual(
+      expect.objectContaining({
+        storage_status: "expired",
+        remaining_portions: 2
+      })
+    );
+
+    const blockedServe = await household.rpc("serve_planned_portion", {
+      p_meal_component_id: deadlineRaceComponentId,
+      p_batch_id: expired.data.batch_id,
+      p_idempotency_key: "14195833-073b-4837-b6b7-6e879439dcac"
+    });
+    expect(blockedServe.error).toBeNull();
+    expect(blockedServe.data).toEqual({
+      status: "rejected",
+      reason: "batch_expired"
+    });
+
+    const discardKey = "55aba389-4a83-4e35-a96f-c09bcd08e3e6";
+    const discarded = await household.rpc("discard_batch", {
+      p_batch_id: expired.data.batch_id,
+      p_idempotency_key: discardKey
+    });
+    expect(discarded.error).toBeNull();
+    expect(discarded.data).toEqual(
+      expect.objectContaining({
+        status: "discarded",
+        batch_id: expired.data.batch_id,
+        remaining_portions: 0,
+        idempotent_retry: false
+      })
+    );
+    const retried = await household.rpc("discard_batch", {
+      p_batch_id: expired.data.batch_id,
+      p_idempotency_key: discardKey
+    });
+    expect(retried.error).toBeNull();
+    expect(retried.data).toEqual({
+      ...discarded.data,
+      idempotent_retry: true
+    });
+    const secondKey = await household.rpc("discard_batch", {
+      p_batch_id: expired.data.batch_id,
+      p_idempotency_key: "efc4321b-2688-4c6d-bc9f-a488100d0d70"
+    });
+    expect(secondKey.data).toEqual({
+      status: "rejected",
+      reason: "batch_already_discarded"
+    });
+
+    const discardEvents = await household
+      .from("batch_events")
+      .select("event_type, portion_delta, resulting_portions")
+      .eq("batch_id", expired.data.batch_id)
+      .eq("event_type", "discarded");
+    expect(discardEvents.error).toBeNull();
+    expect(discardEvents.data).toEqual([
+      {
+        event_type: "discarded",
+        portion_delta: -2,
+        resulting_portions: 0
+      }
+    ]);
+    const afterCleanup = await household.rpc("get_kitchen_inventory");
+    expect(
+      afterCleanup.data.items.some(
+        ({ batch_id }: { batch_id: string }) =>
+          batch_id === expired.data.batch_id
+      )
+    ).toBe(false);
+
+    const anonymous = createClient(status.API_URL, status.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    expect((await anonymous.rpc("get_use_soon_batches")).error).not.toBeNull();
+    expect(
+      (
+        await household.from("batch_events").insert({
+          batch_id: later.data.batch_id,
+          event_type: "discarded",
+          occurred_at: new Date().toISOString(),
+          actor_user_id: userId,
+          portion_delta: -1,
+          idempotency_key: "19bc03af-c560-432b-8c54-9b0d014603dd",
+          resulting_portions: 0
+        })
+      ).error
+    ).not.toBeNull();
+  });
+
   test("serving fails closed for stale, blocked, expired, cross-household, and unpublished attempts", async () => {
     const recentBatch = await household.rpc("create_refrigerated_batch", {
       p_meal_component_id: unservedMealComponentId,
@@ -1221,9 +1451,7 @@ describe("refrigerated batch creation", () => {
       reason: "preparation_not_approved"
     });
 
-    const unchanged = await household.rpc("get_kitchen_inventory", {
-      p_reference_at: new Date().toISOString()
-    });
+    const unchanged = await household.rpc("get_kitchen_inventory");
     expect(
       unchanged.data.items.find(
         (item: { batch_id: string }) =>

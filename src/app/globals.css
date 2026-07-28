@@ -318,10 +318,26 @@ a {
 
 .kitchen-page,
 .kitchen-inventory,
+.inventory-groups,
 .batch-list,
 .batch-confirmation-form {
   display: grid;
   gap: 1.25rem;
+}
+
+.inventory-groups > section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-groups > section > h3,
+.inventory-groups > section > p {
+  margin: 0;
+}
+
+.expired-inventory {
+  border-top: 2px solid var(--focus);
+  padding-top: 1.25rem;
 }
 
 .kitchen-inventory h2 {
@@ -383,9 +399,34 @@ a {
 .today-page,
 .today-meal,
 .today-components,
-.serve-portion-form {
+.serve-portion-form,
+.use-soon-section,
+.use-soon-list,
+.discard-batch-form,
+.inventory-actions {
   display: grid;
   gap: 1.25rem;
+}
+
+.use-soon-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+.use-soon-section > header h2,
+.use-soon-section > header p,
+.use-soon-card h3 {
+  margin: 0;
+}
+
+.use-soon-section > header p:last-child {
+  color: var(--ink-muted);
+  line-height: 1.5;
+  margin-top: 0.45rem;
+}
+
+.inventory-actions {
+  gap: 0.75rem;
 }
 
 .today-meal > header h2,
@@ -515,6 +556,28 @@ legend {
   display: inline-flex;
   margin-top: 1.25rem;
   text-decoration: none;
+}
+
+.secondary-action {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3rem;
+  padding: 0.7rem 1rem;
+}
+
+.secondary-action--danger {
+  border-color: var(--focus);
+  color: var(--focus);
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 
 .profile-ready {

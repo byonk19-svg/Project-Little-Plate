@@ -10,14 +10,15 @@ type ServePortionFormProps = {
   batchId: string;
   mealComponentId: string;
   idempotencyKey: string;
+  label?: string;
 };
 
-function ServeButton() {
+function ServeButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
 
   return (
     <button className="primary-action" disabled={pending} type="submit">
-      {pending ? "Serving…" : "Serve one portion"}
+      {pending ? "Serving…" : label}
     </button>
   );
 }
@@ -25,7 +26,8 @@ function ServeButton() {
 export function ServePortionForm({
   batchId,
   mealComponentId,
-  idempotencyKey
+  idempotencyKey,
+  label = "Serve one portion"
 }: ServePortionFormProps) {
   const [state, action] = useActionState(
     servePlannedPortion,
@@ -42,7 +44,7 @@ export function ServePortionForm({
           {state.message}
         </p>
       ) : null}
-      <ServeButton />
+      <ServeButton label={label} />
     </form>
   );
 }

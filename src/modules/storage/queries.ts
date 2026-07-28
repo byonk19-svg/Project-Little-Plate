@@ -56,6 +56,31 @@ export type KitchenInventoryResult =
     }
   | { status: "unavailable"; reason: string; items: [] };
 
+export type UseSoonBatch = {
+  batchId: string;
+  preparationId: string;
+  revisionId: string;
+  preparationSlug: string;
+  preparationName: string;
+  foodName: string;
+  remainingPortions: number;
+  deadlineAt: string;
+  guidance: string;
+  reviewedAt: string;
+  sourceTitle: string;
+  sourceUrl: string;
+  nextComponentId: string | null;
+};
+
+export type UseSoonResult =
+  | {
+      status: "ready";
+      babyId: string;
+      timeZone: string;
+      items: UseSoonBatch[];
+    }
+  | { status: "unavailable"; reason: string; items: [] };
+
 function requiredString(record: JsonRecord, key: string): string | null {
   const value = record[key];
   return typeof value === "string" && value !== "" ? value : null;
@@ -162,6 +187,13 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
   const sourceTitle = requiredString(value, "source_title");
   const sourceUrl = requiredString(value, "source_url");
   const storageStatus = value.storage_status;
+  const lifecycleIsConsistent =
+    (storageStatus === "depleted" && remainingPortions === 0) ||
+    ((storageStatus === "ready" ||
+      storageStatus === "use_today" ||
+      storageStatus === "expired") &&
+      remainingPortions !== null &&
+      remainingPortions > 0);
 
   return batchId &&
     preparationId &&
@@ -172,10 +204,7 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
     remainingPortions >= 0 &&
     preparedOrOpenedAt &&
     deadlineAt &&
-    (storageStatus === "ready" ||
-      storageStatus === "use_today" ||
-      storageStatus === "expired" ||
-      storageStatus === "depleted") &&
+    lifecycleIsConsistent &&
     ruleProfileId &&
     storageRuleId &&
     appliedDurationHours !== null &&
@@ -203,6 +232,65 @@ function parseInventoryItem(value: unknown): KitchenInventoryItem | null {
         reviewedAt,
         sourceTitle,
         sourceUrl
+      }
+    : null;
+}
+
+function nullableString(record: JsonRecord, key: string): string | null {
+  const value = record[key];
+  return value === null
+    ? null
+    : typeof value === "string" && value !== ""
+      ? value
+      : null;
+}
+
+function parseUseSoonBatch(value: unknown): UseSoonBatch | null {
+  if (!isJsonRecord(value)) {
+    return null;
+  }
+
+  const batchId = requiredString(value, "batch_id");
+  const preparationId = requiredString(value, "preparation_id");
+  const revisionId = requiredString(value, "revision_id");
+  const preparationSlug = requiredString(value, "preparation_slug");
+  const preparationName = requiredString(value, "preparation_name");
+  const foodName = requiredString(value, "food_name");
+  const remainingPortions = requiredInteger(value, "remaining_portions");
+  const deadlineAt = requiredString(value, "deadline_at");
+  const guidance = requiredString(value, "guidance");
+  const reviewedAt = requiredString(value, "reviewed_at");
+  const sourceTitle = requiredString(value, "source_title");
+  const sourceUrl = requiredString(value, "source_url");
+  const nextComponentId = nullableString(value, "next_component_id");
+
+  return batchId &&
+    preparationId &&
+    revisionId &&
+    preparationSlug &&
+    preparationName &&
+    foodName &&
+    remainingPortions !== null &&
+    remainingPortions > 0 &&
+    deadlineAt &&
+    guidance &&
+    reviewedAt &&
+    sourceTitle &&
+    sourceUrl
+    ? {
+        batchId,
+        preparationId,
+        revisionId,
+        preparationSlug,
+        preparationName,
+        foodName,
+        remainingPortions,
+        deadlineAt,
+        guidance,
+        reviewedAt,
+        sourceTitle,
+        sourceUrl,
+        nextComponentId
       }
     : null;
 }
@@ -239,9 +327,7 @@ export async function getRefrigeratedBatchPreview(
 
 export async function getKitchenInventory(): Promise<KitchenInventoryResult> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("get_kitchen_inventory", {
-    p_reference_at: new Date().toISOString()
-  });
+  const { data, error } = await supabase.rpc("get_kitchen_inventory");
 
   if (
     error ||
@@ -273,6 +359,44 @@ export async function getKitchenInventory(): Promise<KitchenInventoryResult> {
     : {
         status: "unavailable",
         reason: "inventory_invalid",
+        items: []
+      };
+}
+
+export async function getUseSoonBatches(): Promise<UseSoonResult> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_use_soon_batches");
+
+  if (
+    error ||
+    !isJsonRecord(data) ||
+    data.status !== "ready" ||
+    !Array.isArray(data.items)
+  ) {
+    return {
+      status: "unavailable",
+      reason:
+        !error && isJsonRecord(data) && typeof data.reason === "string"
+          ? data.reason
+          : "use_soon_unavailable",
+      items: []
+    };
+  }
+
+  const babyId = requiredString(data, "baby_id");
+  const timeZone = requiredString(data, "time_zone");
+  const items = data.items.map(parseUseSoonBatch);
+
+  return babyId && timeZone && items.every((item) => item !== null)
+    ? {
+        status: "ready",
+        babyId,
+        timeZone,
+        items: items as UseSoonBatch[]
+      }
+    : {
+        status: "unavailable",
+        reason: "use_soon_invalid",
         items: []
       };
 }

@@ -193,4 +193,40 @@ describe("calculateStorageDeadline", () => {
       );
     }
   );
+
+  test("the exact discard instant is the first expired instant", () => {
+    const deadlineAt = "2026-07-29T12:00:00.000Z";
+    const rule = {
+      id: "rule-boundary",
+      contentRevisionId: "revision-1",
+      supportStatus: "supported" as const,
+      deadlineKind: "discard_after" as const,
+      location: "refrigerator" as const,
+      startEventKind: "prepared_or_opened" as const,
+      precedence: 0,
+      durationHours: 24,
+      durationRangeHours: null,
+      guidance: "SYNTHETIC REVIEWED TEST GUIDANCE"
+    };
+    const classify = (clock: string) =>
+      calculateStorageDeadline({
+        clock: new Date(clock),
+        startEvent: {
+          kind: "prepared_or_opened",
+          occurredAt: new Date("2026-07-28T12:00:00.000Z")
+        },
+        location: "refrigerator",
+        rules: [rule]
+      });
+
+    expect(
+      classify(new Date(new Date(deadlineAt).getTime() - 1).toISOString())
+    ).toEqual(expect.objectContaining({ storageStatus: "use_today" }));
+    expect(classify(deadlineAt)).toEqual(
+      expect.objectContaining({ storageStatus: "expired" })
+    );
+    expect(
+      classify(new Date(new Date(deadlineAt).getTime() + 1).toISOString())
+    ).toEqual(expect.objectContaining({ storageStatus: "expired" }));
+  });
 });

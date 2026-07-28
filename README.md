@@ -43,6 +43,12 @@ overrides, while manual grocery items use a separate persistence path so plan
 edits cannot erase them. A configured quick backup subtracts grocery need only
 after the caregiver marks that food already available.
 
+The deterministic planner domain now accepts a complete reviewed snapshot and
+returns either one reproducible, storage-feasible week or a typed failure with
+no partial plan. Hard eligibility and deadline gates run before deterministic
+soft priorities; database generation and regeneration remain a separate next
+slice.
+
 The production seed intentionally contains no food, reaction guidance, or other
 safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
@@ -66,6 +72,7 @@ product specification.
 - [Kitchen lifecycle decision](docs/adr/0010-kitchen-lifecycle-boundary.md)
 - [Reaction safety-block decision](docs/adr/0011-reaction-safety-block-boundary.md)
 - [Derived work and grocery decision](docs/adr/0012-derived-work-and-grocery-boundary.md)
+- [Deterministic planner decision](docs/adr/0013-deterministic-planner-boundary.md)
 
 ## Prerequisites
 

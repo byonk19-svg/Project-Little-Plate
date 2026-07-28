@@ -1,13 +1,10 @@
-import { execSync } from "node:child_process";
-
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-type LocalSupabaseStatus = {
-  API_URL: string;
-  ANON_KEY: string;
-  SERVICE_ROLE_KEY: string;
-};
+import {
+  type LocalSupabaseStatus,
+  readLocalSupabaseStatus
+} from "./support/local-supabase";
 
 const validFixture = {
   sources: [
@@ -255,12 +252,6 @@ type MutableFixture = {
   >;
   retirements: Array<Record<string, unknown>>;
 };
-
-function readLocalSupabaseStatus(): LocalSupabaseStatus {
-  return JSON.parse(
-    execSync("pnpm exec supabase status -o json", { encoding: "utf8" })
-  ) as LocalSupabaseStatus;
-}
 
 describe("reviewed content foundation", () => {
   let status: LocalSupabaseStatus;

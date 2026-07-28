@@ -31,10 +31,13 @@ export default async function TodayPage() {
         nextStep="A later ticket will connect reviewed preparations, valid inventory, and the next planned meal here."
       />
       {activeBaby ? (
-        <p className="profile-ready">
-          {(activeBaby.nickname as string | null) ?? "Your baby"}’s profile is
-          ready.
-        </p>
+        <div className="profile-ready">
+          <p>
+            {(activeBaby.nickname as string | null) ?? "Your baby"}’s profile is
+            ready.
+          </p>
+          <Link href="/feeding-setup">Configure feeding eligibility</Link>
+        </div>
       ) : (
         <Link className="primary-action primary-action--link" href="/login">
           Set up caregiver account

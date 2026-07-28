@@ -10,7 +10,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isFocusedFlow =
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
-    pathname.startsWith("/profile-setup");
+    pathname.startsWith("/profile-setup") ||
+    pathname.startsWith("/feeding-setup");
 
   return (
     <div className={`app-shell${isFocusedFlow ? " app-shell--focused" : ""}`}>

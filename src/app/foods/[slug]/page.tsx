@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { getPublishedPreparation } from "@/modules/catalog/queries";
+import { getPreparationEligibility } from "@/modules/eligibility/queries";
 
 type FoodDetailPageProps = {
   params: Promise<{ slug: string }>;
@@ -25,7 +26,10 @@ function durationLabel(hours: number) {
 
 export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
   const { slug } = await params;
-  const preparation = await getPublishedPreparation(slug);
+  const [preparation, eligibility] = await Promise.all([
+    getPublishedPreparation(slug),
+    getPreparationEligibility(slug)
+  ]);
 
   if (!preparation) {
     notFound();
@@ -76,6 +80,63 @@ export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
             <dd>{allergens.map((tag) => tag.label).join(", ")}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="foundation-card" aria-label="Selection eligibility">
+        <p className="foundation-card__status">Selection eligibility</p>
+        {eligibility.status === "eligible" ? (
+          <>
+            <h2 id="selection-eligibility-title">Eligible for selection</h2>
+            <p>
+              This preparation is active and approved, its required abilities
+              are recorded as observed, and no blocking safety status is
+              recorded for this food.
+            </p>
+          </>
+        ) : eligibility.status === "ineligible" &&
+          eligibility.reason === "food_restricted" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Unavailable because of recorded safety status
+            </h2>
+            <p>
+              A confirmed allergy, directed exclusion, temporary avoidance, or
+              reaction-reported status always blocks selection regardless of
+              preference.
+            </p>
+          </>
+        ) : eligibility.status === "ineligible" &&
+          eligibility.reason === "restriction_status_unknown" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Safety status is not recorded
+            </h2>
+            <p>
+              Choose a food safety status in feeding setup before this
+              preparation can be selected.
+            </p>
+          </>
+        ) : eligibility.status === "ineligible" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Required ability is not confirmed
+            </h2>
+            <p>
+              Every required ability must be recorded as observed. A missing,
+              not-observed, or not-sure answer stays unavailable and does not
+              assess or diagnose feeding ability.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 id="selection-eligibility-title">Eligibility is unavailable</h2>
+            <p>
+              Sign in and complete feeding setup. Little Plate does not infer
+              eligibility when profile or reviewed content state cannot be
+              verified.
+            </p>
+          </>
+        )}
       </section>
 
       <section className="foundation-card" aria-labelledby="storage-title">

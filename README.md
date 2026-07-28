@@ -5,11 +5,13 @@ promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
 This repository contains the Ticket 01 walking skeleton, Ticket 02's private
-caregiver and baby-profile foundation, and Ticket 03's reviewed-content
-publication boundary. A caregiver can request a passwordless email link,
-bootstrap one isolated household, and create one active baby profile. Foods can
-list and display only active, approved, source-backed preparations with complete
-skill, allergen, and storage-support records.
+caregiver and baby-profile foundation, Ticket 03's reviewed-content publication
+boundary, and Ticket 04's conservative feeding-eligibility setup. A caregiver
+can request a passwordless email link, bootstrap one isolated household, create
+one active baby profile, and record observed abilities, food restrictions,
+exposure state, planning preferences, and quick backups. Foods can list and
+display only active, approved, source-backed preparations and explain whether
+the current profile satisfies their reviewed eligibility requirements.
 
 The production seed intentionally contains no food or safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
@@ -24,6 +26,7 @@ product specification.
 - [Application foundation decision](docs/adr/0001-application-foundation.md)
 - [Household identity decision](docs/adr/0002-household-identity-boundary.md)
 - [Reviewed content publication decision](docs/adr/0003-reviewed-content-publication-boundary.md)
+- [Feeding eligibility decision](docs/adr/0004-feeding-eligibility-boundary.md)
 
 ## Prerequisites
 

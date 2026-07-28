@@ -227,6 +227,23 @@ a {
   gap: 1.25rem;
 }
 
+.feeding-setup-page,
+.feeding-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.feeding-form__rows,
+.food-setup-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.food-setup-row {
+  background: var(--surface-strong);
+}
+
 .field {
   display: grid;
   font-weight: 700;
@@ -234,6 +251,7 @@ a {
 }
 
 .field input,
+.field select,
 fieldset {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -242,7 +260,8 @@ fieldset {
   font: inherit;
 }
 
-.field input {
+.field input,
+.field select {
   min-height: 3rem;
   padding: 0.7rem 0.8rem;
   width: 100%;
@@ -313,6 +332,15 @@ legend {
   font-weight: 800;
   margin: 1.25rem 0 0;
   padding: 0.9rem 1rem;
+}
+
+.profile-ready p {
+  margin: 0;
+}
+
+.profile-ready a {
+  display: inline-block;
+  margin-top: 0.5rem;
 }
 
 .form-message {

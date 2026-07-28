@@ -1,13 +1,12 @@
-import { execSync } from "node:child_process";
-
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-type LocalSupabaseStatus = {
-  API_URL: string;
-  ANON_KEY: string;
-  SERVICE_ROLE_KEY: string;
-};
+import {
+  authenticatedClient,
+  type LocalSupabaseStatus,
+  readLocalSupabaseStatus,
+  waitForAuth
+} from "./support/local-supabase";
 
 type TestUser = {
   id: string;
@@ -16,46 +15,6 @@ type TestUser = {
 };
 
 const createdUserIds: string[] = [];
-
-function readLocalSupabaseStatus(): LocalSupabaseStatus {
-  return JSON.parse(
-    execSync("pnpm exec supabase status -o json", { encoding: "utf8" })
-  ) as LocalSupabaseStatus;
-}
-
-function authenticatedClient(
-  status: LocalSupabaseStatus,
-  accessToken: string
-): SupabaseClient {
-  return createClient(status.API_URL, status.ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    }
-  });
-}
-
-async function waitForAuth(status: LocalSupabaseStatus): Promise<void> {
-  const deadline = Date.now() + 15_000;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${status.API_URL}/auth/v1/health`, {
-        headers: { apikey: status.ANON_KEY }
-      });
-
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // The reset command can return just before Auth accepts connections.
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-
-  throw new Error("Local Supabase Auth did not become ready");
-}
 
 describe("authenticated baby profile", () => {
   let status: LocalSupabaseStatus;

@@ -63,6 +63,9 @@ function fixture() {
       approved_at: "2026-07-28",
       next_review_at: number === 3 ? "2026-07-30" : "2027-07-28",
       tag_ids: ["skill-ticket-14", "allergen-ticket-14"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: `rule-ticket-14-${number}`,

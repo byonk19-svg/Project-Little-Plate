@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-
 import { listPublishedPreparations } from "@/modules/catalog/queries";
 
+import { CatalogBrowser } from "./catalog-browser";
 export const metadata: Metadata = {
   title: "Foods"
 };
@@ -37,23 +36,7 @@ export default async function FoodsPage() {
           </p>
         </div>
       ) : (
-        <ul className="catalog-list">
-          {catalog.items.map((item) => (
-            <li key={item.slug}>
-              <Link className="catalog-card" href={`/foods/${item.slug}`}>
-                <span>
-                  <strong>{item.preparationName}</strong>
-                  <small>{item.foodName}</small>
-                </span>
-                <span className="catalog-card__support">
-                  {item.storageSupport === "supported"
-                    ? "Reviewed storage guidance"
-                    : "Storage guidance unavailable"}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <CatalogBrowser items={catalog.items} />
       )}
     </section>
   );

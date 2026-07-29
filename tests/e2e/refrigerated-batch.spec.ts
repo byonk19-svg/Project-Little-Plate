@@ -85,6 +85,9 @@ const fixture = {
       approved_at: "2026-07-28",
       next_review_at: "2027-07-28",
       tag_ids: [fixtureIds.skill, fixtureIds.allergen],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: fixtureIds.rule,

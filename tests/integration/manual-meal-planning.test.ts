@@ -215,6 +215,9 @@ function ticketFiveFixture() {
             : "skill-ticket-05-observed",
           "allergen-ticket-05"
         ],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: `rule-ticket-05-${index + 1}`,
@@ -238,6 +241,9 @@ function ticketFiveFixture() {
         approved_at: null,
         next_review_at: null,
         tag_ids: ["skill-ticket-05-observed", "allergen-ticket-05"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-05-draft",
@@ -261,6 +267,9 @@ function ticketFiveFixture() {
         approved_at: "2026-07-27",
         next_review_at: "2027-07-27",
         tag_ids: ["skill-ticket-05-observed", "allergen-ticket-05"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-05-retired",
@@ -1279,6 +1288,22 @@ describe("manual meal planning", () => {
         'rule-ticket-05-2-v2',
         'revision-ticket-05-2-v2',
         'unsupported'
+      );
+      insert into public.revision_visual_requirements (
+        revision_id,
+        requirement_declared,
+        visual_required
+      ) values (
+        'revision-ticket-05-2-v2',
+        true,
+        false
+      );
+      insert into public.revision_catalog_metadata (
+        revision_id,
+        preparation_time_band
+      ) values (
+        'revision-ticket-05-2-v2',
+        'under_15_minutes'
       );
       update public.content_revisions
       set status = 'approved'

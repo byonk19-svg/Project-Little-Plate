@@ -263,6 +263,9 @@ const contentFixture = {
         `skill-ticket-16-${fixtureId}`,
         `allergen-ticket-16-${fixtureId}`
       ],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: `rule-ticket-16-${fixtureId}`,

@@ -87,6 +87,8 @@ product specification.
 - [Transactional week generation decision](docs/adr/0014-transactional-week-generation-boundary.md)
 - [Privacy-safe learning and recovery decision](docs/adr/0015-privacy-safe-learning-and-recovery-boundary.md)
 - [Deletion and operational control decision](docs/adr/0016-deletion-and-operational-control-boundary.md)
+- [Catalog release pipeline decision](docs/adr/0017-catalog-release-pipeline-boundary.md)
+- [Catalog release procedure](docs/operations/catalog-release.md)
 
 ## Prerequisites
 

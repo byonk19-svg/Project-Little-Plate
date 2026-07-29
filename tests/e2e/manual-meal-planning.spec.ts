@@ -104,6 +104,9 @@ const fixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-e2e-ticket-05", "allergen-e2e-ticket-05"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-e2e-ticket-05",
@@ -131,6 +134,9 @@ const fixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-e2e-ticket-05", "allergen-e2e-ticket-05"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: `rule-e2e-ticket-09-${number}`,

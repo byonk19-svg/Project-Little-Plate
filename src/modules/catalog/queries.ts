@@ -1,14 +1,23 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type PublishedPreparationSummary = {
+type PublishedPreparationBase = {
   slug: string;
   preparationName: string;
   foodName: string;
+  category: string;
+  skillLabels: string[];
+  allergenLabels: string[];
   storageSupport: "supported" | "unsupported";
+  preparationTimeBand:
+    "under_15_minutes" | "15_to_30_minutes" | "over_30_minutes";
 };
 
-export type PublishedPreparation = PublishedPreparationSummary & {
-  category: string;
+export type PublishedPreparationSummary = PublishedPreparationBase & {
+  familiarity: "familiar" | "new" | "unknown";
+  skillCompatibility: "compatible" | "not_confirmed" | "unknown";
+};
+
+export type PublishedPreparation = PublishedPreparationBase & {
   revisionId: string;
   version: number;
   method: string;
@@ -34,6 +43,15 @@ export type PublishedPreparation = PublishedPreparationSummary & {
     durationHours: number | null;
     guidance: string | null;
   }>;
+  visuals: Array<{
+    assetReference: string;
+    rightsBasis: "original" | "licensed";
+    rightsHolder: string;
+    licenseName: string | null;
+    licenseUrl: string | null;
+    altText: string;
+    reviewedAt: string;
+  }>;
 };
 
 export type CatalogListResult =
@@ -52,7 +70,7 @@ function readString(record: JsonRecord, key: string): string | null {
     : null;
 }
 
-function parseSummary(value: unknown): PublishedPreparationSummary | null {
+function parseBase(value: unknown): PublishedPreparationBase | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -60,23 +78,66 @@ function parseSummary(value: unknown): PublishedPreparationSummary | null {
   const slug = readString(value, "slug");
   const preparationName = readString(value, "preparation_name");
   const foodName = readString(value, "food_name");
+  const category = readString(value, "category");
+  const skillLabels = value.skill_labels;
+  const allergenLabels = value.allergen_labels;
   const storageSupport = value.storage_support_status;
+  const preparationTimeBand = value.preparation_time_band;
 
   if (
     !slug ||
     !preparationName ||
     !foodName ||
-    (storageSupport !== "supported" && storageSupport !== "unsupported")
+    !category ||
+    !Array.isArray(skillLabels) ||
+    skillLabels.some((label) => typeof label !== "string" || label === "") ||
+    !Array.isArray(allergenLabels) ||
+    allergenLabels.some((label) => typeof label !== "string" || label === "") ||
+    (storageSupport !== "supported" && storageSupport !== "unsupported") ||
+    (preparationTimeBand !== "under_15_minutes" &&
+      preparationTimeBand !== "15_to_30_minutes" &&
+      preparationTimeBand !== "over_30_minutes")
   ) {
     return null;
   }
 
-  return { slug, preparationName, foodName, storageSupport };
+  return {
+    slug,
+    preparationName,
+    foodName,
+    category,
+    skillLabels,
+    allergenLabels,
+    storageSupport,
+    preparationTimeBand
+  };
+}
+
+function parseSummary(value: unknown): PublishedPreparationSummary | null {
+  const base = parseBase(value);
+  if (!base || !isRecord(value)) {
+    return null;
+  }
+
+  const familiarity = value.familiarity;
+  const skillCompatibility = value.skill_compatibility;
+  if (
+    (familiarity !== "familiar" &&
+      familiarity !== "new" &&
+      familiarity !== "unknown") ||
+    (skillCompatibility !== "compatible" &&
+      skillCompatibility !== "not_confirmed" &&
+      skillCompatibility !== "unknown")
+  ) {
+    return null;
+  }
+
+  return { ...base, familiarity, skillCompatibility };
 }
 
 export async function listPublishedPreparations(): Promise<CatalogListResult> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("list_published_preparations");
+  const { data, error } = await supabase.rpc("list_published_catalog_items");
 
   if (error || !Array.isArray(data)) {
     return { status: "unavailable", items: [] };
@@ -145,6 +206,63 @@ function parseStorageRule(
   return { supportStatus, deadlineKind, durationHours, guidance };
 }
 
+function parseVisual(
+  value: unknown
+): PublishedPreparation["visuals"][number] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const assetReference = readString(value, "asset_reference");
+  const rightsBasis = value.rights_basis;
+  const rightsHolder = readString(value, "rights_holder");
+  const licenseName =
+    value.license_name === null ? null : readString(value, "license_name");
+  const licenseUrl =
+    value.license_url === null ? null : readString(value, "license_url");
+  const altText = readString(value, "alt_text");
+  const reviewedAt = readString(value, "reviewed_at");
+  const hasValidLicenseUrl = (() => {
+    if (!licenseUrl) return false;
+
+    try {
+      const parsed = new URL(licenseUrl);
+      return (
+        parsed.protocol === "https:" &&
+        parsed.hostname.length > 0 &&
+        parsed.username === "" &&
+        parsed.password === ""
+      );
+    } catch {
+      return false;
+    }
+  })();
+
+  if (
+    !assetReference ||
+    !/^\/[A-Za-z0-9]/.test(assetReference) ||
+    (rightsBasis !== "original" && rightsBasis !== "licensed") ||
+    !rightsHolder ||
+    !altText ||
+    !reviewedAt ||
+    (rightsBasis === "licensed" && (!licenseName || !hasValidLicenseUrl)) ||
+    (rightsBasis === "original" &&
+      (licenseName !== null || licenseUrl !== null))
+  ) {
+    return null;
+  }
+
+  return {
+    assetReference,
+    rightsBasis,
+    rightsHolder,
+    licenseName,
+    licenseUrl,
+    altText,
+    reviewedAt
+  };
+}
+
 export async function getPublishedPreparation(
   slug: string
 ): Promise<PublishedPreparation | null> {
@@ -157,8 +275,18 @@ export async function getPublishedPreparation(
     return null;
   }
 
-  const summary = parseSummary({
+  const summary = parseBase({
     ...data,
+    skill_labels: Array.isArray(data.tags)
+      ? data.tags
+          .filter((tag) => isRecord(tag) && tag.kind === "skill")
+          .map((tag) => tag.label)
+      : null,
+    allergen_labels: Array.isArray(data.tags)
+      ? data.tags
+          .filter((tag) => isRecord(tag) && tag.kind === "allergen")
+          .map((tag) => tag.label)
+      : null,
     storage_support_status: Array.isArray(data.storage_rules)
       ? data.storage_rules.some(
           (rule) => isRecord(rule) && rule.support_status === "supported"
@@ -172,6 +300,9 @@ export async function getPublishedPreparation(
   const storageRules = Array.isArray(data.storage_rules)
     ? data.storage_rules.map(parseStorageRule)
     : [];
+  const visuals = Array.isArray(data.visuals)
+    ? data.visuals.map(parseVisual)
+    : [];
   const revisionId = readString(data, "revision_id");
   const method = readString(data, "method");
   const shapeTexture = readString(data, "shape_texture");
@@ -179,7 +310,6 @@ export async function getPublishedPreparation(
   const reviewedAt = readString(data, "reviewed_at");
   const approvedAt = readString(data, "approved_at");
   const nextReviewAt = readString(data, "next_review_at");
-  const category = readString(data, "category");
 
   if (
     !summary ||
@@ -192,11 +322,11 @@ export async function getPublishedPreparation(
     !reviewedAt ||
     !approvedAt ||
     !nextReviewAt ||
-    !category ||
     tags.length === 0 ||
     tags.some((tag) => tag === null) ||
     storageRules.length === 0 ||
-    storageRules.some((rule) => rule === null)
+    storageRules.some((rule) => rule === null) ||
+    visuals.some((visual) => visual === null)
   ) {
     return null;
   }
@@ -213,7 +343,6 @@ export async function getPublishedPreparation(
 
   return {
     ...summary,
-    category,
     revisionId,
     version: data.version,
     method,
@@ -224,6 +353,7 @@ export async function getPublishedPreparation(
     nextReviewAt,
     source: { publisher, title, url, sourceDate, accessedAt },
     tags: tags as PublishedPreparation["tags"],
-    storageRules: storageRules as PublishedPreparation["storageRules"]
+    storageRules: storageRules as PublishedPreparation["storageRules"],
+    visuals: visuals as PublishedPreparation["visuals"]
   };
 }

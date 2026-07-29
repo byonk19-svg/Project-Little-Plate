@@ -89,6 +89,9 @@ function approvedFixture() {
                 "allergen-ticket-04"
               ]
             : ["skill-ticket-04-sit", "allergen-ticket-04"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: `rule-ticket-04-${index + 1}`,
@@ -112,6 +115,9 @@ function approvedFixture() {
         approved_at: null,
         next_review_at: null,
         tag_ids: ["skill-ticket-04-sit", "allergen-ticket-04"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-04-draft",
@@ -182,6 +188,9 @@ function exposureOptionChurnFixture() {
         approved_at: "2026-07-27",
         next_review_at: "2027-07-27",
         tag_ids: ["skill-ticket-04-sit", "allergen-ticket-04"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-04-00",

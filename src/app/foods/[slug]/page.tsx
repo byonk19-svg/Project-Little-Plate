@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -54,6 +55,34 @@ export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
         <h1>{preparation.preparationName}</h1>
         <p className="destination-page__lede">{preparation.category}</p>
       </header>
+
+      {preparation.visuals.length > 0 ? (
+        <section className="catalog-visuals" aria-label="Reviewed visuals">
+          {preparation.visuals.map((visual, index) => (
+            <figure key={visual.assetReference}>
+              <Image
+                alt={visual.altText}
+                height={480}
+                priority={index === 0}
+                src={visual.assetReference}
+                unoptimized
+                width={720}
+              />
+              <figcaption>
+                <strong>
+                  {visual.rightsBasis === "original"
+                    ? "Original visual"
+                    : "Licensed visual"}
+                </strong>
+                <span>{visual.rightsHolder}</span>
+                {visual.licenseName && visual.licenseUrl ? (
+                  <a href={visual.licenseUrl}>{visual.licenseName}</a>
+                ) : null}
+              </figcaption>
+            </figure>
+          ))}
+        </section>
+      ) : null}
 
       <section className="foundation-card" aria-labelledby="preparation-title">
         <p className="foundation-card__status">Reviewed preparation</p>

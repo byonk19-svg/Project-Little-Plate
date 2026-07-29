@@ -271,6 +271,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-27",
         next_review_at: "2027-07-27",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-12-retired",
@@ -294,6 +297,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-28",
         next_review_at: "2027-07-28",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-06",
@@ -317,6 +323,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-28",
         next_review_at: "2027-07-28",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-06-unsupported",
@@ -340,6 +349,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-28",
         next_review_at: "2027-07-28",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-10-informational",
@@ -363,6 +375,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-28",
         next_review_at: "2027-07-28",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-10-quality-thawed-clock",
@@ -386,6 +401,9 @@ function ticketSixFixture() {
         approved_at: "2026-07-28",
         next_review_at: "2027-07-28",
         tag_ids: ["skill-ticket-06", "allergen-ticket-06"],
+        visual_required: false,
+        visual_ids: [],
+        preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
             id: "rule-ticket-12",

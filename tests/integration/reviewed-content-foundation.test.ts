@@ -91,6 +91,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-discard",
@@ -121,6 +124,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-unsupported",
@@ -144,6 +150,9 @@ const validFixture = {
       approved_at: null,
       next_review_at: null,
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-draft",
@@ -167,6 +176,9 @@ const validFixture = {
       approved_at: null,
       next_review_at: null,
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-review",
@@ -190,6 +202,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-retired",
@@ -213,6 +228,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-inactive",

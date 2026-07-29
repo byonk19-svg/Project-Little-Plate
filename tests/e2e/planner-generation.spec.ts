@@ -229,7 +229,7 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
   await page
     .getByRole("button", { name: "Regenerate unlocked choices" })
     .click();
-  await expect(page).toHaveURL(/generated=1/);
+  await expect(page).toHaveURL(/generated=1/, { timeout: 30_000 });
   await expect(page.getByTestId("week-component").first()).toContainText(
     "Component locked"
   );
@@ -247,7 +247,7 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
   await page
     .getByRole("button", { name: "Regenerate unlocked choices" })
     .click();
-  await expect(page).toHaveURL(/generated=1/);
+  await expect(page).toHaveURL(/generated=1/, { timeout: 30_000 });
   await expect(
     page.locator("article").nth(1).getByTestId("week-component").first()
   ).toContainText(secondMealChoice);

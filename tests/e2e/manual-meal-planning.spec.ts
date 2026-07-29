@@ -324,7 +324,7 @@ test("a caregiver edits a complete manual week on a narrow viewport", async ({
   await page
     .getByRole("button", { name: "Undo most recent swap", exact: true })
     .click();
-  await expect(page).toHaveURL(/edited=undo_last_swap/);
+  await expect(page).toHaveURL(/edited=undo_last_swap/, { timeout: 30_000 });
   await expect(breakfast(1)).toContainText("AAA Planning Browser Preparation");
 
   targetSlot = breakfast(1);

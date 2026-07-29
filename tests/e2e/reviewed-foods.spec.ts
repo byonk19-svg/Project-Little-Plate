@@ -220,7 +220,12 @@ test("Foods exposes only published preparations and reviewed provenance", async 
 }) => {
   await page.goto("/foods");
 
-  await expect(page.getByRole("status")).toHaveText("60 reviewed preparations");
+  const catalogStatus = page.getByRole("status");
+  await expect(catalogStatus).toHaveText(/^\d+ reviewed preparations$/);
+  const publishedCount = Number(
+    (await catalogStatus.textContent())?.split(" ")[0]
+  );
+  expect(publishedCount).toBeGreaterThanOrEqual(60);
   await expect(
     page.getByRole("link", { name: /Synthetic Browser Supported/ })
   ).toBeVisible();

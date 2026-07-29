@@ -444,6 +444,7 @@ describe("refrigerated batch creation", () => {
   let qualityThawedClockComponentId: string;
   let ticketTwelveComponentIds: string[];
   let createdBatchId: string;
+  let storedPreparedAt: string;
   let storedDeadline: string;
   let fixtureImported = false;
   let fixtureValidated = false;
@@ -992,9 +993,12 @@ describe("refrigerated batch creation", () => {
       deadline_at: "2026-07-29T12:00:00+00:00"
     });
 
+    storedPreparedAt = new Date(Date.now() - 60_000).toISOString();
+    const expectedDeadlineAt =
+      new Date(storedPreparedAt).getTime() + 24 * 60 * 60 * 1000;
     const created = await household.rpc("create_refrigerated_batch", {
       p_meal_component_id: mealComponentId,
-      p_prepared_or_opened_at: preparedAt,
+      p_prepared_or_opened_at: storedPreparedAt,
       p_portion_count: 2,
       p_idempotency_key: "41fe4570-2399-46df-a6d0-aad437fde572",
       p_storage_location: "refrigerator"
@@ -1003,9 +1007,11 @@ describe("refrigerated batch creation", () => {
     expect(created.data).toEqual(
       expect.objectContaining({
         status: "created",
-        remaining_portions: 2,
-        deadline_at: "2026-07-29T12:00:00+00:00"
+        remaining_portions: 2
       })
+    );
+    expect(new Date(created.data.deadline_at).getTime()).toBe(
+      expectedDeadlineAt
     );
     createdBatchId = created.data.batch_id;
     storedDeadline = created.data.deadline_at;
@@ -1016,12 +1022,16 @@ describe("refrigerated batch creation", () => {
       expect.objectContaining({
         preparation_name: "Ticket 06 Preparation",
         remaining_portions: 2,
-        prepared_or_opened_at: "2026-07-28T12:00:00+00:00",
-        deadline_at: "2026-07-29T12:00:00+00:00",
         storage_status: "use_today",
         projection_matches_ledger: true
       })
     ]);
+    expect(
+      new Date(kitchen.data.items[0].prepared_or_opened_at).getTime()
+    ).toBe(new Date(storedPreparedAt).getTime());
+    expect(new Date(kitchen.data.items[0].deadline_at).getTime()).toBe(
+      expectedDeadlineAt
+    );
   });
 
   test("unsupported reviewed storage and invalid rule profiles fail without creating a batch", async () => {
@@ -1134,7 +1144,7 @@ describe("refrigerated batch creation", () => {
   test("retries are idempotent and reads or meal edits never extend the stored deadline", async () => {
     const retried = await household.rpc("create_refrigerated_batch", {
       p_meal_component_id: mealComponentId,
-      p_prepared_or_opened_at: "2026-07-28T12:00:00.000Z",
+      p_prepared_or_opened_at: storedPreparedAt,
       p_portion_count: 2,
       p_idempotency_key: "41fe4570-2399-46df-a6d0-aad437fde572",
       p_storage_location: "refrigerator"

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -21,10 +22,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         Skip to main content
       </a>
       <header className="app-header">
-        <p className="app-header__eyebrow">Project Little Plate</p>
-        <p className="app-header__promise">
-          Know what to feed next, using what you already have.
-        </p>
+        <div>
+          <p className="app-header__eyebrow">Project Little Plate</p>
+          <p className="app-header__promise">
+            Know what to feed next, using what you already have.
+          </p>
+        </div>
+        {isFocusedFlow ? null : (
+          <Link className="app-header__account" href="/account">
+            Account
+          </Link>
+        )}
       </header>
       {isFocusedFlow ? null : (
         <aside className="app-shell__navigation">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 
 import { LoginForm } from "./login-form";
 
@@ -6,7 +7,11 @@ export const metadata: Metadata = {
   title: "Sign in"
 };
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const cookieStore = await cookies();
+  const deletionCompleted =
+    cookieStore.get("little-plate-deletion-complete")?.value === "1";
+
   return (
     <article className="auth-page">
       <div>
@@ -19,6 +24,12 @@ export default function LoginPage() {
       </div>
 
       <LoginForm />
+
+      {deletionCompleted ? (
+        <p className="form-message form-message--success" role="status">
+          Your Little Plate account and active household records were deleted.
+        </p>
+      ) : null}
 
       <p className="privacy-note">
         Your household and baby profile stay private to your account.

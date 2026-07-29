@@ -66,6 +66,26 @@ export async function generateFeasibleWeek(
       message: failureMessages.snapshot_unavailable
     };
   }
+  if (
+    typeof snapshot === "object" &&
+    snapshot !== null &&
+    !Array.isArray(snapshot) &&
+    (snapshot as Record<string, unknown>).reason ===
+      "automatic_generation_disabled"
+  ) {
+    await recordProductEvent(supabase, {
+      name: "generation_failed",
+      key: idempotencyKey,
+      operation,
+      outcome: "rejected",
+      reasonCode: "unavailable"
+    });
+    return {
+      status: "error",
+      message:
+        "Automatic generation is temporarily unavailable. Your existing week is unchanged; you can keep planning manually."
+    };
+  }
 
   const attempt = buildPlannerGenerationAttempt(snapshot);
   if (attempt.status === "infeasible") {
@@ -124,7 +144,9 @@ export async function generateFeasibleWeek(
           ? "The week changed while it was being generated. Try again with the current plan."
           : reason === "locked_decision_changed"
             ? failureMessages.locked_component_ineligible
-            : "The generated week was not committed. Your existing week is unchanged; refresh and try again."
+            : reason === "automatic_generation_disabled"
+              ? "Automatic generation is temporarily unavailable. Your existing week is unchanged; you can keep planning manually."
+              : "The generated week was not committed. Your existing week is unchanged; refresh and try again."
     };
   }
 

@@ -53,6 +53,13 @@ profiles, and complete output before replacing unlocked choices. Pending and
 infeasible states never present partial output as committed, and the committed
 week immediately drives the existing Kitchen and grocery derivations.
 
+Caregivers can delete their sign-in identity and household-owned profile, plan,
+inventory, and history through one atomic account control. Operators have
+service-role-only, append-only incident commands to retire a problematic
+content revision or temporarily stop automatic generation without weakening
+manual-planning safety checks. Database promotion, disaster recovery, and
+incident procedures are committed under `docs/operations/`.
+
 The production seed intentionally contains no food, reaction guidance, or other
 safety-content fixtures.
 Ticket 03's automated fixtures are synthetic and test-only; production content
@@ -79,6 +86,7 @@ product specification.
 - [Deterministic planner decision](docs/adr/0013-deterministic-planner-boundary.md)
 - [Transactional week generation decision](docs/adr/0014-transactional-week-generation-boundary.md)
 - [Privacy-safe learning and recovery decision](docs/adr/0015-privacy-safe-learning-and-recovery-boundary.md)
+- [Deletion and operational control decision](docs/adr/0016-deletion-and-operational-control-boundary.md)
 
 ## Prerequisites
 

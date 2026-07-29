@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 - Plan one meal manually.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] Deadline selection and elapsed-hour calculation are pure, deterministic, and accept an explicit clock and rule revision.
 - [x] A reviewed range uses the documented conservative endpoint unless a more specific approved rule applies.

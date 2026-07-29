@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 - Plan one meal manually.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] Week supports the configured one to three meal slots across seven local dates.
 - [x] A caregiver can lock and unlock a meal or individual component.

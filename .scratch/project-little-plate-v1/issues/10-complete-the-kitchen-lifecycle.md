@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 - Prepare and refrigerate two portions; 08 - Surface use-soon and block expiration.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 ## Decisions
 

@@ -4,7 +4,7 @@
 
 **Blocked by:** 07 - Serve one portion atomically from Today.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] Today shows refrigerated batches due within the next 24 elapsed hours ordered by exact deadline.
 - [x] Kitchen defaults refrigerator inventory to earliest deadline first.

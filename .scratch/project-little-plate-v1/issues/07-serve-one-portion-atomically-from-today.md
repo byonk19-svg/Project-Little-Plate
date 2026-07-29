@@ -4,7 +4,7 @@
 
 **Blocked by:** 06 - Prepare and refrigerate two portions.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] Today places the current or next planned meal first and identifies ready, quick-preparation, or thaw-required state.
 - [x] Today explains in plain language why the prepared component is available.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 04 - Configure and enforce feeding eligibility.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] Week presents the current seven-day window and the configured meal slots in a narrow-phone layout.
 - [x] A caregiver can browse an eligible preparation and add it to a meal on tomorrow's local date.

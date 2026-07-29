@@ -4,6 +4,7 @@ export type RestrictionStatus = "allowed" | "blocked" | "reaction_reported";
 export type ExposureState = "new" | "familiar" | "unknown";
 export type PreparationTime =
   "under_15_minutes" | "under_30_minutes" | "flexible";
+export type CandidatePreparationTime = PreparationTime | "unavailable";
 
 export type NewPortionStrategy = {
   strategyId: string;
@@ -26,7 +27,7 @@ export type PreparationCandidate = {
   restrictionStatus: RestrictionStatus;
   reactionBlocked: boolean;
   exposureState: ExposureState;
-  preparationTime: PreparationTime;
+  preparationTime: CandidatePreparationTime;
   newPortionStrategies: NewPortionStrategy[];
 };
 
@@ -92,7 +93,7 @@ export type PlannerReasonCode =
 type PlannedSource =
   "existing_refrigerated" | "existing_frozen" | "new_preparation";
 
-type FeasiblePlan = {
+export type FeasiblePlan = {
   status: "feasible";
   reproducibilityHash: string;
   ruleRevisionIds: string[];
@@ -134,7 +135,7 @@ type FeasiblePlan = {
   };
 };
 
-type InfeasiblePlan = {
+export type InfeasiblePlan = {
   status: "infeasible";
   reason:
     | "invalid_snapshot"
@@ -491,6 +492,7 @@ function preferenceRank(
   candidate: PreparationCandidate,
   preferred: PreparationTime
 ): number {
+  if (candidate.preparationTime === "unavailable") return 1;
   const rank: Record<PreparationTime, number> = {
     under_15_minutes: 0,
     under_30_minutes: 1,
@@ -780,9 +782,12 @@ function hasValidSnapshot(input: PlannerInput): boolean {
           candidate.restrictionStatus
         ) ||
         !["new", "familiar", "unknown"].includes(candidate.exposureState) ||
-        !["under_15_minutes", "under_30_minutes", "flexible"].includes(
-          candidate.preparationTime
-        ) ||
+        ![
+          "under_15_minutes",
+          "under_30_minutes",
+          "flexible",
+          "unavailable"
+        ].includes(candidate.preparationTime) ||
         !hasUniqueValues(candidate.methodTagIds) ||
         !hasUniqueValues(candidate.textureTagIds) ||
         !hasUniqueValues(candidate.requiredSkillTagIds) ||

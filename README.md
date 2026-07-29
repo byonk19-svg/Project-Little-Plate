@@ -4,7 +4,7 @@ Project Little Plate is a mobile-first baby meal operations tool. Its product
 promise is to help a caregiver know what to feed next, using what is already
 available, before it expires.
 
-This repository contains the first twelve vertical slices. A caregiver can request
+This repository contains the first fourteen vertical slices. A caregiver can request
 a passwordless email link, bootstrap one isolated household, create one active
 baby profile, and record observed abilities, food restrictions, exposure state,
 planning preferences, and quick backups. Foods can list and display only active,
@@ -43,11 +43,15 @@ overrides, while manual grocery items use a separate persistence path so plan
 edits cannot erase them. A configured quick backup subtracts grocery need only
 after the caregiver marks that food already available.
 
-The deterministic planner domain now accepts a complete reviewed snapshot and
+The deterministic planner domain accepts a complete reviewed snapshot and
 returns either one reproducible, storage-feasible week or a typed failure with
 no partial plan. Hard eligibility and deadline gates run before deterministic
-soft priorities; database generation and regeneration remain a separate next
-slice.
+soft priorities. A caregiver can now generate or regenerate that week through
+an authenticated snapshot and atomic commit boundary. The database rechecks
+the snapshot token, plan version, locks, current eligibility, reviewed storage
+profiles, and complete output before replacing unlocked choices. Pending and
+infeasible states never present partial output as committed, and the committed
+week immediately drives the existing Kitchen and grocery derivations.
 
 The production seed intentionally contains no food, reaction guidance, or other
 safety-content fixtures.
@@ -73,6 +77,7 @@ product specification.
 - [Reaction safety-block decision](docs/adr/0011-reaction-safety-block-boundary.md)
 - [Derived work and grocery decision](docs/adr/0012-derived-work-and-grocery-boundary.md)
 - [Deterministic planner decision](docs/adr/0013-deterministic-planner-boundary.md)
+- [Transactional week generation decision](docs/adr/0014-transactional-week-generation-boundary.md)
 
 ## Prerequisites
 

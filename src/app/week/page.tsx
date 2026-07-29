@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PlannerGenerationForm } from "@/app/week/planner-generation-form";
 import { WeekEditForm } from "@/app/week/week-edit-form";
 import { mealSlotLabels } from "@/modules/meals/presentation";
 import {
@@ -8,6 +9,7 @@ import {
   getWeekEditOptions,
   type WeekEditOption
 } from "@/modules/meals/queries";
+import { getPlannerGenerationMetadata } from "@/modules/planner/generation-queries";
 
 export const metadata: Metadata = {
   title: "Week"
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 type WeekPageProps = {
   searchParams: Promise<{
     edited?: string;
+    generated?: string;
     planned?: string;
     start?: string;
   }>;
@@ -82,15 +85,27 @@ function PreparationOptions({ options }: { options: WeekEditOption[] }) {
 
 export default async function WeekPage({ searchParams }: WeekPageProps) {
   const params = await searchParams;
-  const [week, editOptions] = await Promise.all([
+  const [week, editOptions, generation] = await Promise.all([
     getCurrentWeek(params.start),
-    getWeekEditOptions()
+    getWeekEditOptions(),
+    getPlannerGenerationMetadata()
   ]);
   const successMessage = params.edited
     ? editMessages[params.edited]
     : params.planned === "1"
       ? "Tomorrow's meal was updated."
-      : null;
+      : params.generated === "1"
+        ? "The complete feasible week was committed."
+        : null;
+  const showsCurrentGeneratedPlan =
+    week.status === "ready" &&
+    generation.status !== "none" &&
+    generation.planId === week.plan.planId &&
+    generation.windowStart === week.plan.windowStart;
+  const showsCurrentExplanations =
+    showsCurrentGeneratedPlan &&
+    generation.status === "ready" &&
+    generation.version === week.plan.version;
 
   return (
     <div className="week-page">
@@ -119,6 +134,25 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         </section>
       ) : (
         <>
+          {!params.start || showsCurrentGeneratedPlan ? (
+            <PlannerGenerationForm regenerate={showsCurrentGeneratedPlan} />
+          ) : null}
+
+          {showsCurrentExplanations && generation.messages.length > 0 ? (
+            <section
+              aria-labelledby="planner-explanations"
+              className="planner-explanations"
+            >
+              <p className="foundation-card__status">Why these choices</p>
+              <h2 id="planner-explanations">Important planning reasons</h2>
+              <ul>
+                {generation.messages.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           <section className="week-overview" aria-labelledby="week-summary">
             <div>
               <p className="week-page__timezone">

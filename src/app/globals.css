@@ -256,6 +256,30 @@ a {
   padding: 1rem;
 }
 
+.planner-generation,
+.planner-explanations {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.planner-generation h2,
+.planner-generation p,
+.planner-explanations h2,
+.planner-explanations p,
+.planner-explanations ul {
+  margin: 0;
+}
+
+.planner-explanations ul {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 1.25rem;
+}
+
 .week-overview h2,
 .week-overview p {
   margin: 0;

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { recordProductEvent, safeReasonCode } from "@/modules/analytics/events";
 import { isJsonRecord } from "@/modules/meals/transport";
 import type { RefrigeratedBatchFormState } from "@/modules/storage/form-state";
 
@@ -34,11 +35,12 @@ export async function createRefrigeratedBatch(
     redirect("/login");
   }
 
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const { data, error } = await supabase.rpc("create_refrigerated_batch", {
     p_meal_component_id: String(formData.get("mealComponentId") ?? ""),
     p_prepared_or_opened_at: String(formData.get("preparedOrOpenedAt") ?? ""),
     p_portion_count: 2,
-    p_idempotency_key: String(formData.get("idempotencyKey") ?? ""),
+    p_idempotency_key: idempotencyKey,
     p_storage_location: "refrigerator"
   });
 
@@ -50,6 +52,13 @@ export async function createRefrigeratedBatch(
   }
 
   if (data.status === "rejected" && typeof data.reason === "string") {
+    await recordProductEvent(supabase, {
+      name: "batch_outcome",
+      key: idempotencyKey,
+      operation: "create",
+      outcome: "rejected",
+      reasonCode: safeReasonCode(data.reason)
+    });
     return {
       status: "error",
       message:
@@ -66,5 +75,11 @@ export async function createRefrigeratedBatch(
   }
 
   revalidatePath("/kitchen");
+  await recordProductEvent(supabase, {
+    name: "batch_outcome",
+    key: idempotencyKey,
+    operation: "create",
+    outcome: "success"
+  });
   redirect("/kitchen?created=1");
 }

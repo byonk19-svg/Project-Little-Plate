@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   expect,
   test,
@@ -82,7 +82,7 @@ const fixture = {
 async function createProfile(
   page: Page,
   request: APIRequestContext
-): Promise<void> {
+): Promise<string> {
   const email = `ticket-14-browser-${crypto.randomUUID()}@example.test`;
   await page.goto("/login");
   await page.getByLabel("Email address").fill(email);
@@ -95,6 +95,7 @@ async function createProfile(
   await page.getByLabel("Breakfast").check();
   await page.getByRole("button", { name: "Finish setup" }).click();
   await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 });
+  return email;
 }
 
 async function holdBabyRows() {
@@ -136,9 +137,11 @@ async function holdBabyRows() {
   return () => child.stdin.end("commit;\n");
 }
 
+let admin: SupabaseClient;
+
 test.beforeAll(async () => {
   const status = readLocalSupabaseStatus();
-  const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
+  admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   expect(
@@ -174,7 +177,7 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
   request
 }) => {
   test.setTimeout(180_000);
-  await createProfile(page, request);
+  const email = await createProfile(page, request);
   await page.goto("/feeding-setup");
   await page
     .getByLabel("Synthetic planner generation ability")
@@ -259,4 +262,45 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
     page.locator(".planner-generation").getByRole("alert")
   ).toContainText("No reviewed preparation currently matches");
   await expect(page.getByTestId("week-component")).toHaveCount(7);
+
+  const user = (await admin.auth.admin.listUsers()).data.users.find(
+    (candidate) => candidate.email === email
+  );
+  expect(user).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const result = await admin
+        .from("product_events")
+        .select("event_name,operation,outcome,reason_code")
+        .eq("actor_user_id", user!.id)
+        .in("event_name", ["generation_outcome", "generation_failed"])
+        .order("occurred_at");
+      return result.data;
+    })
+    .toEqual([
+      {
+        event_name: "generation_outcome",
+        operation: "generate",
+        outcome: "success",
+        reason_code: null
+      },
+      {
+        event_name: "generation_outcome",
+        operation: "regenerate",
+        outcome: "success",
+        reason_code: null
+      },
+      {
+        event_name: "generation_outcome",
+        operation: "regenerate",
+        outcome: "success",
+        reason_code: null
+      },
+      {
+        event_name: "generation_failed",
+        operation: "regenerate",
+        outcome: "rejected",
+        reason_code: "no_eligible_candidate"
+      }
+    ]);
 });

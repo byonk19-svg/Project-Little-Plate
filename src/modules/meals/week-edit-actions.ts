@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  recordProductEvent,
+  safeReasonCode,
+  type ProductEvent
+} from "@/modules/analytics/events";
 import type { WeekEditFormState } from "@/modules/meals/week-edit-form-state";
 import { isJsonRecord } from "@/modules/meals/transport";
 
@@ -141,6 +146,49 @@ export async function editManualWeek(
     p_payload: payload,
     p_idempotency_key: idempotencyKey
   });
+
+  const trackedName =
+    operation === "use_quick_backup"
+      ? "quick_backup_outcome"
+      : operation === "swap_component" || operation === "swap_meal"
+        ? "swap_outcome"
+        : null;
+  if (trackedName && !error && isJsonRecord(data)) {
+    const applied = !error && isJsonRecord(data) && data.status === "applied";
+    const rejected =
+      data.status === "rejected" && typeof data.reason === "string";
+    const event: ProductEvent | null =
+      !applied && !rejected
+        ? null
+        : trackedName === "quick_backup_outcome"
+          ? {
+              name: trackedName,
+              key: idempotencyKey,
+              operation: "use_quick_backup",
+              outcome: applied ? "success" : "rejected",
+              ...(applied
+                ? {}
+                : {
+                    reasonCode: safeReasonCode(
+                      !error && isJsonRecord(data) ? data.reason : null
+                    )
+                  })
+            }
+          : {
+              name: trackedName,
+              key: idempotencyKey,
+              operation: operation as "swap_component" | "swap_meal",
+              outcome: applied ? "success" : "rejected",
+              ...(applied
+                ? {}
+                : {
+                    reasonCode: safeReasonCode(
+                      !error && isJsonRecord(data) ? data.reason : null
+                    )
+                  })
+            };
+    if (event) await recordProductEvent(supabase, event);
+  }
 
   if (error || !isJsonRecord(data)) {
     return {

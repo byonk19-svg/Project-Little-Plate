@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { recordProductEvent, safeReasonCode } from "@/modules/analytics/events";
 import { isJsonRecord } from "@/modules/meals/transport";
 import type { DiscardFormState } from "@/modules/storage/discard-form-state";
 
@@ -30,9 +31,10 @@ export async function discardBatch(
     redirect("/login");
   }
 
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const { data, error } = await supabase.rpc("discard_batch", {
     p_batch_id: String(formData.get("batchId") ?? ""),
-    p_idempotency_key: String(formData.get("idempotencyKey") ?? "")
+    p_idempotency_key: idempotencyKey
   });
 
   if (error || !isJsonRecord(data)) {
@@ -43,6 +45,13 @@ export async function discardBatch(
   }
 
   if (data.status === "rejected" && typeof data.reason === "string") {
+    await recordProductEvent(supabase, {
+      name: "batch_outcome",
+      key: idempotencyKey,
+      operation: "discard",
+      outcome: "rejected",
+      reasonCode: safeReasonCode(data.reason)
+    });
     revalidatePath("/today");
     revalidatePath("/kitchen");
     return {
@@ -63,6 +72,12 @@ export async function discardBatch(
   revalidatePath("/today");
   revalidatePath("/week");
   revalidatePath("/kitchen");
+  await recordProductEvent(supabase, {
+    name: "batch_outcome",
+    key: idempotencyKey,
+    operation: "discard",
+    outcome: "success"
+  });
   const returnTo =
     formData.get("returnTo") === "/today" ? "/today" : "/kitchen";
   redirect(`${returnTo}?discarded=1`);

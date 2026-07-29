@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { recordProductEvent, safeReasonCode } from "@/modules/analytics/events";
 import type { ServingFormState } from "@/modules/meals/serving-form-state";
 import { isJsonRecord } from "@/modules/meals/transport";
 
@@ -47,10 +48,11 @@ export async function servePlannedPortion(
     redirect("/login");
   }
 
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const { data, error } = await supabase.rpc("serve_planned_portion", {
     p_meal_component_id: String(formData.get("mealComponentId") ?? ""),
     p_batch_id: String(formData.get("batchId") ?? ""),
-    p_idempotency_key: String(formData.get("idempotencyKey") ?? "")
+    p_idempotency_key: idempotencyKey
   });
 
   if (error || !isJsonRecord(data)) {
@@ -61,6 +63,13 @@ export async function servePlannedPortion(
   }
 
   if (data.status === "rejected" && typeof data.reason === "string") {
+    await recordProductEvent(supabase, {
+      name: "serving_outcome",
+      key: idempotencyKey,
+      operation: "serve",
+      outcome: "rejected",
+      reasonCode: safeReasonCode(data.reason)
+    });
     revalidatePath("/today");
     revalidatePath("/week");
     revalidatePath("/kitchen");
@@ -84,6 +93,12 @@ export async function servePlannedPortion(
   revalidatePath("/kitchen");
   const servedEventId =
     typeof data.event_id === "string" ? data.event_id : null;
+  await recordProductEvent(supabase, {
+    name: "serving_outcome",
+    key: idempotencyKey,
+    operation: "serve",
+    outcome: "success"
+  });
   redirect(
     servedEventId
       ? `/today?served=1&servedEvent=${encodeURIComponent(servedEventId)}`

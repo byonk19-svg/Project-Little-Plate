@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   expect,
   test,
@@ -148,7 +148,7 @@ const fixture = {
 async function createProfile(
   page: Page,
   request: APIRequestContext
-): Promise<void> {
+): Promise<string> {
   const email = `ticket-05-browser-${crypto.randomUUID()}@example.test`;
   await page.goto("/login");
   await page.getByLabel("Email address").fill(email);
@@ -162,13 +162,16 @@ async function createProfile(
   await page.getByLabel("Dinner").check();
   await page.getByRole("button", { name: "Finish setup" }).click();
   await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 });
+  return email;
 }
+
+let admin: SupabaseClient;
 
 test.beforeAll(async () => {
   const status = JSON.parse(
     execSync("pnpm exec supabase status -o json", { encoding: "utf8" })
   ) as { API_URL: string; SERVICE_ROLE_KEY: string };
-  const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
+  admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
   const result = await admin.rpc("import_catalog_fixture", {
@@ -240,7 +243,7 @@ test("a caregiver edits a complete manual week on a narrow viewport", async ({
   request
 }) => {
   test.setTimeout(240_000);
-  await createProfile(page, request);
+  const email = await createProfile(page, request);
 
   await page.goto("/feeding-setup");
   await page
@@ -345,6 +348,38 @@ test("a caregiver edits a complete manual week on a narrow viewport", async ({
     .click();
   await expect(page).toHaveURL(/edited=use_quick_backup/);
   await expect(breakfast(2)).toContainText("Quick backup");
+
+  const user = (await admin.auth.admin.listUsers()).data.users.find(
+    (candidate) => candidate.email === email
+  );
+  expect(user).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const result = await admin
+        .from("product_events")
+        .select("event_name,operation,outcome")
+        .eq("actor_user_id", user!.id)
+        .in("event_name", ["swap_outcome", "quick_backup_outcome"])
+        .order("occurred_at");
+      return result.data;
+    })
+    .toEqual([
+      {
+        event_name: "swap_outcome",
+        operation: "swap_component",
+        outcome: "success"
+      },
+      {
+        event_name: "swap_outcome",
+        operation: "swap_meal",
+        outcome: "success"
+      },
+      {
+        event_name: "quick_backup_outcome",
+        operation: "use_quick_backup",
+        outcome: "success"
+      }
+    ]);
 
   targetSlot = breakfast(2);
   await openPanel(targetSlot, "Edit meal");

@@ -31,6 +31,11 @@ export function PlannerGenerationForm({ regenerate }: { regenerate: boolean }) {
   return (
     <form action={action} className="planner-generation">
       <input name="idempotencyKey" type="hidden" value={crypto.randomUUID()} />
+      <input
+        name="generationOperation"
+        type="hidden"
+        value={regenerate ? "regenerate" : "generate"}
+      />
       <div>
         <p className="foundation-card__status">Automatic planning</p>
         <h2>

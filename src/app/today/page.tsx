@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { ReactionReportForm } from "@/app/today/reaction-report-form";
 import { ServePortionForm } from "@/app/today/serve-portion-form";
+import { TodayAnalytics } from "@/components/analytics/today-analytics";
 import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mealSlotLabels } from "@/modules/meals/presentation";
@@ -80,9 +81,21 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
     getUseSoonBatches(),
     getReactionReportContext(params.servedEvent)
   ]);
+  const analyticsState =
+    today.status === "ready"
+      ? today.components.some(
+          (component) => component.availabilityState === "ready"
+        )
+        ? ("ready" as const)
+        : ("preparation_required" as const)
+      : today.status;
 
   return (
     <div className="today-page">
+      <TodayAnalytics
+        eventKey={crypto.randomUUID()}
+        mealState={analyticsState}
+      />
       <header>
         <p className="destination-page__eyebrow">Next meal</p>
         <h1>Today</h1>
@@ -158,7 +171,11 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
           <p className="foundation-card__status">Nothing planned next</p>
           <h2>Plan a meal when you are ready</h2>
           <p>Today will stay empty rather than inventing a recommendation.</p>
-          <Link className="primary-action primary-action--link" href="/foods">
+          <Link
+            className="primary-action primary-action--link"
+            data-meal-choice="prepare"
+            href="/foods"
+          >
             Browse reviewed foods
           </Link>
         </section>
@@ -320,6 +337,7 @@ export default async function TodayPage({ searchParams }: TodayPageProps) {
                   ) : (
                     <Link
                       className="primary-action primary-action--link"
+                      data-meal-choice="prepare"
                       href={`/foods/${item.preparationSlug}`}
                     >
                       Plan this preparation

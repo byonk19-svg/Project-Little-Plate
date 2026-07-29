@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execSync, spawn } from "node:child_process";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -101,10 +101,96 @@ const fixture = {
 
 let admin: SupabaseClient;
 
+async function holdBatchRow(batchId: string) {
+  const child = spawn(
+    "docker",
+    [
+      "exec",
+      "-i",
+      "supabase_db_mealboard-baby",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-v",
+      "ON_ERROR_STOP=1"
+    ],
+    { stdio: ["pipe", "pipe", "pipe"] }
+  );
+  let stderr = "";
+  child.stderr.on("data", (chunk: Buffer) => {
+    stderr += chunk.toString();
+  });
+  const exited = new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `Batch browser lock process exited with code ${String(code)} and signal ${String(signal)}: ${stderr}`
+        )
+      );
+    });
+  });
+  const ready = new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error("Timed out acquiring batch browser lock")),
+      10_000
+    );
+    child.stdout.on("data", (chunk: Buffer) => {
+      if (chunk.toString().includes("ticket-15-browser-lock")) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+    child.on("error", reject);
+  });
+  child.stdin.write(`
+    begin;
+    select id from public.batches where id = '${batchId}' for update;
+    select 'ticket-15-browser-lock';
+  `);
+  try {
+    await ready;
+  } catch (error) {
+    child.kill();
+    await exited.catch(() => undefined);
+    throw error;
+  }
+
+  let released = false;
+  return async () => {
+    if (!released) {
+      released = true;
+      child.stdin.end("commit;\n");
+    }
+    await exited;
+  };
+}
+
+async function waitForBlockedBatchTransition(page: Page) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const blocked = Number(
+      execSync(
+        `docker exec supabase_db_mealboard-baby psql -U postgres -d postgres -Atc "select count(*) from pg_stat_activity where pid <> pg_backend_pid() and state = 'active' and query like '%perform_batch_transition%' and cardinality(pg_blocking_pids(pid)) > 0"`,
+        { encoding: "utf8" }
+      ).trim()
+    );
+    if (blocked > 0) return;
+    await page.waitForTimeout(50);
+  }
+  throw new Error("Timed out waiting for the batch transition to block");
+}
+
 async function createProfile(
   page: Page,
   request: APIRequestContext
-): Promise<void> {
+): Promise<string> {
   const email = `ticket-06-browser-${crypto.randomUUID()}@example.test`;
   await page.goto("/login");
   await page.getByLabel("Email address").fill(email);
@@ -117,6 +203,7 @@ async function createProfile(
   await page.getByLabel("Breakfast").check();
   await page.getByRole("button", { name: "Finish setup" }).click();
   await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 });
+  return email;
 }
 
 test.beforeAll(async () => {
@@ -274,6 +361,7 @@ test.afterAll(async () => {
 });
 
 test("a caregiver reviews a conservative deadline and refrigerates two planned portions", async ({
+  context,
   page,
   request
 }) => {
@@ -287,7 +375,7 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   });
   const expectedPreparedTime = chicagoFormatter.format(preparedAt);
   const expectedDeadlineTime = chicagoFormatter.format(deadlineAt);
-  await createProfile(page, request);
+  const email = await createProfile(page, request);
 
   await page.goto("/feeding-setup");
   await page
@@ -430,8 +518,28 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   );
   await expect(page.getByText("Dates use America/Chicago")).toBeVisible();
 
-  await batch.getByRole("button", { name: "Freeze untouched batch" }).click();
-  await expect(page).toHaveURL(/\/kitchen\?transitioned=freeze$/);
+  const batchId = await batch
+    .locator('input[name="batchId"]')
+    .first()
+    .inputValue();
+  const releaseBatch = await holdBatchRow(batchId);
+  try {
+    const interruptedFreeze = batch
+      .getByRole("button", { name: "Freeze untouched batch" })
+      .click({ noWaitAfter: true })
+      .catch(() => undefined);
+    await waitForBlockedBatchTransition(page);
+    await context.setOffline(true);
+    await releaseBatch();
+    await interruptedFreeze;
+  } finally {
+    try {
+      await releaseBatch();
+    } finally {
+      await context.setOffline(false);
+    }
+  }
+  await page.goto("/kitchen");
   await expect(page.getByRole("heading", { name: "Freezer" })).toBeVisible();
   const frozenBatch = page.getByTestId("kitchen-batch");
   await expect(frozenBatch).toContainText("Quality-by date");
@@ -546,7 +654,9 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
   await servedBatch
     .getByRole("button", { name: "Return untouched portion" })
     .click();
-  await expect(page).toHaveURL(/\/kitchen\?transitioned=return_untouched$/);
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=return_untouched$/, {
+    timeout: 20_000
+  });
   await expect(page.getByTestId("kitchen-batch")).toContainText(
     "2 portions remaining"
   );
@@ -555,7 +665,9 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
     .getByTestId("kitchen-batch")
     .getByRole("button", { name: "Correct inventory down by one" })
     .click();
-  await expect(page).toHaveURL(/\/kitchen\?transitioned=correct$/);
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=correct$/, {
+    timeout: 20_000
+  });
   await expect(page.getByTestId("kitchen-batch")).toContainText(
     "1 portion remaining"
   );
@@ -564,7 +676,9 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
     .getByTestId("kitchen-batch")
     .getByRole("button", { name: "Mark remaining portions finished" })
     .click();
-  await expect(page).toHaveURL(/\/kitchen\?transitioned=finish$/);
+  await expect(page).toHaveURL(/\/kitchen\?transitioned=finish$/, {
+    timeout: 20_000
+  });
   await expect(page.getByTestId("kitchen-finished-batch")).toContainText(
     "0 portions remaining"
   );
@@ -580,6 +694,65 @@ test("a caregiver reviews a conservative deadline and refrigerates two planned p
       () => document.documentElement.scrollWidth > window.innerWidth
     )
   ).toBe(false);
+
+  const user = (await admin.auth.admin.listUsers()).data.users.find(
+    (candidate) => candidate.email === email
+  );
+  expect(user).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const result = await admin
+        .from("product_events")
+        .select("event_name,operation,outcome")
+        .eq("actor_user_id", user!.id)
+        .in("event_name", ["batch_outcome", "serving_outcome"])
+        .order("occurred_at");
+      return result.data;
+    })
+    .toEqual(
+      expect.arrayContaining([
+        {
+          event_name: "batch_outcome",
+          operation: "create",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "freeze",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "begin_thaw",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "mark_thawed",
+          outcome: "success"
+        },
+        {
+          event_name: "serving_outcome",
+          operation: "serve",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "return_untouched",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "correct",
+          outcome: "success"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "finish",
+          outcome: "success"
+        }
+      ])
+    );
 });
 
 test("a use-soon batch expires on an open screen, is blocked, and can be discarded", async ({
@@ -592,7 +765,7 @@ test("a use-soon batch expires on an open screen, is blocked, and can be discard
     timeStyle: "short",
     timeZone: "America/Chicago"
   });
-  await createProfile(page, request);
+  const email = await createProfile(page, request);
 
   await page.goto("/feeding-setup");
   await page
@@ -704,4 +877,34 @@ test("a use-soon batch expires on an open screen, is blocked, and can be discard
     "Remaining portions were discarded."
   );
   await expect(page.getByTestId("kitchen-expired-batch")).toHaveCount(0);
+
+  const user = (await admin.auth.admin.listUsers()).data.users.find(
+    (candidate) => candidate.email === email
+  );
+  expect(user).toBeTruthy();
+  await expect
+    .poll(async () => {
+      const result = await admin
+        .from("product_events")
+        .select("event_name,operation,outcome,reason_code")
+        .eq("actor_user_id", user!.id)
+        .in("event_name", ["batch_outcome", "serving_outcome"]);
+      return result.data;
+    })
+    .toEqual(
+      expect.arrayContaining([
+        {
+          event_name: "serving_outcome",
+          operation: "serve",
+          outcome: "rejected",
+          reason_code: "batch_expired"
+        },
+        {
+          event_name: "batch_outcome",
+          operation: "discard",
+          outcome: "success",
+          reason_code: null
+        }
+      ])
+    );
 });

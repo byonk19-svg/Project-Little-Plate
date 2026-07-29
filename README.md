@@ -78,6 +78,7 @@ product specification.
 - [Derived work and grocery decision](docs/adr/0012-derived-work-and-grocery-boundary.md)
 - [Deterministic planner decision](docs/adr/0013-deterministic-planner-boundary.md)
 - [Transactional week generation decision](docs/adr/0014-transactional-week-generation-boundary.md)
+- [Privacy-safe learning and recovery decision](docs/adr/0015-privacy-safe-learning-and-recovery-boundary.md)
 
 ## Prerequisites
 

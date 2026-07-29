@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { BatchConfirmationForm } from "@/app/kitchen/batch-confirmation-form";
+import { InventoryHealth } from "@/app/kitchen/inventory-health";
 import {
   AddManualGroceryItemForm,
   DerivedGroceryStateForm,
@@ -11,6 +12,7 @@ import {
 import { BatchLifecycleForm } from "@/components/storage/batch-lifecycle-form";
 import { DiscardBatchForm } from "@/components/storage/discard-batch-form";
 import { getDerivedWork } from "@/modules/derived/queries";
+import { getInventoryHealth } from "@/modules/storage/health-queries";
 import {
   getKitchenInventory,
   getRefrigeratedBatchPreview,
@@ -30,6 +32,7 @@ type KitchenPageProps = {
     preparedAt?: string;
     transitioned?: string;
     grocery?: string;
+    inventory?: string;
     work?: string;
   }>;
 };
@@ -194,13 +197,15 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
   const params = await searchParams;
   const inventoryPromise = getKitchenInventory();
   const derivedWorkPromise = getDerivedWork();
+  const inventoryHealthPromise = getInventoryHealth();
   const previewPromise = params.componentId
     ? getRefrigeratedBatchPreview(params.componentId, params.preparedAt)
     : Promise.resolve(null);
-  const [inventory, preview, derivedWork] = await Promise.all([
+  const [inventory, preview, derivedWork, inventoryHealth] = await Promise.all([
     inventoryPromise,
     previewPromise,
-    derivedWorkPromise
+    derivedWorkPromise,
+    inventoryHealthPromise
   ]);
   const timeZone =
     inventory.status === "ready" ? inventory.timeZone : "America/Chicago";
@@ -258,6 +263,12 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
       {params.transitioned ? (
         <p className="form-message form-message--success" role="status">
           Batch inventory updated.
+        </p>
+      ) : null}
+
+      {params.inventory === "reconciled" ? (
+        <p className="form-message form-message--success" role="status">
+          The inventory count now matches its event history.
         </p>
       ) : null}
 
@@ -493,6 +504,10 @@ export default async function KitchenPage({ searchParams }: KitchenPageProps) {
           </>
         )}
       </section>
+
+      {inventoryHealth.status === "ready" ? (
+        <InventoryHealth items={inventoryHealth.items} />
+      ) : null}
 
       <section className="kitchen-inventory">
         <div>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { recordProductEvent, safeReasonCode } from "@/modules/analytics/events";
 import {
   initialPlannerGenerationFormState,
   type PlannerGenerationFormState
@@ -29,6 +30,10 @@ export async function generateFeasibleWeek(
 ): Promise<PlannerGenerationFormState> {
   void _previousState;
   const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
+  const operation =
+    formData.get("generationOperation") === "regenerate"
+      ? "regenerate"
+      : "generate";
   if (!/^[0-9a-f-]{36}$/i.test(idempotencyKey)) {
     return {
       status: "error",
@@ -49,6 +54,13 @@ export async function generateFeasibleWeek(
     { p_reference_at: referenceAt }
   );
   if (snapshotError) {
+    await recordProductEvent(supabase, {
+      name: "generation_failed",
+      key: idempotencyKey,
+      operation,
+      outcome: "rejected",
+      reasonCode: "snapshot_unavailable"
+    });
     return {
       status: "error",
       message: failureMessages.snapshot_unavailable
@@ -57,6 +69,13 @@ export async function generateFeasibleWeek(
 
   const attempt = buildPlannerGenerationAttempt(snapshot);
   if (attempt.status === "infeasible") {
+    await recordProductEvent(supabase, {
+      name: "generation_failed",
+      key: idempotencyKey,
+      operation,
+      outcome: "rejected",
+      reasonCode: safeReasonCode(attempt.reason)
+    });
     return {
       status: "error",
       message: failureMessages[attempt.reason]
@@ -75,16 +94,29 @@ export async function generateFeasibleWeek(
     error ||
     typeof data !== "object" ||
     data === null ||
-    Array.isArray(data) ||
-    (data as Record<string, unknown>).status !== "committed"
+    Array.isArray(data)
   ) {
+    return {
+      status: "error",
+      message:
+        "The generated week could not be confirmed. Your existing week is unchanged; refresh and try again."
+    };
+  }
+
+  if ((data as Record<string, unknown>).status !== "committed") {
     const reason =
-      typeof data === "object" &&
-      data !== null &&
-      !Array.isArray(data) &&
       typeof (data as Record<string, unknown>).reason === "string"
         ? (data as Record<string, unknown>).reason
         : "";
+    if ((data as Record<string, unknown>).status === "rejected" && reason) {
+      await recordProductEvent(supabase, {
+        name: "generation_failed",
+        key: idempotencyKey,
+        operation,
+        outcome: "rejected",
+        reasonCode: safeReasonCode(reason)
+      });
+    }
     return {
       status: "error",
       message:
@@ -99,5 +131,11 @@ export async function generateFeasibleWeek(
   revalidatePath("/week");
   revalidatePath("/today");
   revalidatePath("/kitchen");
+  await recordProductEvent(supabase, {
+    name: "generation_outcome",
+    key: idempotencyKey,
+    operation,
+    outcome: "success"
+  });
   redirect("/week?generated=1");
 }

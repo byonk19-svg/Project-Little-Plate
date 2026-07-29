@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { recordProductEvent, safeReasonCode } from "@/modules/analytics/events";
 import { isJsonRecord } from "@/modules/meals/transport";
 import type { LifecycleFormState } from "@/modules/storage/lifecycle-form-state";
 
@@ -70,18 +71,42 @@ export async function transitionBatch(
     redirect("/login");
   }
 
+  const idempotencyKey = String(formData.get("idempotencyKey") ?? "");
   const { data, error } = await supabase.rpc("perform_batch_transition", {
     p_batch_id: String(formData.get("batchId") ?? ""),
     p_transition: transition,
     p_payload: payload,
-    p_idempotency_key: String(formData.get("idempotencyKey") ?? "")
+    p_idempotency_key: idempotencyKey
   });
 
-  if (error || !isJsonRecord(data) || data.status !== "applied") {
-    const reason =
-      !error && isJsonRecord(data) && typeof data.reason === "string"
-        ? data.reason
-        : "";
+  if (error || !isJsonRecord(data)) {
+    return {
+      status: "error",
+      message:
+        "The batch was not changed because its current state could not be verified."
+    };
+  }
+
+  if (data.status !== "applied") {
+    const reason = typeof data.reason === "string" ? data.reason : "";
+    if (data.status === "rejected" && reason) {
+      await recordProductEvent(supabase, {
+        name: "batch_outcome",
+        key: idempotencyKey,
+        operation: transition as
+          | "freeze"
+          | "begin_thaw"
+          | "mark_thawed"
+          | "return_untouched"
+          | "finish"
+          | "correct",
+        outcome: "rejected",
+        reasonCode: safeReasonCode(reason)
+      });
+    }
+    revalidatePath("/today");
+    revalidatePath("/week");
+    revalidatePath("/kitchen");
     return {
       status: "error",
       message:
@@ -93,5 +118,17 @@ export async function transitionBatch(
   revalidatePath("/today");
   revalidatePath("/week");
   revalidatePath("/kitchen");
+  await recordProductEvent(supabase, {
+    name: "batch_outcome",
+    key: idempotencyKey,
+    operation: transition as
+      | "freeze"
+      | "begin_thaw"
+      | "mark_thawed"
+      | "return_untouched"
+      | "finish"
+      | "correct",
+    outcome: "success"
+  });
   redirect(`/kitchen?transitioned=${encodeURIComponent(transition)}`);
 }

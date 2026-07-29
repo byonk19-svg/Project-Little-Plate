@@ -17,7 +17,12 @@ function ServeButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
 
   return (
-    <button className="primary-action" disabled={pending} type="submit">
+    <button
+      className="primary-action"
+      data-meal-choice="serve"
+      disabled={pending}
+      type="submit"
+    >
       {pending ? "Serving…" : label}
     </button>
   );

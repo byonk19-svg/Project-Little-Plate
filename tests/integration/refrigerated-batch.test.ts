@@ -1174,6 +1174,20 @@ describe("refrigerated batch creation", () => {
         projection_matches_ledger: false
       })
     );
+    const staleHealth = await household.rpc("get_inventory_health");
+    expect(staleHealth.error).toBeNull();
+    expect(staleHealth.data.items).toContainEqual(
+      expect.objectContaining({
+        batch_id: createdBatchId,
+        lifecycle_state: "refrigerated",
+        remaining_portions: 1,
+        ledger_portions: 2,
+        projection_matches_ledger: false
+      })
+    );
+    expect(JSON.stringify(staleHealth.data)).not.toMatch(
+      /food|birth|allerg|reaction|medical|note|description/i
+    );
 
     const staleHighUpdate = await admin
       .from("batches")
@@ -1204,6 +1218,56 @@ describe("refrigerated batch creation", () => {
         remaining_portions: 2,
         projection_matches_ledger: true
       })
+    );
+    const readyHealth = await household.rpc("get_inventory_health");
+    expect(readyHealth.data.items).toContainEqual(
+      expect.objectContaining({
+        batch_id: createdBatchId,
+        remaining_portions: 2,
+        ledger_portions: 2,
+        projection_matches_ledger: true
+      })
+    );
+
+    const inactiveBabyId = crypto.randomUUID();
+    const inactiveBatchId = crypto.randomUUID();
+    await runDatabaseCommand(`
+      insert into public.babies (
+        id, household_id, nickname, birth_date, time_zone,
+        feeding_style, meal_slots, is_active
+      )
+      select
+        '${inactiveBabyId}', household_id, 'Synthetic inactive health profile',
+        '2025-10-15', 'America/Chicago', 'mixed', array['breakfast'], false
+      from public.babies
+      where id = '${babyId}';
+
+      insert into public.batches (
+        id, baby_id, preparation_id, content_revision_id, storage_location,
+        prepared_or_opened_at, initial_portions, remaining_portions,
+        idempotency_key, lifecycle_state
+      )
+      select
+        '${inactiveBatchId}', '${inactiveBabyId}', preparation_id,
+        content_revision_id, storage_location, prepared_or_opened_at,
+        initial_portions, remaining_portions, gen_random_uuid(), lifecycle_state
+      from public.batches
+      where id = '${createdBatchId}';
+
+      insert into public.batch_events (
+        batch_id, event_type, occurred_at, actor_user_id, portion_delta
+      )
+      select
+        '${inactiveBatchId}', event_type, occurred_at, actor_user_id,
+        portion_delta
+      from public.batch_events
+      where batch_id = '${createdBatchId}'
+        and event_type = 'prepared_or_opened';
+    `);
+    const activeOnlyHealth = await household.rpc("get_inventory_health");
+    expect(activeOnlyHealth.error).toBeNull();
+    expect(activeOnlyHealth.data.items).not.toContainEqual(
+      expect.objectContaining({ batch_id: inactiveBatchId })
     );
   });
 

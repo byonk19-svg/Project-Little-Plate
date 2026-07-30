@@ -38,6 +38,12 @@ reaction, serving, or medical guidance.
   calm session-ended confirmation with no identity or authentication details.
 - Return an explicit error from the server action when Supabase cannot confirm
   sign-out, leaving the caregiver on Account without claiming success.
+- Verify authenticated claims immediately before local sign-out. A stale loaded
+  Account page with missing or invalid claims is an ambiguous failure and must
+  not redirect or claim that sign-out completed.
+- Set a 60-second, HTTP-only, same-site completion marker only after confirmed
+  local sign-out. Login renders the signed-out confirmation only when the query
+  flag and marker are both present and authenticated claims are absent.
 - Extend the Mailpit test helper with an opt-in excluded-message-ID seam so a
   second passwordless sign-in cannot reuse the already-consumed first message.
 - Inspect preserved profile rows through the existing local Docker/Postgres
@@ -50,6 +56,7 @@ reaction, serving, or medical guidance.
 - `src/app/login/page.tsx`
 - `src/modules/profiles/session-actions.ts`
 - `src/modules/profiles/session-form-state.ts`
+- `src/modules/profiles/session-marker.ts`
 - `tests/e2e/account-deletion.spec.ts`
 - `tests/e2e/support/passwordless-auth.ts`
 
@@ -68,6 +75,15 @@ reaction, serving, or medical guidance.
   identical: one membership/profile, one household, and one active baby with
   the same household ID and baby ID. It also proved one matching auth user with
   the same auth user ID and restored the `Session browser` active profile.
+- TDD ambiguity red: an authenticated direct visit to `/login?signedOut=1`
+  rendered a false confirmation before marker gating. With marker gating but
+  without claims preflight, submitting a stale Account page redirected to
+  Login instead of returning an error.
+- Final focused ambiguity green: the Ticket 19 browser scenario passed 1/1. It
+  retained the happy-path and preservation evidence, suppressed the forged
+  authenticated query confirmation, and proved that clearing the loaded
+  Account page's auth cookies before submit leaves the page on `/account` with
+  an honest error and no success redirect.
 - Regression evidence: the existing deletion scenario passed during an earlier
   whole-file run after the session-control implementation.
 - `pnpm typecheck` passed.
@@ -91,4 +107,5 @@ reaction, serving, or medical guidance.
   passed end to end. The full file was not rerun for this evidence-only
   follow-up.
 - Sign-out failure copy is implemented at the server-action/form seam; the real
-  Supabase failure branch is not forced by the browser fixture.
+  Supabase transport-failure branch is not forced by the browser fixture. The
+  missing-session ambiguity branch is covered by the stale-page browser case.

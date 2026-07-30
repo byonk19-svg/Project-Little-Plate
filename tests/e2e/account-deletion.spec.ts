@@ -84,6 +84,7 @@ function readAccountProfileSnapshot(userId: string): AccountProfileSnapshot {
 }
 
 test("a caregiver signs out locally and returns to the same active baby", async ({
+  context,
   page,
   request
 }) => {
@@ -129,6 +130,13 @@ test("a caregiver signs out locally and returns to the same active baby", async 
   expect(profileSnapshotBeforeSignOut.babies[0]?.is_active).toBe(true);
   const activeBabyIdBeforeSignOut = profileSnapshotBeforeSignOut.babies[0]?.id;
   expect(activeBabyIdBeforeSignOut).toMatch(/^[0-9a-f-]{36}$/);
+
+  await page.goto("/login?signedOut=1");
+  await expect(
+    page.getByText(
+      "You’re signed out. Your household data is still here for your next sign-in."
+    )
+  ).toHaveCount(0);
 
   await page.goto("/account");
   await expect(page).toHaveURL(/\/account$/);
@@ -178,6 +186,18 @@ test("a caregiver signs out locally and returns to the same active baby", async 
   expect(profileSnapshotAfterSignIn.babies[0]?.id).toBe(
     activeBabyIdBeforeSignOut
   );
+
+  await page.goto("/account");
+  await expect(page.getByRole("heading", { name: "Session" })).toBeVisible();
+  await context.clearCookies();
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(
+    page.getByRole("alert").filter({
+      hasText:
+        "We could not confirm your session, so we did not report sign-out as complete."
+    })
+  ).toBeVisible();
 });
 
 test("a caregiver reviews retention, confirms deletion, and loses account access", async ({

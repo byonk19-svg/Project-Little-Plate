@@ -9,6 +9,80 @@ import {
   waitForMagicLinkMessage
 } from "./support/passwordless-auth";
 
+type AccountProfileSnapshot = {
+  userProfiles: Array<{ user_id: string; household_id: string }>;
+  households: Array<{ id: string }>;
+  babies: Array<{
+    id: string;
+    household_id: string;
+    is_active: boolean;
+  }>;
+};
+
+function readAccountProfileSnapshot(userId: string): AccountProfileSnapshot {
+  expect(userId).toMatch(/^[0-9a-f-]{36}$/);
+  const output = execFileSync(
+    "docker",
+    [
+      "exec",
+      "supabase_db_mealboard-baby",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-Atc",
+      `with target_profiles as (
+        select user_id::text, household_id::text
+        from public.user_profiles
+        where user_id = '${userId}'
+      )
+      select json_build_object(
+        'userProfiles',
+        coalesce(
+          (
+            select json_agg(row_to_json(profile_row) order by profile_row.user_id)
+            from target_profiles profile_row
+          ),
+          '[]'::json
+        ),
+        'households',
+        coalesce(
+          (
+            select json_agg(row_to_json(household_row) order by household_row.id)
+            from (
+              select households.id::text as id
+              from public.households
+              join target_profiles
+                on target_profiles.household_id = households.id::text
+            ) household_row
+          ),
+          '[]'::json
+        ),
+        'babies',
+        coalesce(
+          (
+            select json_agg(row_to_json(baby_row) order by baby_row.id)
+            from (
+              select
+                babies.id::text as id,
+                babies.household_id::text as household_id,
+                babies.is_active
+              from public.babies
+              join target_profiles
+                on target_profiles.household_id = babies.household_id::text
+            ) baby_row
+          ),
+          '[]'::json
+        )
+      )`
+    ],
+    { encoding: "utf8" }
+  ).trim();
+
+  return JSON.parse(output) as AccountProfileSnapshot;
+}
+
 test("a caregiver signs out locally and returns to the same active baby", async ({
   page,
   request
@@ -41,6 +115,20 @@ test("a caregiver signs out locally and returns to the same active baby", async 
     (candidate) => candidate.email === email
   );
   expect(userBeforeSignOut).toBeTruthy();
+  const profileSnapshotBeforeSignOut = readAccountProfileSnapshot(
+    userBeforeSignOut!.id
+  );
+  expect(profileSnapshotBeforeSignOut.userProfiles).toHaveLength(1);
+  const householdIdBeforeSignOut =
+    profileSnapshotBeforeSignOut.userProfiles[0]?.household_id;
+  expect(householdIdBeforeSignOut).toMatch(/^[0-9a-f-]{36}$/);
+  expect(profileSnapshotBeforeSignOut.households).toEqual([
+    { id: householdIdBeforeSignOut }
+  ]);
+  expect(profileSnapshotBeforeSignOut.babies).toHaveLength(1);
+  expect(profileSnapshotBeforeSignOut.babies[0]?.is_active).toBe(true);
+  const activeBabyIdBeforeSignOut = profileSnapshotBeforeSignOut.babies[0]?.id;
+  expect(activeBabyIdBeforeSignOut).toMatch(/^[0-9a-f-]{36}$/);
 
   await page.goto("/account");
   await expect(page).toHaveURL(/\/account$/);
@@ -52,6 +140,9 @@ test("a caregiver signs out locally and returns to the same active baby", async 
   await expect(page.getByRole("status")).toContainText(
     "You’re signed out. Your household data is still here for your next sign-in."
   );
+
+  await page.goto("/feeding-setup");
+  await expect(page).toHaveURL(/\/login$/);
 
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login$/);
@@ -76,6 +167,17 @@ test("a caregiver signs out locally and returns to the same active baby", async 
   );
   expect(matchingUsers).toHaveLength(1);
   expect(matchingUsers[0]?.id).toBe(userBeforeSignOut!.id);
+
+  const profileSnapshotAfterSignIn = readAccountProfileSnapshot(
+    userBeforeSignOut!.id
+  );
+  expect(profileSnapshotAfterSignIn).toEqual(profileSnapshotBeforeSignOut);
+  expect(profileSnapshotAfterSignIn.userProfiles).toHaveLength(1);
+  expect(profileSnapshotAfterSignIn.households).toHaveLength(1);
+  expect(profileSnapshotAfterSignIn.babies).toHaveLength(1);
+  expect(profileSnapshotAfterSignIn.babies[0]?.id).toBe(
+    activeBabyIdBeforeSignOut
+  );
 });
 
 test("a caregiver reviews retention, confirms deletion, and loses account access", async ({

@@ -40,6 +40,8 @@ reaction, serving, or medical guidance.
   sign-out, leaving the caregiver on Account without claiming success.
 - Extend the Mailpit test helper with an opt-in excluded-message-ID seam so a
   second passwordless sign-in cannot reuse the already-consumed first message.
+- Inspect preserved profile rows through the existing local Docker/Postgres
+  test seam because direct service-role table access is intentionally revoked.
 
 ## Changed artifacts
 
@@ -59,9 +61,13 @@ reaction, serving, or medical guidance.
 - Focused green: `pnpm exec playwright test
   tests/e2e/account-deletion.spec.ts --grep "signs out locally"` passed 1/1.
   It proved the visible sign-out action, `/login?signedOut=1`, calm
-  confirmation, protected `/account` redirect, fresh second magic-link login,
-  restored `Session browser` active profile, one matching auth user, and the
-  same auth user ID.
+  confirmation, protected `/feeding-setup` and `/account` redirects, and a
+  fresh second magic-link login.
+- The same browser scenario captured the linked `user_profiles`, `households`,
+  and `babies` rows before sign-out and after re-login. Both snapshots were
+  identical: one membership/profile, one household, and one active baby with
+  the same household ID and baby ID. It also proved one matching auth user with
+  the same auth user ID and restored the `Session browser` active profile.
 - Regression evidence: the existing deletion scenario passed during an earlier
   whole-file run after the session-control implementation.
 - `pnpm typecheck` passed.
@@ -81,7 +87,8 @@ reaction, serving, or medical guidance.
   harness: both the new scenario and the unchanged deletion scenario failed
   before authentication because the existing `Check your email` success state
   did not appear within 20 seconds. A prior whole-file attempt passed the
-  deletion scenario, and the final focused Ticket 19 scenario passed end to
-  end. No further reruns were made to avoid an unbounded retry loop.
+  deletion scenario, and the final strengthened focused Ticket 19 scenario
+  passed end to end. The full file was not rerun for this evidence-only
+  follow-up.
 - Sign-out failure copy is implemented at the server-action/form seam; the real
   Supabase failure branch is not forced by the browser fixture.

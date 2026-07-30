@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 import { AccountDeletionForm } from "./account-deletion-form";
+import { SignOutForm } from "./sign-out-form";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,18 @@ export default async function AccountPage() {
           This permanent action is available to the signed-in caregiver only.
         </p>
       </div>
+
+      <section
+        className="account-deletion-card"
+        aria-labelledby="session-title"
+      >
+        <h2 id="session-title">Session</h2>
+        <p>
+          End this session on this device. Your household and baby profile stay
+          available for your next sign-in.
+        </p>
+        <SignOutForm />
+      </section>
 
       <section className="account-deletion-card" aria-labelledby="scope-title">
         <h2 id="scope-title">What deletion includes</h2>

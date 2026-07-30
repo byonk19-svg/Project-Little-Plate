@@ -7,7 +7,14 @@ export const metadata: Metadata = {
   title: "Sign in"
 };
 
-export default async function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{
+    signedOut?: string;
+  }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = await searchParams;
   const cookieStore = await cookies();
   const deletionCompleted =
     cookieStore.get("little-plate-deletion-complete")?.value === "1";
@@ -24,6 +31,13 @@ export default async function LoginPage() {
       </div>
 
       <LoginForm />
+
+      {params.signedOut === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          You’re signed out. Your household data is still here for your next
+          sign-in.
+        </p>
+      ) : null}
 
       {deletionCompleted ? (
         <p className="form-message form-message--success" role="status">

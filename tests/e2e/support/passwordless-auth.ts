@@ -18,6 +18,15 @@ export async function waitForMagicLink(
   request: APIRequestContext,
   email: string
 ): Promise<string> {
+  return (await waitForMagicLinkMessage(request, email)).href;
+}
+
+export async function waitForMagicLinkMessage(
+  request: APIRequestContext,
+  email: string,
+  excludedMessageIds: readonly string[] = []
+): Promise<{ href: string; messageId: string }> {
+  const excludedIds = new Set(excludedMessageIds);
   await expect
     .poll(
       async () => {
@@ -26,8 +35,10 @@ export async function waitForMagicLink(
         );
         const mailbox = (await response.json()) as MailpitMessages;
 
-        return mailbox.messages.find((message) =>
-          message.To.some((recipient) => recipient.Address === email)
+        return mailbox.messages.find(
+          (message) =>
+            !excludedIds.has(message.ID) &&
+            message.To.some((recipient) => recipient.Address === email)
         )?.ID;
       },
       { timeout: 15_000 }
@@ -38,8 +49,10 @@ export async function waitForMagicLink(
     "http://127.0.0.1:56324/api/v1/messages"
   );
   const mailbox = (await mailboxResponse.json()) as MailpitMessages;
-  const messageId = mailbox.messages.find((message) =>
-    message.To.some((recipient) => recipient.Address === email)
+  const messageId = mailbox.messages.find(
+    (message) =>
+      !excludedIds.has(message.ID) &&
+      message.To.some((recipient) => recipient.Address === email)
   )!.ID;
   const messageResponse = await request.get(
     `http://127.0.0.1:56324/api/v1/message/${messageId}`
@@ -50,5 +63,8 @@ export async function waitForMagicLink(
   );
 
   expect(match, "passwordless email should contain a link").not.toBeNull();
-  return match![0].replaceAll("&amp;", "&");
+  return {
+    href: match![0].replaceAll("&amp;", "&"),
+    messageId
+  };
 }

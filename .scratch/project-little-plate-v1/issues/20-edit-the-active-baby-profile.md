@@ -44,6 +44,12 @@ reaction restrictions continue to override convenience.
 - Keep onboarding defaults and its `/today` redirect unchanged. Edit mode
   supplies typed defaults for every collected field and redirects to
   `/account?profileUpdated=1`.
+- Enforce expected create/edit mode inside `complete_baby_profile`, after its
+  per-user advisory lock and active-baby `FOR UPDATE` read. Create mode remains
+  idempotent only when every normalized profile field matches; a conflicting
+  stale create fails without rewriting the baby. The optional database
+  parameter preserves the existing five-argument auto/update behavior for
+  established internal callers.
 
 ## Evidence
 
@@ -52,6 +58,7 @@ reaction restrictions continue to override convenience.
   - `src/app/profile-setup/page.tsx`
   - `src/app/profile-setup/profile-form.tsx`
   - `src/modules/profiles/actions.ts`
+  - `supabase/migrations/20260730220000_enforce_profile_expected_mode.sql`
   - `tests/integration/authenticated-baby-profile.test.ts`
   - `tests/e2e/profile-editing.spec.ts`
 - TDD RED: the new focused mobile scenario failed waiting for the absent
@@ -59,14 +66,20 @@ reaction restrictions continue to override convenience.
 - Real-Supabase integration:
   `pnpm exec vitest run --config vitest.integration.config.ts
   tests/integration/authenticated-baby-profile.test.ts --reporter=verbose
-  --maxWorkers=1` passed 1 file and 4 tests. The existing transactional RPC
+  --maxWorkers=1` passed 1 file and 6 tests. The existing transactional RPC
   returned the same baby ID on retry, kept exactly one active baby, and an
-  invalid update left all prior profile values unchanged.
+  invalid update left all prior profile values unchanged. Focused expected-mode
+  cases additionally proved that an exact create retry returns the same ID, a
+  conflicting stale create cannot rewrite the profile, and edit mode cannot
+  create a missing baby.
 - Mobile browser:
   `pnpm exec playwright test tests/e2e/profile-editing.spec.ts
   --project=mobile-chromium` passed 1 test. It proved current-value prefill,
   all-field save, calm Account confirmation, updated Today nickname, updated
   Week IANA time zone and meal-slot rendering, and invalid-update rollback.
+- The browser test resolves the created auth user through an exact-email local
+  SQL lookup. It no longer depends on the first page returned by the paginated
+  Auth Admin user listing.
 - The browser fixture queried the real database before and after editing. The
   household ID and active baby ID stayed identical; there remained exactly one
   active baby; reviewed-content, feeding-eligibility, restriction, reaction,
@@ -74,6 +87,10 @@ reaction restrictions continue to override convenience.
   event ID remained present. A later Today visit correctly appended analytics
   history rather than rewriting it.
 - `pnpm typecheck` passed.
+- `pnpm supabase:reset` applied every migration including
+  `20260730220000_enforce_profile_expected_mode.sql` and reseeded successfully.
+- `pnpm exec supabase db lint --local --level warning` returned no schema
+  errors.
 - Focused Prettier completed without changes after formatting.
 - `git diff --check` passed.
 

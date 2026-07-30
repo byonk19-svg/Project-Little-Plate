@@ -65,31 +65,13 @@ export async function completeBabyProfile(
     };
   }
 
-  const { data: activeBabies, error: activeBabyError } = await supabase
-    .from("babies")
-    .select("id")
-    .eq("is_active", true)
-    .limit(2);
-  const hasOneActiveBaby = !activeBabyError && activeBabies?.length === 1;
-
-  if (
-    activeBabyError ||
-    (mode === "edit" && !hasOneActiveBaby) ||
-    (mode === "create" && activeBabies.length > 0)
-  ) {
-    return {
-      status: "error",
-      message:
-        "This profile flow is no longer available. Refresh and try again."
-    };
-  }
-
   const { error } = await supabase.rpc("complete_baby_profile", {
     p_nickname: String(formData.get("nickname") ?? ""),
     p_birth_date: String(formData.get("birthDate") ?? ""),
     p_time_zone: String(formData.get("timeZone") ?? ""),
     p_feeding_style: String(formData.get("feedingStyle") ?? ""),
-    p_meal_slots: formData.getAll("mealSlots").map(String)
+    p_meal_slots: formData.getAll("mealSlots").map(String),
+    p_expected_mode: mode
   });
 
   if (error) {

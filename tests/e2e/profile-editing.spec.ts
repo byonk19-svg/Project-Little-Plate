@@ -1,9 +1,7 @@
 import { execFileSync } from "node:child_process";
 
-import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 
-import { readLocalSupabaseStatus } from "../integration/support/local-supabase";
 import { waitForMagicLink } from "./support/passwordless-auth";
 
 type ProfileBoundarySnapshot = {
@@ -93,15 +91,33 @@ function readProfileBoundarySnapshot(userId: string): ProfileBoundarySnapshot {
   return JSON.parse(output) as ProfileBoundarySnapshot;
 }
 
+function readLocalAuthUserId(email: string): string {
+  expect(email).toMatch(/^[a-z0-9@._-]+$/i);
+  const userId = execFileSync(
+    "docker",
+    [
+      "exec",
+      "supabase_db_mealboard-baby",
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-Atc",
+      `select id::text from auth.users where lower(email) = lower('${email}')`
+    ],
+    { encoding: "utf8" }
+  ).trim();
+
+  expect(userId).toMatch(/^[0-9a-f-]{36}$/);
+  return userId;
+}
+
 test("a caregiver edits the active baby profile without changing its boundaries", async ({
   page,
   request
 }) => {
   test.setTimeout(180_000);
-  const status = readLocalSupabaseStatus();
-  const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
   const email = `ticket-20-browser-${crypto.randomUUID()}@example.test`;
 
   await page.goto("/login");
@@ -120,10 +136,8 @@ test("a caregiver edits the active baby profile without changing its boundaries"
   await page.getByRole("button", { name: "Finish setup" }).click();
   await expect(page).toHaveURL(/\/today$/, { timeout: 20_000 });
 
-  const users = await admin.auth.admin.listUsers();
-  const user = users.data.users.find((candidate) => candidate.email === email);
-  expect(user).toBeTruthy();
-  const before = readProfileBoundarySnapshot(user!.id);
+  const userId = readLocalAuthUserId(email);
+  const before = readProfileBoundarySnapshot(userId);
   expect(before.activeBabyCount).toBe(1);
 
   await page.getByRole("link", { name: "Account" }).click();
@@ -191,7 +205,7 @@ test("a caregiver edits the active baby profile without changing its boundaries"
   await expect(page.getByLabel("Lunch")).toBeChecked();
   await expect(page.getByLabel("Dinner")).toBeChecked();
 
-  const after = readProfileBoundarySnapshot(user!.id);
+  const after = readProfileBoundarySnapshot(userId);
   const { historyIds: historyIdsBefore, ...boundaryBefore } = before;
   const { historyIds: historyIdsAfter, ...boundaryAfter } = after;
   expect(boundaryAfter).toEqual(boundaryBefore);

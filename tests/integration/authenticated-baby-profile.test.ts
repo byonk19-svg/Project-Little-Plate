@@ -190,6 +190,81 @@ describe("authenticated baby profile", () => {
     expect(babies).toEqual([]);
   });
 
+  test("create mode rejects a conflicting stale submission without changing the active baby", async () => {
+    const user = await createTestUser("expected-create-mode");
+    await user.client.rpc("bootstrap_account");
+    const originalProfile = {
+      p_nickname: "Original",
+      p_birth_date: "2025-10-15",
+      p_time_zone: "America/Chicago",
+      p_feeding_style: "mixed",
+      p_meal_slots: ["breakfast", "dinner"],
+      p_expected_mode: "create"
+    };
+
+    const first = await user.client.rpc(
+      "complete_baby_profile",
+      originalProfile
+    );
+    expect(first.error).toBeNull();
+
+    const exactRetry = await user.client.rpc(
+      "complete_baby_profile",
+      originalProfile
+    );
+    expect(exactRetry.error).toBeNull();
+    expect(exactRetry.data).toBe(first.data);
+
+    const conflictingStaleCreate = await user.client.rpc(
+      "complete_baby_profile",
+      {
+        ...originalProfile,
+        p_nickname: "Conflicting",
+        p_time_zone: "America/New_York",
+        p_meal_slots: ["lunch"]
+      }
+    );
+    expect(conflictingStaleCreate.error?.message).toMatch(
+      /create mode cannot replace/i
+    );
+
+    const { data: babies, error } = await user.client
+      .from("babies")
+      .select(
+        "id, nickname, birth_date, time_zone, feeding_style, meal_slots, is_active"
+      );
+    expect(error).toBeNull();
+    expect(babies).toEqual([
+      {
+        id: first.data,
+        nickname: "Original",
+        birth_date: "2025-10-15",
+        time_zone: "America/Chicago",
+        feeding_style: "mixed",
+        meal_slots: ["breakfast", "dinner"],
+        is_active: true
+      }
+    ]);
+  });
+
+  test("edit mode rejects a submission when no active baby exists", async () => {
+    const user = await createTestUser("expected-edit-mode");
+    await user.client.rpc("bootstrap_account");
+
+    const result = await user.client.rpc("complete_baby_profile", {
+      p_nickname: "Missing",
+      p_birth_date: "2025-10-15",
+      p_time_zone: "America/Chicago",
+      p_feeding_style: "mixed",
+      p_meal_slots: ["breakfast"],
+      p_expected_mode: "edit"
+    });
+    expect(result.error?.message).toMatch(/active baby is required for edit/i);
+
+    const { data: babies } = await user.client.from("babies").select("id");
+    expect(babies).toEqual([]);
+  });
+
   test("anonymous and other households cannot read or mutate child profile data", async () => {
     await householdB.client.rpc("bootstrap_account");
 

@@ -45,6 +45,7 @@ export async function requestSignInLink(
 }
 
 export async function completeBabyProfile(
+  mode: "create" | "edit",
   _previousState: FormState,
   formData: FormData
 ): Promise<FormState> {
@@ -54,6 +55,33 @@ export async function completeBabyProfile(
 
   if (claimsError || !claimsData?.claims) {
     redirect("/login");
+  }
+
+  if (mode !== "create" && mode !== "edit") {
+    return {
+      status: "error",
+      message:
+        "This profile flow is no longer available. Refresh and try again."
+    };
+  }
+
+  const { data: activeBabies, error: activeBabyError } = await supabase
+    .from("babies")
+    .select("id")
+    .eq("is_active", true)
+    .limit(2);
+  const hasOneActiveBaby = !activeBabyError && activeBabies?.length === 1;
+
+  if (
+    activeBabyError ||
+    (mode === "edit" && !hasOneActiveBaby) ||
+    (mode === "create" && activeBabies.length > 0)
+  ) {
+    return {
+      status: "error",
+      message:
+        "This profile flow is no longer available. Refresh and try again."
+    };
   }
 
   const { error } = await supabase.rpc("complete_baby_profile", {
@@ -71,5 +99,5 @@ export async function completeBabyProfile(
     };
   }
 
-  redirect("/today");
+  redirect(mode === "edit" ? "/account?profileUpdated=1" : "/today");
 }

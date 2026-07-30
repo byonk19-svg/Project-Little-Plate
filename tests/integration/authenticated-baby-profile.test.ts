@@ -141,6 +141,26 @@ describe("authenticated baby profile", () => {
         is_active: true
       }
     ]);
+
+    const invalidUpdate = await householdA.client.rpc("complete_baby_profile", {
+      p_nickname: "Should not persist",
+      p_birth_date: "2025-09-20",
+      p_time_zone: "Not/A_Time_Zone",
+      p_feeding_style: "spoon_fed",
+      p_meal_slots: ["lunch"]
+    });
+
+    expect(invalidUpdate.error?.message).toMatch(/time zone/i);
+
+    const { data: babiesAfterInvalidUpdate, error: invalidReadError } =
+      await householdA.client
+        .from("babies")
+        .select(
+          "id, nickname, birth_date, time_zone, feeding_style, meal_slots, is_active"
+        );
+
+    expect(invalidReadError).toBeNull();
+    expect(babiesAfterInvalidUpdate).toEqual(babies);
   });
 
   test("invalid setup rolls back without leaving partial baby state", async () => {

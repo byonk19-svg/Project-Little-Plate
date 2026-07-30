@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -12,7 +13,12 @@ export const metadata: Metadata = {
   title: "Account"
 };
 
-export default async function AccountPage() {
+type AccountPageProps = {
+  searchParams: Promise<{ profileUpdated?: string }>;
+};
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
+  const params = await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
@@ -28,6 +34,24 @@ export default async function AccountPage() {
           This permanent action is available to the signed-in caregiver only.
         </p>
       </div>
+
+      {params.profileUpdated === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          Baby profile updated.
+        </p>
+      ) : null}
+
+      <section
+        className="account-deletion-card"
+        aria-labelledby="profile-title"
+      >
+        <h2 id="profile-title">Baby profile</h2>
+        <p>
+          Correct the nickname, birth date, time zone, feeding style, or daily
+          meal slots used by Little Plate.
+        </p>
+        <Link href="/profile-setup?mode=edit">Edit baby profile</Link>
+      </section>
 
       <section
         className="account-deletion-card"

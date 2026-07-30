@@ -106,6 +106,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     showsCurrentGeneratedPlan &&
     generation.status === "ready" &&
     generation.version === week.plan.version;
+  const hasNoEligiblePreparations =
+    editOptions.status === "ready" && editOptions.items.length === 0;
 
   return (
     <div className="week-page">
@@ -135,7 +137,31 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
       ) : (
         <>
           {!params.start || showsCurrentGeneratedPlan ? (
-            <PlannerGenerationForm regenerate={showsCurrentGeneratedPlan} />
+            hasNoEligiblePreparations ? (
+              <section
+                aria-labelledby="planner-unavailable"
+                className="foundation-card"
+              >
+                <p className="foundation-card__status">Planning unavailable</p>
+                <h2 id="planner-unavailable">
+                  Weekly planning is not available yet
+                </h2>
+                <p>
+                  No eligible reviewed food preparations are available for this
+                  profile.
+                </p>
+                <p>
+                  <Link href="/foods">Browse Foods</Link>
+                  {" or "}
+                  <Link href="/feeding-eligibility">
+                    Review Feeding eligibility
+                  </Link>
+                  .
+                </p>
+              </section>
+            ) : (
+              <PlannerGenerationForm regenerate={showsCurrentGeneratedPlan} />
+            )
           ) : null}
 
           {showsCurrentExplanations && generation.messages.length > 0 ? (

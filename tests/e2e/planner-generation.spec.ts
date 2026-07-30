@@ -147,6 +147,9 @@ test.beforeAll(async () => {
   admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
+});
+
+async function importPlannerFixture() {
   expect(
     (await admin.rpc("import_catalog_fixture", { p_fixture: fixture })).error
   ).toBeNull();
@@ -173,13 +176,41 @@ test.beforeAll(async () => {
       })
     ).error
   ).toBeNull();
+}
+
+test("no eligible reviewed preparations leaves Week visible with safe recovery links", async ({
+  page,
+  request
+}) => {
+  await createProfile(page, request);
+
+  await page.goto("/week");
+
+  await expect(page.getByTestId("week-day")).toHaveCount(7);
+  await expect(page.getByTestId("week-slot")).toHaveCount(7);
+  await expect(
+    page.getByRole("button", { name: "Generate a reviewed week" })
+  ).toHaveCount(0);
+  const unavailable = page.getByRole("region", {
+    name: "Weekly planning is not available yet"
+  });
+  await expect(unavailable).toContainText(
+    "No eligible reviewed food preparations are available for this profile."
+  );
+  await expect(
+    unavailable.getByRole("link", { name: "Browse Foods" })
+  ).toHaveAttribute("href", "/foods");
+  await expect(
+    unavailable.getByRole("link", { name: "Review Feeding eligibility" })
+  ).toHaveAttribute("href", "/feeding-eligibility");
 });
 
-test("a caregiver generates, understands, locks, regenerates, and recovers from failure", async ({
+test("a caregiver generates, understands, locks, regenerates, and sees later unavailability", async ({
   page,
   request
 }) => {
   test.setTimeout(180_000);
+  await importPlannerFixture();
   const email = await createProfile(page, request);
   await page.goto("/feeding-setup");
   await page
@@ -258,12 +289,16 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
     .selectOption("temporary_avoidance");
   await page.getByRole("button", { name: "Save feeding setup" }).click();
   await page.goto("/week");
-  await page
-    .getByRole("button", { name: "Regenerate unlocked choices" })
-    .click();
   await expect(
-    page.locator(".planner-generation").getByRole("alert")
-  ).toContainText("No reviewed preparation currently matches");
+    page.getByRole("button", { name: "Regenerate unlocked choices" })
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("region", {
+      name: "Weekly planning is not available yet"
+    })
+  ).toContainText(
+    "No eligible reviewed food preparations are available for this profile."
+  );
   await expect(page.getByTestId("week-component")).toHaveCount(7);
 
   const user = (await admin.auth.admin.listUsers()).data.users.find(
@@ -298,12 +333,6 @@ test("a caregiver generates, understands, locks, regenerates, and recovers from 
         operation: "regenerate",
         outcome: "success",
         reason_code: null
-      },
-      {
-        event_name: "generation_failed",
-        operation: "regenerate",
-        outcome: "rejected",
-        reason_code: "no_eligible_candidate"
       }
     ]);
 });

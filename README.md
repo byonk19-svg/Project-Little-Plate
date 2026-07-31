@@ -183,3 +183,16 @@ pnpm test:integration
 pnpm test:e2e
 git diff --check
 ```
+
+The default Playwright configuration intentionally leaves
+`NEXT_PUBLIC_LOCAL_MAIL_URL` unset. Ticket 22's two local-email modes can be
+checked separately:
+
+```powershell
+pnpm exec playwright test tests/e2e/local-email-delivery.spec.ts --project=mobile-chromium
+pnpm exec playwright test --config=playwright.local-mail.config.ts --project=mobile-chromium
+```
+
+The second command injects the documented loopback URL when it starts the app.
+If Playwright reuses an existing development server, configure
+`NEXT_PUBLIC_LOCAL_MAIL_URL` in that server's ignored `.env.local` first.

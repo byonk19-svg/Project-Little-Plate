@@ -11,8 +11,7 @@ clear recovery state when Week has no eligible reviewed preparation options.
   option set contains no eligible reviewed preparations.
 - [x] The unavailable state explains that no eligible reviewed preparation is
   currently available without guessing why.
-- [x] The state links to Foods and Feeding eligibility as the safe recovery
-  surfaces.
+- [x] The state links to Foods and Feeding setup as the safe recovery surfaces.
 - [x] No plan is generated, partially saved, or changed from this state.
 - [x] Existing Week dates, slots, locks, status, and committed components
   remain visible.
@@ -35,6 +34,8 @@ synthetic content into the production catalog.
 - Use the verified Week edit-option read model already loaded by the page.
 - Keep the generic snapshot-unavailable copy for failures whose exact cause
   cannot be safely identified.
+- Use the existing `/feeding-setup` route for feeding-eligibility recovery; no
+  separate `/feeding-eligibility` route exists.
 - Treat only `{ status: "ready", items: [] }` as known planner unavailability.
   The page does not inspect content, profile, or eligibility records to infer a
   more specific reason.
@@ -50,7 +51,7 @@ synthetic content into the production catalog.
 - `src/app/week/page.tsx`
   - branches on the existing successful Week edit-option result;
   - renders the non-diagnostic unavailable card and links to `/foods` and
-    `/feeding-eligibility`;
+    `/feeding-setup`;
   - leaves the existing Week plan below the card.
 - `tests/e2e/planner-generation.spec.ts`
   - covers the production-safe empty catalog at the mobile browser seam;

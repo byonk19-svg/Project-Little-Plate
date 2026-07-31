@@ -202,7 +202,7 @@ test("no eligible reviewed preparations leaves Week visible with safe recovery l
   ).toHaveAttribute("href", "/foods");
   await expect(
     unavailable.getByRole("link", { name: "Review Feeding eligibility" })
-  ).toHaveAttribute("href", "/feeding-eligibility");
+  ).toHaveAttribute("href", "/feeding-setup");
 });
 
 test("a caregiver generates, understands, locks, regenerates, and sees later unavailability", async ({

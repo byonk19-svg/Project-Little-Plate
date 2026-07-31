@@ -153,10 +153,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                 <p>
                   <Link href="/foods">Browse Foods</Link>
                   {" or "}
-                  <Link href="/feeding-eligibility">
-                    Review Feeding eligibility
-                  </Link>
-                  .
+                  <Link href="/feeding-setup">Review Feeding eligibility</Link>.
                 </p>
               </section>
             ) : (

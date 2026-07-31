@@ -99,3 +99,17 @@ authentication, production email delivery, or any feeding and safety content.
   server inherits that server's environment. Local contributors must set the
   optional ignored value first; a runner-started server receives it from the
   dedicated configuration.
+
+## Final cross-ticket verification
+
+- The final live in-app browser audit submitted a synthetic local address and
+  observed the successful status plus `Open local inbox`.
+- The live link target was exactly `http://127.0.0.1:56324`, used
+  `rel="noreferrer"`, and contained no email address, token, or redirect data.
+- The ignored `.env.local` setting was temporarily removed for the default
+  absent-mode browser check and restored exactly afterward. The current local
+  server therefore keeps the developer inbox link available.
+- The broad Playwright sweep's absent-mode scenario later timed out waiting for
+  the local sign-in response while the Supabase stack was degraded. The
+  dedicated configured and absent scenarios had already passed independently,
+  and the final live configured audit passed.

@@ -5,7 +5,7 @@ profile through the same transactional boundary used during onboarding.
 
 **Blocked by:** 19 - Add account session controls.
 
-**Status:** ready-for-human
+**Status:** complete
 
 - [x] Account links to an authenticated profile-editing flow.
 - [x] The form is prefilled with the active baby's nickname, birth date, IANA
@@ -102,3 +102,23 @@ reaction restrictions continue to override convenience.
   batch to display, so preservation is proven by the unchanged baby identity,
   unchanged boundary counts, and the RPC's existing single-row transactional
   update rather than by populating new safety-sensitive fixture records.
+
+## Final cross-ticket verification
+
+- The final live in-app browser audit created a synthetic profile, reopened it
+  from Account, confirmed every field was prefilled, changed the nickname,
+  saved, and observed `Baby profile updated.` on Account.
+- The live Week page rendered the configured `America/Chicago` time zone and
+  both selected meal slots across all seven days.
+- `pnpm verify` passed formatting, lint, and typecheck. The production build
+  passed, and catalog source tests passed 6/6.
+- The database reset applied every migration, including
+  `20260730220000_enforce_profile_expected_mode.sql`, and applied the seed. A
+  later CLI health window expired while slow containers were starting; after
+  starting with the health-wait bypass, Auth returned HTTP 200, Postgres
+  accepted connections, and database lint returned no schema errors.
+- The full integration sweep passed the Ticket 20 profile suite 6/6, including
+  exact retry, conflicting stale-create rollback, and missing-baby edit
+  rejection. Other integration files later encountered shared catalog-fixture,
+  lock, and statement-timeout failures under the degraded local stack; no
+  Ticket 20 assertion failed.

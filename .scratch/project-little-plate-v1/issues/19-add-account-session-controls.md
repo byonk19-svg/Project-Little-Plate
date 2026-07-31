@@ -109,3 +109,20 @@ reaction, serving, or medical guidance.
 - Sign-out failure copy is implemented at the server-action/form seam; the real
   Supabase transport-failure branch is not forced by the browser fixture. The
   missing-session ambiguity branch is covered by the stale-page browser case.
+
+## Final cross-ticket verification
+
+- The final live in-app browser audit created a synthetic local caregiver,
+  confirmed that the Session region precedes deletion, signed out, saw the
+  server-confirmed calm message, and verified that Account redirected to Login.
+- The full Playwright sweep again passed the focused Ticket 19 sign-out,
+  protected-route, and identity-preservation scenario. The unchanged deletion
+  scenario later failed during profile setup while the local Supabase stack was
+  under sustained timeout pressure; it did not reach deletion behavior.
+- `pnpm verify` passed repository formatting, lint, and typecheck before its
+  unit-test pool reported three worker-start timeouts. Those three files then
+  passed serially (58 tests), with no assertion failure.
+- The full verification run is not recorded as green: the local container stack
+  exceeded Supabase, Vitest, and Playwright timeouts under the sustained run.
+  This is retained as an environment limitation rather than hidden or treated
+  as Ticket 19 success evidence.

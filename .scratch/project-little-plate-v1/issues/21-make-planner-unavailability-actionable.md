@@ -104,3 +104,19 @@ synthetic content into the production catalog.
 - Verification was intentionally bounded to the two Ticket 21 browser scenarios,
   typecheck, focused formatting, and whitespace checking. The broad repository
   suite was not run for this scoped ticket.
+
+## Final cross-ticket verification
+
+- The final live in-app browser audit showed `Weekly planning is not available
+  yet`, neutral `available right now` copy, real `/foods` and `/feeding-setup`
+  recovery links, the configured time zone, seven dates, and both meal slots.
+  No generation or regeneration button was present.
+- Both isolated Ticket 21 browser scenarios passed before final verification:
+  the fully configured empty-catalog state and the independently isolated
+  eligible generate, lock, and regenerate path.
+- The broad Playwright sweep passed 9/19 scenarios while the local Supabase
+  stack was degraded. The empty-catalog scenario later could not receive a
+  Mailpit message; the eligible scenario reached its final transition but saw
+  a stale regeneration control. These broad-run results are not substituted
+  for the isolated green evidence or the final live empty-catalog audit.
+- Production seed and reviewed safety content remain unchanged.

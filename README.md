@@ -114,6 +114,18 @@ Copy-Item .env.example .env.local
 After `pnpm supabase:start`, replace the example values in `.env.local` with the
 local API URL and publishable key printed by the CLI. The local passwordless
 email arrives in Mailpit at [http://127.0.0.1:56324](http://127.0.0.1:56324).
+To show an `Open local inbox` shortcut after a successful sign-in request,
+explicitly set this optional developer-only value in `.env.local`:
+
+```dotenv
+NEXT_PUBLIC_LOCAL_MAIL_URL=http://127.0.0.1:56324
+```
+
+The shortcut accepts only an absolute `http` or `https` URL for `localhost`,
+`127.0.0.1`, or `[::1]`. URLs containing credentials, a query string, or a
+fragment are rejected rather than changed. Leave the setting absent in
+environments without a local captured-email inbox; sign-in copy and behavior
+then remain unchanged.
 
 ## Local development
 

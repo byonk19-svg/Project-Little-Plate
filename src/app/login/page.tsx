@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
+import { readPublicEnvironment } from "@/config/environment";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { SIGN_OUT_COMPLETE_COOKIE } from "@/modules/profiles/session-marker";
 
@@ -27,6 +28,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     params.signedOut === "1" &&
     cookieStore.get(SIGN_OUT_COMPLETE_COOKIE)?.value === "1" &&
     !claimsData?.claims;
+  const { localMailUrl } = readPublicEnvironment();
 
   return (
     <article className="auth-page">
@@ -39,7 +41,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         </p>
       </div>
 
-      <LoginForm />
+      <LoginForm localMailUrl={localMailUrl} />
 
       {signOutCompleted ? (
         <p className="form-message form-message--success" role="status">

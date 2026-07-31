@@ -42,9 +42,14 @@ synthetic content into the production catalog.
 - Replace generation or regeneration with the recovery card only where the
   current editable week would otherwise show the generation form. Other Week
   windows and the generic unavailable read-model path remain unchanged.
-- Import the synthetic reviewed catalog fixture inside the eligible-generation
-  browser scenario so the empty-catalog scenario exercises the production-safe
-  catalog first.
+- Give each planner browser scenario a unique synthetic fixture and retire all
+  currently published local revisions at scenario setup. This preserves
+  append-only catalog history while preventing a previous run from determining
+  the next run's option set.
+- Establish the empty-catalog condition only after a fully configured profile
+  has exposed generation against the published fixture. Retire that revision,
+  then assert both the unretired approved-revision set and the public published
+  preparation read model are empty before reloading Week.
 
 ## Changed artifacts
 
@@ -54,7 +59,11 @@ synthetic content into the production catalog.
     `/feeding-setup`;
   - leaves the existing Week plan below the card.
 - `tests/e2e/planner-generation.spec.ts`
-  - covers the production-safe empty catalog at the mobile browser seam;
+  - creates unique reviewed fixtures so repeated focused runs are isolated;
+  - proves a fully configured profile exposes generation before its only
+    published revision is retired;
+  - directly proves zero unretired approved revisions and zero preparations in
+    the public catalog read model before asserting the unavailable state;
   - preserves the synthetic reviewed fixture generation, lock, and regeneration
     lifecycle;
   - proves later zero-option unavailability preserves committed components and
@@ -64,15 +73,18 @@ synthetic content into the production catalog.
 
 - RED:
   `pnpm exec playwright test tests/e2e/planner-generation.spec.ts --grep "no eligible reviewed preparations"`
-  failed because `Generate a reviewed week` was present (`Received: 1`,
-  `Expected: 0`) while all seven days and slots had rendered.
+  first proved one published reviewed preparation, a fully configured eligible
+  profile with generation enabled, and then zero published preparations after
+  retirement. It failed only because the card still said `for this profile`
+  instead of the neutral `right now` copy.
 - GREEN:
-  the same focused empty-catalog command passed, 1 test.
+  the same isolated empty-catalog command passed, 1 test.
 - Eligible fixture regression:
   `pnpm exec playwright test tests/e2e/planner-generation.spec.ts --grep "a caregiver generates"`
-  passed, 1 test. The eligible fixture generated and regenerated successfully;
-  after it became ineligible, Week showed the unavailable state without changing
-  the seven committed components.
+  passed, 1 test after performing its own cleanup and unique fixture import. The
+  eligible fixture generated and regenerated successfully; after it became
+  ineligible, Week showed the unavailable state without changing the seven
+  committed components.
 - `pnpm typecheck` passed.
 - `pnpm exec prettier --write src/app/week/page.tsx tests/e2e/planner-generation.spec.ts .scratch/project-little-plate-v1/issues/21-make-planner-unavailability-actionable.md`
   completed.
@@ -80,9 +92,12 @@ synthetic content into the production catalog.
 
 ## Fixture status and remaining risks
 
-- Production content remains empty. The only reviewed preparation used by the
-  ready-state regression is the existing synthetic browser fixture imported by
-  that scenario.
+- Production seed and catalog artifacts remain unchanged. Browser scenarios use
+  unique synthetic reviewed fixtures in the local database only.
+- Scenario setup retires currently published local revisions through the
+  existing append-only retirement table. Repeated focused runs may accumulate
+  retired fixture history, but cannot inherit an active preparation from a
+  previous run.
 - Reviewed-content publication, preparation eligibility, storage, allergen,
   feeding, and medical semantics were consumed unchanged. No schema, migration,
   seed, or database function changed.

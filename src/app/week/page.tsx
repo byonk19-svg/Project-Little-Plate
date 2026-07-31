@@ -147,8 +147,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                   Weekly planning is not available yet
                 </h2>
                 <p>
-                  No eligible reviewed food preparations are available for this
-                  profile.
+                  No eligible reviewed food preparations are available right
+                  now.
                 </p>
                 <p>
                   <Link href="/foods">Browse Foods</Link>

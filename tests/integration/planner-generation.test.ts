@@ -13,6 +13,15 @@ type TestUser = { id: string; client: SupabaseClient };
 
 const createdUserIds: string[] = [];
 
+function utcDateDaysFromNow(days: number) {
+  const date = new Date();
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+const expiringReviewDate = utcDateDaysFromNow(2);
+const validReviewDate = utcDateDaysFromNow(365);
+
 function fixture() {
   return {
     sources: [
@@ -61,7 +70,7 @@ function fixture() {
       reviewer_role: "synthetic_test_reviewer",
       reviewed_at: "2026-07-28",
       approved_at: "2026-07-28",
-      next_review_at: number === 3 ? "2026-07-30" : "2027-07-28",
+      next_review_at: number === 3 ? expiringReviewDate : validReviewDate,
       tag_ids: ["skill-ticket-14", "allergen-ticket-14"],
       visual_required: false,
       visual_ids: [],
@@ -186,7 +195,7 @@ describe("transactional planner generation", () => {
             reviewer_role: "synthetic_test_reviewer",
             reviewed_at: "2026-07-28",
             approved_at: "2026-07-28",
-            next_review_at: number === 4 ? "2026-07-30" : "2027-07-28"
+            next_review_at: number === 4 ? expiringReviewDate : validReviewDate
           }))
         })
       ).error

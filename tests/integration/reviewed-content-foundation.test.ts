@@ -1,13 +1,10 @@
-import { execSync } from "node:child_process";
-
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-type LocalSupabaseStatus = {
-  API_URL: string;
-  ANON_KEY: string;
-  SERVICE_ROLE_KEY: string;
-};
+import {
+  type LocalSupabaseStatus,
+  readLocalSupabaseStatus
+} from "./support/local-supabase";
 
 const validFixture = {
   sources: [
@@ -94,6 +91,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-discard",
@@ -124,6 +124,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-unsupported",
@@ -147,6 +150,9 @@ const validFixture = {
       approved_at: null,
       next_review_at: null,
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-draft",
@@ -170,6 +176,9 @@ const validFixture = {
       approved_at: null,
       next_review_at: null,
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-review",
@@ -193,6 +202,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-retired",
@@ -216,6 +228,9 @@ const validFixture = {
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
       tag_ids: ["skill-test-001", "allergen-test-none"],
+      visual_required: false,
+      visual_ids: [],
+      preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
           id: "rule-test-inactive",
@@ -256,18 +271,13 @@ type MutableFixture = {
   retirements: Array<Record<string, unknown>>;
 };
 
-function readLocalSupabaseStatus(): LocalSupabaseStatus {
-  return JSON.parse(
-    execSync("pnpm exec supabase status -o json", { encoding: "utf8" })
-  ) as LocalSupabaseStatus;
-}
-
 describe("reviewed content foundation", () => {
   let status: LocalSupabaseStatus;
   let admin: SupabaseClient;
   let anonymous: SupabaseClient;
   let caregiver: SupabaseClient;
   let caregiverId: string;
+  let fixtureImported = false;
 
   beforeAll(async () => {
     status = readLocalSupabaseStatus();
@@ -308,6 +318,35 @@ describe("reviewed content foundation", () => {
 
   afterAll(async () => {
     await admin.auth.admin.deleteUser(caregiverId);
+    if (!fixtureImported) {
+      return;
+    }
+
+    const approvedRevisions = [
+      "revision-test-supported-v1",
+      "revision-test-unsupported-v1"
+    ];
+    const existingRetirements = await admin
+      .from("content_retirements")
+      .select("revision_id")
+      .in("revision_id", approvedRevisions);
+    expect(existingRetirements.error).toBeNull();
+    const retiredRevisionIds = new Set(
+      (existingRetirements.data ?? []).map(({ revision_id }) => revision_id)
+    );
+    const missingRetirements = approvedRevisions
+      .filter((revisionId) => !retiredRevisionIds.has(revisionId))
+      .map((revisionId) => ({
+        revision_id: revisionId,
+        retired_at: "2026-07-27",
+        reason: "SYNTHETIC TEST FIXTURE CLEANUP"
+      }));
+    if (missingRetirements.length > 0) {
+      const retired = await admin
+        .from("content_retirements")
+        .insert(missingRetirements);
+      expect(retired.error).toBeNull();
+    }
   });
 
   test("a valid fixture imports idempotently and only approved active content is published", async () => {
@@ -317,6 +356,7 @@ describe("reviewed content foundation", () => {
     const retry = await admin.rpc("import_catalog_fixture", {
       p_fixture: validFixture
     });
+    fixtureImported = first.error === null;
 
     expect(first.error).toBeNull();
     expect(retry.error).toBeNull();

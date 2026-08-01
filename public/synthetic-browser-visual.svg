@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 480" role="img" aria-labelledby="title description">
+  <title id="title">Synthetic reviewed preparation fixture</title>
+  <desc id="description">Abstract colored shapes used only to verify reviewed catalog image loading.</desc>
+  <rect width="720" height="480" fill="#f4efe6"/>
+  <circle cx="360" cy="240" r="150" fill="#d8a75d"/>
+  <path d="M250 250c55-90 165-90 220 0-55 70-165 70-220 0Z" fill="#758b68"/>
+  <circle cx="320" cy="220" r="18" fill="#f7f4ed"/>
+  <circle cx="400" cy="220" r="18" fill="#f7f4ed"/>
+</svg>

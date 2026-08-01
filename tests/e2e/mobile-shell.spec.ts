@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 const destinations = [
   { name: "Today", path: "/today", heading: "Today" },
@@ -66,4 +67,31 @@ test("a keyboard user can move between primary destinations", async ({
   await expect(
     page.getByRole("heading", { name: "Your week", level: 1 })
   ).toBeVisible();
+});
+
+test("signed-out primary mobile destinations have no automated WCAG 2.2 A or AA violations", async ({
+  page
+}) => {
+  for (const destination of destinations) {
+    await page.goto(destination.path);
+    await expect(
+      page.getByRole("heading", { name: destination.heading, level: 1 })
+    ).toBeVisible();
+
+    const audit = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+
+    expect(
+      audit.violations,
+      `${destination.name} WCAG violations:\n${audit.violations
+        .map(
+          (violation) =>
+            `${violation.id}: ${violation.nodes
+              .map((node) => node.target.join(" "))
+              .join(", ")}`
+        )
+        .join("\n")}`
+    ).toEqual([]);
+  }
 });

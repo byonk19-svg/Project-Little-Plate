@@ -1,13 +1,12 @@
-import { execSync } from "node:child_process";
-
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-type LocalSupabaseStatus = {
-  API_URL: string;
-  ANON_KEY: string;
-  SERVICE_ROLE_KEY: string;
-};
+import {
+  authenticatedClient,
+  type LocalSupabaseStatus,
+  readLocalSupabaseStatus,
+  waitForAuth
+} from "./support/local-supabase";
 
 type TestUser = {
   id: string;
@@ -16,46 +15,6 @@ type TestUser = {
 };
 
 const createdUserIds: string[] = [];
-
-function readLocalSupabaseStatus(): LocalSupabaseStatus {
-  return JSON.parse(
-    execSync("pnpm exec supabase status -o json", { encoding: "utf8" })
-  ) as LocalSupabaseStatus;
-}
-
-function authenticatedClient(
-  status: LocalSupabaseStatus,
-  accessToken: string
-): SupabaseClient {
-  return createClient(status.API_URL, status.ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    }
-  });
-}
-
-async function waitForAuth(status: LocalSupabaseStatus): Promise<void> {
-  const deadline = Date.now() + 15_000;
-
-  while (Date.now() < deadline) {
-    try {
-      const response = await fetch(`${status.API_URL}/auth/v1/health`, {
-        headers: { apikey: status.ANON_KEY }
-      });
-
-      if (response.ok) {
-        return;
-      }
-    } catch {
-      // The reset command can return just before Auth accepts connections.
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-
-  throw new Error("Local Supabase Auth did not become ready");
-}
 
 describe("authenticated baby profile", () => {
   let status: LocalSupabaseStatus;
@@ -182,6 +141,26 @@ describe("authenticated baby profile", () => {
         is_active: true
       }
     ]);
+
+    const invalidUpdate = await householdA.client.rpc("complete_baby_profile", {
+      p_nickname: "Should not persist",
+      p_birth_date: "2025-09-20",
+      p_time_zone: "Not/A_Time_Zone",
+      p_feeding_style: "spoon_fed",
+      p_meal_slots: ["lunch"]
+    });
+
+    expect(invalidUpdate.error?.message).toMatch(/time zone/i);
+
+    const { data: babiesAfterInvalidUpdate, error: invalidReadError } =
+      await householdA.client
+        .from("babies")
+        .select(
+          "id, nickname, birth_date, time_zone, feeding_style, meal_slots, is_active"
+        );
+
+    expect(invalidReadError).toBeNull();
+    expect(babiesAfterInvalidUpdate).toEqual(babies);
   });
 
   test("invalid setup rolls back without leaving partial baby state", async () => {
@@ -208,6 +187,81 @@ describe("authenticated baby profile", () => {
 
     expect(profiles).toHaveLength(1);
     expect(households).toEqual([{ id: profiles?.[0]?.household_id }]);
+    expect(babies).toEqual([]);
+  });
+
+  test("create mode rejects a conflicting stale submission without changing the active baby", async () => {
+    const user = await createTestUser("expected-create-mode");
+    await user.client.rpc("bootstrap_account");
+    const originalProfile = {
+      p_nickname: "Original",
+      p_birth_date: "2025-10-15",
+      p_time_zone: "America/Chicago",
+      p_feeding_style: "mixed",
+      p_meal_slots: ["breakfast", "dinner"],
+      p_expected_mode: "create"
+    };
+
+    const first = await user.client.rpc(
+      "complete_baby_profile",
+      originalProfile
+    );
+    expect(first.error).toBeNull();
+
+    const exactRetry = await user.client.rpc(
+      "complete_baby_profile",
+      originalProfile
+    );
+    expect(exactRetry.error).toBeNull();
+    expect(exactRetry.data).toBe(first.data);
+
+    const conflictingStaleCreate = await user.client.rpc(
+      "complete_baby_profile",
+      {
+        ...originalProfile,
+        p_nickname: "Conflicting",
+        p_time_zone: "America/New_York",
+        p_meal_slots: ["lunch"]
+      }
+    );
+    expect(conflictingStaleCreate.error?.message).toMatch(
+      /create mode cannot replace/i
+    );
+
+    const { data: babies, error } = await user.client
+      .from("babies")
+      .select(
+        "id, nickname, birth_date, time_zone, feeding_style, meal_slots, is_active"
+      );
+    expect(error).toBeNull();
+    expect(babies).toEqual([
+      {
+        id: first.data,
+        nickname: "Original",
+        birth_date: "2025-10-15",
+        time_zone: "America/Chicago",
+        feeding_style: "mixed",
+        meal_slots: ["breakfast", "dinner"],
+        is_active: true
+      }
+    ]);
+  });
+
+  test("edit mode rejects a submission when no active baby exists", async () => {
+    const user = await createTestUser("expected-edit-mode");
+    await user.client.rpc("bootstrap_account");
+
+    const result = await user.client.rpc("complete_baby_profile", {
+      p_nickname: "Missing",
+      p_birth_date: "2025-10-15",
+      p_time_zone: "America/Chicago",
+      p_feeding_style: "mixed",
+      p_meal_slots: ["breakfast"],
+      p_expected_mode: "edit"
+    });
+    expect(result.error?.message).toMatch(/active baby is required for edit/i);
+
+    const { data: babies } = await user.client.from("babies").select("id");
     expect(babies).toEqual([]);
   });
 

@@ -15,7 +15,10 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm verify:database && pnpm test:integration && pnpm test:e2e && node scripts/check-whitespace.mjs",
+    "test:catalog-sources": "node --test scripts/check-catalog-sources.test.mjs",
+    "catalog:check-sources": "node scripts/check-catalog-sources.mjs",
+    "operations:rehearse-restore": "node scripts/rehearse-local-backup-restore.mjs",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm test:catalog-sources && pnpm build && pnpm verify:database && pnpm test:integration && pnpm test:e2e && node scripts/check-whitespace.mjs",
     "verify:database": "supabase start && supabase db reset --local && supabase stop && supabase start",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
@@ -29,6 +32,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@playwright/test": "1.62.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",

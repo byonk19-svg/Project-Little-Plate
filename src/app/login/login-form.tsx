@@ -5,7 +5,11 @@ import { useActionState } from "react";
 import { requestSignInLink } from "@/modules/profiles/actions";
 import { initialFormState } from "@/modules/profiles/form-state";
 
-export function LoginForm() {
+type LoginFormProps = {
+  localMailUrl?: string;
+};
+
+export function LoginForm({ localMailUrl }: LoginFormProps) {
   const [state, formAction, isPending] = useActionState(
     requestSignInLink,
     initialFormState
@@ -36,6 +40,16 @@ export function LoginForm() {
           {state.status === "success" ? (
             <>
               <strong>Check your email.</strong> {state.message}
+              {localMailUrl ? (
+                <>
+                  {" "}
+                  Local development captured the one-time link.{" "}
+                  <a href={localMailUrl} rel="noreferrer" target="_blank">
+                    Open local inbox
+                  </a>
+                  .
+                </>
+              ) : null}
             </>
           ) : (
             state.message

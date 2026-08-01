@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ManualMealForm } from "@/app/foods/[slug]/manual-meal-form";
 import { getPublishedPreparation } from "@/modules/catalog/queries";
+import { getPreparationEligibility } from "@/modules/eligibility/queries";
+import { getCurrentWeek } from "@/modules/meals/queries";
 
 type FoodDetailPageProps = {
   params: Promise<{ slug: string }>;
@@ -25,7 +29,11 @@ function durationLabel(hours: number) {
 
 export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
   const { slug } = await params;
-  const preparation = await getPublishedPreparation(slug);
+  const [preparation, eligibility, week] = await Promise.all([
+    getPublishedPreparation(slug),
+    getPreparationEligibility(slug),
+    getCurrentWeek()
+  ]);
 
   if (!preparation) {
     notFound();
@@ -47,6 +55,34 @@ export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
         <h1>{preparation.preparationName}</h1>
         <p className="destination-page__lede">{preparation.category}</p>
       </header>
+
+      {preparation.visuals.length > 0 ? (
+        <section className="catalog-visuals" aria-label="Reviewed visuals">
+          {preparation.visuals.map((visual, index) => (
+            <figure key={visual.assetReference}>
+              <Image
+                alt={visual.altText}
+                height={480}
+                priority={index === 0}
+                src={visual.assetReference}
+                unoptimized
+                width={720}
+              />
+              <figcaption>
+                <strong>
+                  {visual.rightsBasis === "original"
+                    ? "Original visual"
+                    : "Licensed visual"}
+                </strong>
+                <span>{visual.rightsHolder}</span>
+                {visual.licenseName && visual.licenseUrl ? (
+                  <a href={visual.licenseUrl}>{visual.licenseName}</a>
+                ) : null}
+              </figcaption>
+            </figure>
+          ))}
+        </section>
+      ) : null}
 
       <section className="foundation-card" aria-labelledby="preparation-title">
         <p className="foundation-card__status">Reviewed preparation</p>
@@ -76,6 +112,75 @@ export default async function FoodDetailPage({ params }: FoodDetailPageProps) {
             <dd>{allergens.map((tag) => tag.label).join(", ")}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="foundation-card" aria-label="Selection eligibility">
+        <p className="foundation-card__status">Selection eligibility</p>
+        {eligibility.status === "eligible" ? (
+          <>
+            <h2 id="selection-eligibility-title">Eligible for selection</h2>
+            <p>
+              This preparation is active and approved, its required abilities
+              are recorded as observed, and no blocking safety status is
+              recorded for this food.
+            </p>
+            {week.status === "ready" ? (
+              <ManualMealForm
+                babyId={week.plan.babyId}
+                mealSlots={week.plan.days[0].slots.map((slot) => slot.mealSlot)}
+                preparationSlug={preparation.slug}
+              />
+            ) : (
+              <p>
+                Tomorrow&apos;s meal slots are unavailable. Refresh after the
+                baby profile is complete.
+              </p>
+            )}
+          </>
+        ) : eligibility.status === "ineligible" &&
+          eligibility.reason === "food_restricted" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Unavailable because of recorded safety status
+            </h2>
+            <p>
+              A confirmed allergy, directed exclusion, temporary avoidance, or
+              reaction-reported status always blocks selection regardless of
+              preference.
+            </p>
+          </>
+        ) : eligibility.status === "ineligible" &&
+          eligibility.reason === "restriction_status_unknown" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Safety status is not recorded
+            </h2>
+            <p>
+              Choose a food safety status in feeding setup before this
+              preparation can be selected.
+            </p>
+          </>
+        ) : eligibility.status === "ineligible" ? (
+          <>
+            <h2 id="selection-eligibility-title">
+              Required ability is not confirmed
+            </h2>
+            <p>
+              Every required ability must be recorded as observed. A missing,
+              not-observed, or not-sure answer stays unavailable and does not
+              assess or diagnose feeding ability.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2 id="selection-eligibility-title">Eligibility is unavailable</h2>
+            <p>
+              Sign in and complete feeding setup. Little Plate does not infer
+              eligibility when profile or reviewed content state cannot be
+              verified.
+            </p>
+          </>
+        )}
       </section>
 
       <section className="foundation-card" aria-labelledby="storage-title">

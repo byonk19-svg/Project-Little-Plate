@@ -65,7 +65,18 @@ a {
 }
 
 .app-header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
   padding: 1.25rem 1.25rem 0.5rem;
+}
+
+.app-header__account {
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-height: 44px;
+  padding: 0.65rem 0;
 }
 
 .app-header__eyebrow,
@@ -109,6 +120,56 @@ a {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.catalog-filters {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+
+.catalog-filters label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.catalog-filters input,
+.catalog-filters select {
+  min-height: 44px;
+  width: 100%;
+}
+
+.catalog-results {
+  color: var(--muted-foreground);
+  margin: 0;
+}
+
+.catalog-visuals {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+}
+
+.catalog-visuals figure {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: 0;
+  overflow: hidden;
+}
+
+.catalog-visuals img {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.catalog-visuals figcaption {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem;
 }
 
 .catalog-card {
@@ -227,6 +288,436 @@ a {
   gap: 1.25rem;
 }
 
+.feeding-setup-page,
+.feeding-form,
+.manual-meal-form,
+.week-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.manual-meal-form {
+  border-top: 1px solid var(--border);
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.week-page__timezone {
+  color: var(--ink-muted);
+  margin: 0;
+}
+
+.week-overview {
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.planner-generation,
+.planner-explanations {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.planner-generation h2,
+.planner-generation p,
+.planner-explanations h2,
+.planner-explanations p,
+.planner-explanations ul {
+  margin: 0;
+}
+
+.planner-explanations ul {
+  display: grid;
+  gap: 0.45rem;
+  padding-left: 1.25rem;
+}
+
+.week-overview h2,
+.week-overview p {
+  margin: 0;
+}
+
+.week-overview h2 {
+  font-size: 1.2rem;
+  margin-top: 0.35rem;
+}
+
+.week-window-navigation {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.week-window-navigation a {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.65rem 0.45rem;
+  text-align: center;
+  text-decoration: none;
+}
+
+.week-days,
+.week-slots {
+  display: grid;
+  gap: 1rem;
+}
+
+.week-day {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.25rem;
+}
+
+.week-day__header h2,
+.week-slot h3,
+.week-slot p {
+  margin: 0;
+}
+
+.week-day__header h2 {
+  font-size: 1.45rem;
+  margin-top: 0.4rem;
+}
+
+.week-slots {
+  margin-top: 1.1rem;
+}
+
+.week-slot {
+  background: var(--surface-strong);
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.week-slot__header {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.week-slot h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+}
+
+.week-slot__empty {
+  color: var(--ink-muted);
+  margin-top: 0.45rem !important;
+}
+
+.week-components {
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.week-components li {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.4rem;
+  padding-top: 0.65rem;
+}
+
+.week-components li > div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.week-components span {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+}
+
+.week-components__action {
+  font-size: 0.88rem;
+  font-weight: 800;
+  margin-top: 0.35rem;
+  width: fit-content;
+}
+
+.week-components__replacement {
+  background: #f4eee3;
+  border-left: 0.2rem solid #8a744e;
+  border-radius: 0.4rem;
+  color: #5d503d;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin-top: 0.35rem !important;
+  padding: 0.65rem 0.75rem;
+}
+
+.week-status,
+.week-lock,
+.week-components__backup {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.72rem !important;
+  font-weight: 800;
+  margin-top: 0.35rem;
+  padding: 0.2rem 0.5rem;
+  width: fit-content;
+}
+
+.week-status {
+  background: var(--surface);
+  color: var(--ink-muted);
+}
+
+.week-status--completed {
+  background: #e4f2e9;
+  color: #315b43;
+}
+
+.week-status--skipped {
+  background: #efe9df;
+  color: #665947;
+}
+
+.week-lock {
+  background: #eee8f5;
+  color: #58486b;
+}
+
+.week-components__backup {
+  background: #e7f1f1;
+  color: #315b5b !important;
+}
+
+.week-edit-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+.week-edit-panel summary {
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.week-edit-panel__body,
+.week-edit {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.week-edit-panel__body {
+  margin-top: 0.75rem;
+}
+
+.week-edit select {
+  margin-top: 0;
+  width: 100%;
+}
+
+.week-edit__button {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.65rem;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+}
+
+.week-edit__button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.kitchen-page,
+.kitchen-inventory,
+.inventory-groups,
+.batch-list,
+.batch-confirmation-form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.inventory-groups > section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.inventory-groups > section > h3,
+.inventory-groups > section > p {
+  margin: 0;
+}
+
+.expired-inventory {
+  border-top: 2px solid var(--focus);
+  padding-top: 1.25rem;
+}
+
+.kitchen-inventory h2 {
+  margin: 0.45rem 0;
+}
+
+.batch-review h2,
+.batch-card h3 {
+  margin-bottom: 0.35rem;
+}
+
+.batch-facts {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.batch-facts div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.batch-facts dt {
+  color: var(--ink-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.batch-facts dd {
+  font-weight: 700;
+  margin: 0;
+}
+
+.batch-source {
+  color: var(--ink-muted);
+  font-size: 0.84rem;
+}
+
+.batch-status {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.batch-status--ready {
+  color: var(--accent);
+}
+
+.batch-status--use_today,
+.batch-status--expired,
+.batch-status--depleted {
+  color: var(--focus);
+}
+
+.today-page,
+.today-meal,
+.today-components,
+.serve-portion-form,
+.use-soon-section,
+.use-soon-list,
+.discard-batch-form,
+.inventory-actions {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.use-soon-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+.use-soon-section > header h2,
+.use-soon-section > header p,
+.use-soon-card h3 {
+  margin: 0;
+}
+
+.use-soon-section > header p:last-child {
+  color: var(--ink-muted);
+  line-height: 1.5;
+  margin-top: 0.45rem;
+}
+
+.inventory-actions {
+  gap: 0.75rem;
+}
+
+.today-meal > header h2,
+.today-meal > header p,
+.today-component h3,
+.today-component__food {
+  margin: 0;
+}
+
+.today-meal > header h2 {
+  margin-top: 0.45rem;
+}
+
+.today-meal > header p:last-child,
+.today-component__food {
+  color: var(--ink-muted);
+}
+
+.today-component > p:not(.batch-status, .safety-note, .batch-source) {
+  line-height: 1.5;
+}
+
+.batch-status--quick_preparation,
+.batch-status--thaw_required,
+.batch-status--served {
+  color: var(--accent);
+}
+
+.batch-status--unavailable {
+  color: var(--focus);
+}
+
+.week-components__served {
+  color: var(--accent) !important;
+  font-weight: 800;
+  margin-top: 0.35rem;
+}
+
+.feeding-form__rows,
+.food-setup-list {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.food-setup-row {
+  background: var(--surface-strong);
+}
+
 .field {
   display: grid;
   font-weight: 700;
@@ -234,6 +725,7 @@ a {
 }
 
 .field input,
+.field select,
 fieldset {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -242,7 +734,8 @@ fieldset {
   font: inherit;
 }
 
-.field input {
+.field input,
+.field select {
   min-height: 3rem;
   padding: 0.7rem 0.8rem;
   width: 100%;
@@ -307,12 +800,75 @@ legend {
   text-decoration: none;
 }
 
+.secondary-action {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  min-height: 3rem;
+  padding: 0.7rem 1rem;
+}
+
+.secondary-action--danger {
+  border-color: var(--focus);
+  color: var(--focus);
+}
+
+.account-page {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.account-deletion-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.account-deletion-card h2,
+.account-deletion-card h3,
+.account-deletion-card p {
+  margin: 0;
+}
+
+.account-deletion-form {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.25rem;
+  padding-top: 1rem;
+}
+
+.primary-action--danger {
+  background: var(--focus);
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .profile-ready {
   background: var(--accent-soft);
   border-radius: 0.8rem;
   font-weight: 800;
   margin: 1.25rem 0 0;
   padding: 0.9rem 1rem;
+}
+
+.profile-ready p {
+  margin: 0;
+}
+
+.profile-ready a {
+  display: inline-block;
+  margin-top: 0.5rem;
 }
 
 .form-message {
@@ -517,4 +1073,41 @@ h1 {
   .skip-link {
     transition: transform 120ms ease;
   }
+}
+
+.network-status {
+  background: #fff0d6;
+  border: 2px solid #9b5d1f;
+  border-radius: 0.8rem;
+  color: #4d2b0d;
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+}
+
+.workflow-feedback {
+  border-top: 1px solid var(--line);
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+}
+
+.workflow-feedback summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.workflow-feedback form,
+.inventory-health {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.workflow-feedback label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.inventory-health > div {
+  border-top: 1px solid var(--line);
+  padding-top: 0.85rem;
 }

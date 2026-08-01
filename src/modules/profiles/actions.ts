@@ -45,6 +45,7 @@ export async function requestSignInLink(
 }
 
 export async function completeBabyProfile(
+  mode: "create" | "edit",
   _previousState: FormState,
   formData: FormData
 ): Promise<FormState> {
@@ -56,12 +57,21 @@ export async function completeBabyProfile(
     redirect("/login");
   }
 
+  if (mode !== "create" && mode !== "edit") {
+    return {
+      status: "error",
+      message:
+        "This profile flow is no longer available. Refresh and try again."
+    };
+  }
+
   const { error } = await supabase.rpc("complete_baby_profile", {
     p_nickname: String(formData.get("nickname") ?? ""),
     p_birth_date: String(formData.get("birthDate") ?? ""),
     p_time_zone: String(formData.get("timeZone") ?? ""),
     p_feeding_style: String(formData.get("feedingStyle") ?? ""),
-    p_meal_slots: formData.getAll("mealSlots").map(String)
+    p_meal_slots: formData.getAll("mealSlots").map(String),
+    p_expected_mode: mode
   });
 
   if (error) {
@@ -71,5 +81,5 @@ export async function completeBabyProfile(
     };
   }
 
-  redirect("/today");
+  redirect(mode === "edit" ? "/account?profileUpdated=1" : "/today");
 }

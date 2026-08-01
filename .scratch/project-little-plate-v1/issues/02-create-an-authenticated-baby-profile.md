@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 - Create a deployable mobile shell.
 
-**Status:** ready-for-agent
+**Status:** complete
 
 - [x] A caregiver can complete passwordless authentication and reach profile setup.
 - [x] First authentication creates exactly one household and user profile even when the callback or request is retried.

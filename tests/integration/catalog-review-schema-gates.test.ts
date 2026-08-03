@@ -198,7 +198,7 @@ describe("catalog review schema and transition gates", () => {
           is_active: true
         }
       ],
-      revisions: Array.from({ length: 7 }, (_, index) => ({
+      revisions: Array.from({ length: 8 }, (_, index) => ({
         id: id(`revision-${index}`),
         preparation_id: id("preparation"),
         version: index + 1,
@@ -211,8 +211,8 @@ describe("catalog review schema and transition gates", () => {
         approved_at: null,
         next_review_at: null,
         tag_ids: [id("skill"), id("allergen")],
-        visual_required: index === 6,
-        visual_ids: index === 6 ? [id("visual")] : [],
+        visual_required: index === 7,
+        visual_ids: index === 7 ? [id("visual")] : [],
         preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
@@ -244,6 +244,7 @@ describe("catalog review schema and transition gates", () => {
     expect(imported.error).toBeNull();
     for (const [index, label] of [
       "transitions",
+      "conflict",
       "missing",
       "complete",
       "blocked",
@@ -267,10 +268,19 @@ describe("catalog review schema and transition gates", () => {
       }
     );
     expect(functionRead.error?.code).toBe("42501");
+
+    const publicCatalog = await anonymous.rpc("list_published_catalog_items");
+    expect(publicCatalog.error).toBeNull();
+    expect(publicCatalog.data).toEqual([]);
+    const publicDetail = await anonymous.rpc("get_published_preparation", {
+      p_slug: `preparation-${fixtureId}`
+    });
+    expect(publicDetail.error).toBeNull();
+    expect(publicDetail.data).toBeNull();
   });
 
   test("enforces legal case transitions and rejects direct status updates", async () => {
-    const caseId = await createCase("transitions");
+    const caseId = await createCase("conflict");
     const illegal = await rpc(admin, "transition_catalog_review_case", {
       p_case_id: caseId,
       p_target_status: "in_review",
@@ -412,6 +422,68 @@ describe("catalog review schema and transition gates", () => {
     );
   });
 
+  test("requires a valid owner choice for compatible current reviews", async () => {
+    const caseId = await createCase("transitions");
+    await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: caseId,
+      p_target_status: "ready_for_review",
+      p_reason: "ready"
+    });
+    await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: caseId,
+      p_target_status: "in_review",
+      p_reason: "review started"
+    });
+    const first = await submit(
+      caseId,
+      "feeding_safety_developmental",
+      "conflict-a"
+    );
+    await addEvidence(first, "conflict-a");
+    const second = await submit(
+      caseId,
+      "feeding_safety_developmental",
+      "conflict-b"
+    );
+    await addEvidence(second, "conflict-b");
+    for (const dimension of alwaysRequired.slice(1)) {
+      const submissionId = await submit(
+        caseId,
+        dimension,
+        `conflict-${dimension}`
+      );
+      await addEvidence(submissionId, `conflict-${dimension}`);
+    }
+    const unresolved = await rpc<{ reason_codes: Array<{ code: string }> }>(
+      admin,
+      "get_catalog_review_eligibility",
+      { p_case_id: caseId }
+    );
+    expect(unresolved.data?.reason_codes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "conflicting_qualified_reviews" })
+      ])
+    );
+
+    const adjudication = await rpc(admin, "record_catalog_owner_adjudication", {
+      p_adjudication_id: id("adjudication-compatible"),
+      p_case_id: caseId,
+      p_dimension: "feeding_safety_developmental",
+      p_outcome: "select_qualified_recommendation",
+      p_selected_submission_id: first,
+      p_notes: "Select one compatible qualified recommendation"
+    });
+    expect(adjudication.error).toBeNull();
+    const resolved = await rpc<{ eligible: boolean; reason_codes: unknown[] }>(
+      admin,
+      "get_catalog_review_eligibility",
+      { p_case_id: caseId }
+    );
+    expect(resolved.data).toEqual(
+      expect.objectContaining({ eligible: true, reason_codes: [] })
+    );
+  });
+
   test("rejects blocked, unresolved, and clarification-changing reviews", async () => {
     const blockedCase = await createCase("blocked");
     await rpc(admin, "transition_catalog_review_case", {
@@ -455,9 +527,12 @@ describe("catalog review schema and transition gates", () => {
       p_case_id: blockedCase,
       p_dimension: "feeding_safety_developmental",
       p_outcome: "select_qualified_recommendation",
-      p_notes: "Owner cannot clear a qualified block"
+      p_notes: "Owner cannot clear a qualified block",
+      p_selected_submission_id: blockSubmission
     });
-    expect(adjudication.error).toBeNull();
+    expect(adjudication.error?.message).toMatch(
+      /not a current eligible submission/i
+    );
     const blockedReport = await rpc<{ reason_codes: Array<{ code: string }> }>(
       admin,
       "get_catalog_review_eligibility",
@@ -513,7 +588,8 @@ describe("catalog review schema and transition gates", () => {
       p_case_id: caseId,
       p_dimension: "storage_handling",
       p_outcome: "record_compatible_conflict",
-      p_notes: "Synthetic history adjudication"
+      p_notes: "Synthetic history adjudication",
+      p_selected_submission_id: second
     });
     expect(adjudication.error).toBeNull();
 

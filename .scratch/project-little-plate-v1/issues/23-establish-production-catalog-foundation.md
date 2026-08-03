@@ -6,7 +6,7 @@ safety-sensitive values.
 
 **Blocked by:** None - Ticket 17 remains `ready-for-human`; its human review is not a prerequisite for the 23A schema gate.
 
-**Status:** proposed
+**Status:** ready-for-human
 
 **Current slice:** Ticket 23A is implemented locally; 23B-23E remain intentionally out of scope.
 
@@ -88,8 +88,8 @@ Add a normalized review layer linked to `content_revisions`:
 Lifecycle should be explicit and transition-controlled:
 
 `catalog_review_cases`: `draft → ready_for_review → in_review →
-changes_requested → in_review → completed`, with `blocked` reachable from any
-non-retired review state and `retired` represented by the existing append-only
+changes_requested → in_review → completed`, with `blocked` reachable from
+`in_review` or `changes_requested` as a qualified-review outcome, and `retired` represented by the existing append-only
 retirement event. `content_revisions` retains its existing publication states
 (`draft`, `in_review`, `approved`). A review-case transition never publishes a
 revision; only the controlled release operation may transition a revision to
@@ -195,3 +195,11 @@ add a separate document database in this foundation ticket.
   compatibility with the existing import and publication functions.
 - Visual review is conditional in the review layer but remains mandatory when
   the existing revision visual requirement says a visual is required.
+
+## Independent-review correction evidence
+
+- Shared PostgreSQL enums now back case status, review dimension, and qualified review decision columns; `content_revisions.status` remains unchanged.
+- Eligibility resolves compatible current-review conflicts only through one append-only adjudication selecting an exact current eligible submission. Domain-disqualifying reviews remain absolute; invalid or missing adjudication returns `conflicting_qualified_reviews` with `owner_adjudication_missing` detail or `owner_adjudication_invalid`.
+- The focused suite covers compatible conflict resolution, blocked-domain refusal, conditional visual review, and unchanged public catalog RPC isolation. Migration reset and the focused 8-test suite pass; a clean reset was separately checked against the catalog tables and enum metadata before fixture import.
+- Full integration passes after a clean reset: 10 files, 74 tests. Unit, lint, typecheck, catalog-source checks, build, database lint, and security advisors pass. Direct Playwright runs 18/19 tests; the sole failure is the pre-existing local-email-delivery expectation because the local inbox is configured and the UI correctly includes the captured-link affordance.
+- Ticket 23B and later 23C–23E slices remain unimplemented.

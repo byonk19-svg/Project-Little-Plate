@@ -1,3 +1,30 @@
+create type public.catalog_review_case_status as enum (
+  'draft',
+  'ready_for_review',
+  'in_review',
+  'changes_requested',
+  'blocked',
+  'completed'
+);
+
+create type public.catalog_review_dimension as enum (
+  'feeding_safety_developmental',
+  'allergy_restriction',
+  'nutrition_age_stage',
+  'taxonomy_labeling',
+  'storage_handling',
+  'visual_accessibility_rights'
+);
+
+create type public.catalog_review_decision as enum (
+  'Accept',
+  'Accept with clarification',
+  'Revise',
+  'Block',
+  'Not applicable',
+  'Insufficient evidence'
+);
+
 create table public.catalog_reviewer_authorities (
   reference text primary key check (btrim(reference) <> ''),
   authority_basis text not null check (btrim(authority_basis) <> ''),
@@ -12,14 +39,7 @@ create table public.catalog_reviewer_authority_dimensions (
   authority_reference text not null
     references public.catalog_reviewer_authorities(reference)
     on delete restrict,
-  dimension text not null check (dimension in (
-    'feeding_safety_developmental',
-    'allergy_restriction',
-    'nutrition_age_stage',
-    'taxonomy_labeling',
-    'storage_handling',
-    'visual_accessibility_rights'
-  )),
+  dimension public.catalog_review_dimension not null,
   primary key (authority_reference, dimension)
 );
 
@@ -35,14 +55,7 @@ create table public.catalog_review_cases (
     'fixture',
     'test'
   )),
-  status text not null default 'draft' check (status in (
-    'draft',
-    'ready_for_review',
-    'in_review',
-    'changes_requested',
-    'blocked',
-    'completed'
-  )),
+  status public.catalog_review_case_status not null default 'draft',
   status_changed_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -52,23 +65,11 @@ create table public.catalog_review_case_events (
   case_id text not null references public.catalog_review_cases(id)
     on delete restrict,
   from_status text,
-  to_status text not null check (to_status in (
-    'draft',
-    'ready_for_review',
-    'in_review',
-    'changes_requested',
-    'blocked',
-    'completed'
-  )),
+  to_status public.catalog_review_case_status not null,
   reason text not null check (btrim(reason) <> ''),
   recorded_at timestamptz not null default now(),
-  check (from_status is null or from_status in (
-    'draft',
-    'ready_for_review',
-    'in_review',
-    'changes_requested',
-    'blocked',
-    'completed'
+  check (from_status is null or from_status::text in (
+    'draft', 'ready_for_review', 'in_review', 'changes_requested', 'blocked', 'completed'
   ))
 );
 
@@ -78,22 +79,8 @@ create table public.catalog_review_submissions (
     on delete restrict,
   revision_id text not null references public.content_revisions(id)
     on delete restrict,
-  dimension text not null check (dimension in (
-    'feeding_safety_developmental',
-    'allergy_restriction',
-    'nutrition_age_stage',
-    'taxonomy_labeling',
-    'storage_handling',
-    'visual_accessibility_rights'
-  )),
-  decision text not null check (decision in (
-    'Accept',
-    'Accept with clarification',
-    'Revise',
-    'Block',
-    'Not applicable',
-    'Insufficient evidence'
-  )),
+  dimension public.catalog_review_dimension not null,
+  decision public.catalog_review_decision not null,
   reviewer_role text not null check (btrim(reviewer_role) <> ''),
   reviewer_authority_reference text not null
     references public.catalog_reviewer_authorities(reference)
@@ -140,14 +127,9 @@ create table public.catalog_owner_adjudications (
   id text primary key check (id ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   case_id text not null references public.catalog_review_cases(id)
     on delete restrict,
-  dimension text not null check (dimension in (
-    'feeding_safety_developmental',
-    'allergy_restriction',
-    'nutrition_age_stage',
-    'taxonomy_labeling',
-    'storage_handling',
-    'visual_accessibility_rights'
-  )),
+  dimension public.catalog_review_dimension not null,
+  selected_submission_id text not null
+    references public.catalog_review_submissions(id) on delete restrict,
   outcome text not null check (outcome in (
     'select_qualified_recommendation',
     'record_compatible_conflict',
@@ -158,6 +140,9 @@ create table public.catalog_owner_adjudications (
   implementation_reference text,
   recorded_at timestamptz not null default now()
 );
+
+create unique index catalog_owner_adjudications_one_per_dimension
+  on public.catalog_owner_adjudications(case_id, dimension);
 
 alter table public.catalog_reviewer_authorities enable row level security;
 alter table public.catalog_reviewer_authority_dimensions enable row level security;
@@ -332,7 +317,7 @@ begin
   foreach dimension_value in array p_dimensions loop
     insert into public.catalog_reviewer_authority_dimensions (
       authority_reference, dimension
-    ) values (p_reference, dimension_value);
+    ) values (p_reference, dimension_value::public.catalog_review_dimension);
   end loop;
 
   return jsonb_build_object('reference', p_reference);
@@ -441,31 +426,11 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  current_submission_id text;
 begin
   if p_submission_id is null or p_submission_id !~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
     or p_dimension is null or p_decision is null
     or p_reviewer_authority_reference is null then
     raise exception 'Review submission requires stable identity, dimension, decision, and authority'
-      using errcode = '22023';
-  end if;
-
-  select id into current_submission_id
-  from public.catalog_review_submissions
-  where case_id = p_case_id
-    and dimension = p_dimension
-    and not exists (
-      select 1
-      from public.catalog_review_submissions superseding
-      where superseding.supersedes_submission_id = catalog_review_submissions.id
-    )
-  order by submitted_at desc, id desc
-  limit 1;
-
-  if current_submission_id is not null
-    and p_supersedes_submission_id is distinct from current_submission_id then
-    raise exception 'New review submission must explicitly supersede the effective review'
       using errcode = '22023';
   end if;
 
@@ -476,7 +441,9 @@ begin
     notes, storage_support_state, storage_context, visual_context,
     supersedes_submission_id
   ) values (
-    p_submission_id, p_case_id, p_revision_id, p_dimension, p_decision,
+    p_submission_id, p_case_id, p_revision_id,
+    p_dimension::public.catalog_review_dimension,
+    p_decision::public.catalog_review_decision,
     p_reviewer_role, p_reviewer_authority_reference, p_reviewed_at,
     p_follow_up_status, p_clarification_requires_catalog_change,
     p_proposed_replacement_or_addition, p_notes, p_storage_support_state,
@@ -526,7 +493,8 @@ create or replace function public.record_catalog_owner_adjudication(
   p_dimension text,
   p_outcome text,
   p_notes text,
-  p_implementation_reference text default null
+  p_implementation_reference text default null,
+  p_selected_submission_id text default null
 )
 returns jsonb
 language plpgsql
@@ -541,10 +509,45 @@ begin
       using errcode = '22023';
   end if;
 
+  if p_selected_submission_id is null then
+    raise exception 'Owner adjudication must select an exact qualified submission'
+      using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1
+    from public.catalog_review_submissions submission
+    where submission.id = p_selected_submission_id
+      and submission.case_id = p_case_id
+      and submission.dimension::text = p_dimension
+      and submission.decision in ('Accept', 'Accept with clarification')
+      and submission.follow_up_status not in ('required', 'unresolved')
+      and not submission.clarification_requires_catalog_change
+      and not exists (
+        select 1
+        from public.catalog_review_submissions superseding
+        where superseding.supersedes_submission_id = submission.id
+      )
+  ) then
+    raise exception 'Owner adjudication selection is not a current eligible submission'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from public.catalog_owner_adjudications existing
+    where existing.case_id = p_case_id
+      and existing.dimension::text = p_dimension
+  ) then
+    raise exception 'Only one effective owner adjudication is allowed per case dimension'
+      using errcode = '22023';
+  end if;
+
   insert into public.catalog_owner_adjudications (
-    id, case_id, dimension, outcome, notes, implementation_reference
+    id, case_id, dimension, selected_submission_id, outcome, notes, implementation_reference
   ) values (
-    p_adjudication_id, p_case_id, p_dimension, p_outcome,
+    p_adjudication_id, p_case_id,
+    p_dimension::public.catalog_review_dimension, p_selected_submission_id, p_outcome,
     p_notes, p_implementation_reference
   );
 
@@ -645,7 +648,7 @@ begin
     select count(*) into effective_count
     from public.catalog_review_submissions submission
     where submission.case_id = review_case.id
-      and submission.dimension = dimension_value
+      and submission.dimension::text = dimension_value
       and not exists (
         select 1
         from public.catalog_review_submissions superseding
@@ -662,23 +665,79 @@ begin
       continue;
     end if;
     if effective_count > 1 then
-      reasons := reasons || jsonb_build_array(jsonb_build_object(
-        'code', 'multiple_effective_reviews', 'dimension', dimension_value
-      ));
-      continue;
-    end if;
-
-    select * into effective_review
-    from public.catalog_review_submissions submission
-    where submission.case_id = review_case.id
-      and submission.dimension = dimension_value
-      and not exists (
+      if exists (
         select 1
-        from public.catalog_review_submissions superseding
-        where superseding.supersedes_submission_id = submission.id
-      )
-    order by submission.submitted_at desc, submission.id desc
-    limit 1;
+        from public.catalog_review_submissions submission
+        where submission.case_id = review_case.id
+          and submission.dimension::text = dimension_value
+          and not exists (
+            select 1 from public.catalog_review_submissions superseding
+            where superseding.supersedes_submission_id = submission.id
+          )
+          and (
+            submission.decision in ('Block', 'Revise', 'Insufficient evidence')
+            or submission.follow_up_status in ('required', 'unresolved')
+            or submission.clarification_requires_catalog_change
+          )
+      ) then
+        if exists (select 1 from public.catalog_review_submissions submission
+          where submission.case_id = review_case.id
+            and submission.dimension::text = dimension_value
+            and submission.decision = 'Block'
+            and not exists (select 1 from public.catalog_review_submissions superseding
+              where superseding.supersedes_submission_id = submission.id)) then
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'domain_block', 'dimension', dimension_value));
+        elsif exists (select 1 from public.catalog_review_submissions submission
+          where submission.case_id = review_case.id
+            and submission.dimension::text = dimension_value
+            and submission.decision = 'Revise'
+            and not exists (select 1 from public.catalog_review_submissions superseding
+              where superseding.supersedes_submission_id = submission.id)) then
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'revision_required', 'dimension', dimension_value));
+        else
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'insufficient_evidence', 'dimension', dimension_value));
+        end if;
+        continue;
+      end if;
+
+      select submission.* into effective_review
+      from public.catalog_review_submissions submission
+      join public.catalog_owner_adjudications adjudication
+        on adjudication.selected_submission_id = submission.id
+       and adjudication.case_id = review_case.id
+       and adjudication.dimension::text = dimension_value
+      where submission.case_id = review_case.id
+        and submission.dimension::text = dimension_value
+        and not exists (select 1 from public.catalog_review_submissions superseding
+          where superseding.supersedes_submission_id = submission.id);
+      if effective_review.id is null then
+        if exists (select 1 from public.catalog_owner_adjudications adjudication
+          where adjudication.case_id = review_case.id
+            and adjudication.dimension::text = dimension_value) then
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'owner_adjudication_invalid', 'dimension', dimension_value));
+        else
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'conflicting_qualified_reviews', 'dimension', dimension_value,
+            'detail', 'owner_adjudication_missing'));
+        end if;
+        continue;
+      end if;
+    else
+      select * into effective_review
+      from public.catalog_review_submissions submission
+      where submission.case_id = review_case.id
+        and submission.dimension::text = dimension_value
+        and not exists (
+          select 1 from public.catalog_review_submissions superseding
+          where superseding.supersedes_submission_id = submission.id
+        )
+      order by submission.submitted_at desc, submission.id desc
+      limit 1;
+    end if;
 
     select exists (
       select 1
@@ -687,7 +746,7 @@ begin
         on authority.reference = authority_dimension.authority_reference
       where authority_dimension.authority_reference =
           effective_review.reviewer_authority_reference
-        and authority_dimension.dimension = dimension_value
+        and authority_dimension.dimension::text = dimension_value
         and (authority.valid_from is null or authority.valid_from <= effective_review.reviewed_at)
         and (authority.valid_until is null or authority.valid_until >= effective_review.reviewed_at)
     ) into authority_covered;
@@ -776,15 +835,15 @@ begin
   end if;
 
   legal_transition :=
-    (review_case.status = 'draft' and p_target_status = 'ready_for_review')
-    or (review_case.status = 'ready_for_review' and p_target_status = 'in_review')
-    or (review_case.status = 'in_review' and p_target_status in (
+    (review_case.status::text = 'draft' and p_target_status = 'ready_for_review')
+    or (review_case.status::text = 'ready_for_review' and p_target_status = 'in_review')
+    or (review_case.status::text = 'in_review' and p_target_status in (
       'changes_requested', 'blocked', 'completed'
     ))
-    or (review_case.status = 'changes_requested' and p_target_status in (
+    or (review_case.status::text = 'changes_requested' and p_target_status in (
       'in_review', 'blocked'
     ))
-    or (review_case.status = 'blocked' and p_target_status = 'in_review');
+    or (review_case.status::text = 'blocked' and p_target_status = 'in_review');
 
   if not legal_transition then
     raise exception 'Illegal catalog review case transition'
@@ -802,7 +861,7 @@ begin
       using errcode = '22023';
   end if;
 
-  if review_case.status = 'blocked' and p_target_status = 'in_review'
+  if review_case.status::text = 'blocked' and p_target_status = 'in_review'
     and not exists (
       select 1
       from public.catalog_review_submissions submission
@@ -822,14 +881,14 @@ begin
   end if;
 
   update public.catalog_review_cases
-  set status = p_target_status,
+  set status = p_target_status::public.catalog_review_case_status,
       status_changed_at = now()
   where id = p_case_id;
 
   insert into public.catalog_review_case_events (
     case_id, from_status, to_status, reason
   ) values (
-    p_case_id, review_case.status, p_target_status, p_reason
+    p_case_id, review_case.status::text, p_target_status::public.catalog_review_case_status, p_reason
   );
 
   return jsonb_build_object(
@@ -853,7 +912,7 @@ revoke all on function public.record_catalog_review_evidence(
   text, text, text, text, text
 ) from public, anon, authenticated;
 revoke all on function public.record_catalog_owner_adjudication(
-  text, text, text, text, text, text
+  text, text, text, text, text, text, text
 ) from public, anon, authenticated;
 revoke all on function public.get_catalog_review_eligibility(text)
   from public, anon, authenticated;
@@ -873,7 +932,7 @@ grant execute on function public.record_catalog_review_evidence(
   text, text, text, text, text
 ) to service_role;
 grant execute on function public.record_catalog_owner_adjudication(
-  text, text, text, text, text, text
+  text, text, text, text, text, text, text
 ) to service_role;
 grant execute on function public.get_catalog_review_eligibility(text)
   to service_role;

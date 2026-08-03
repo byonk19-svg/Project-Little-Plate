@@ -112,6 +112,23 @@ the resulting launch-ready count here.
 The closed-beta catalog gate is not met. Test-only synthetic records created by
 integration or browser suites must never be reported as production foods.
 
+## Reviewer intake packet
+
+The repository now contains a blank, non-importable reviewer packet under
+`docs/catalog-review/`:
+
+- `README.md` describes the reviewer authority contract, privacy boundary, and
+  release handoff.
+- `reviewer-authority.template.md` records role mappings and durable evidence
+  references without private contact details.
+- `first-ten-foods.template.md` tracks the PRD target foods without supplying
+  safety values.
+- `catalog-package.template.json` mirrors the importer shape and uses explicit
+  `REQUIRED_REVIEWER_INPUT` markers until qualified reviewers provide the data.
+
+This packet is preparation for the external review workstream only. It does
+not change the empty production seed or create launch-ready content.
+
 ## Engineering evidence and changed artifacts
 
 - Migration `20260730120000_add_catalog_release_pipeline.sql` adds atomic

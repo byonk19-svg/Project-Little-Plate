@@ -1,0 +1,77 @@
+{
+  "sources": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "publisher": "REQUIRED_REVIEWER_INPUT",
+      "title": "REQUIRED_REVIEWER_INPUT",
+      "url": "REQUIRED_REVIEWER_INPUT",
+      "source_date": "REQUIRED_REVIEWER_INPUT",
+      "accessed_at": "REQUIRED_REVIEWER_INPUT"
+    }
+  ],
+  "tags": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "kind": "REQUIRED_REVIEWER_INPUT",
+      "label": "REQUIRED_REVIEWER_INPUT"
+    }
+  ],
+  "foods": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "slug": "REQUIRED_REVIEWER_INPUT",
+      "name": "REQUIRED_REVIEWER_INPUT",
+      "category": "REQUIRED_REVIEWER_INPUT"
+    }
+  ],
+  "preparations": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "food_id": "REQUIRED_REVIEWER_INPUT",
+      "slug": "REQUIRED_REVIEWER_INPUT",
+      "name": "REQUIRED_REVIEWER_INPUT",
+      "is_active": true
+    }
+  ],
+  "revisions": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "preparation_id": "REQUIRED_REVIEWER_INPUT",
+      "version": 1,
+      "status": "REQUIRED_REVIEWER_INPUT",
+      "method": "REQUIRED_REVIEWER_INPUT",
+      "shape_texture": "REQUIRED_REVIEWER_INPUT",
+      "source_id": "REQUIRED_REVIEWER_INPUT",
+      "reviewer_role": "REQUIRED_REVIEWER_INPUT",
+      "reviewed_at": "REQUIRED_REVIEWER_INPUT",
+      "approved_at": "REQUIRED_REVIEWER_INPUT",
+      "next_review_at": "REQUIRED_REVIEWER_INPUT",
+      "tag_ids": ["REQUIRED_REVIEWER_INPUT"],
+      "visual_required": "REQUIRED_REVIEWER_INPUT",
+      "visual_ids": ["REQUIRED_REVIEWER_INPUT"],
+      "preparation_time_band": "REQUIRED_REVIEWER_INPUT",
+      "storage_rules": [
+        {
+          "id": "REQUIRED_REVIEWER_INPUT",
+          "support_status": "REQUIRED_REVIEWER_INPUT",
+          "deadline_kind": "REQUIRED_REVIEWER_INPUT",
+          "duration_hours": "REQUIRED_REVIEWER_INPUT",
+          "guidance": "REQUIRED_REVIEWER_INPUT"
+        }
+      ]
+    }
+  ],
+  "visuals": [
+    {
+      "id": "REQUIRED_REVIEWER_INPUT",
+      "asset_reference": "REQUIRED_REVIEWER_INPUT",
+      "rights_basis": "REQUIRED_REVIEWER_INPUT",
+      "rights_holder": "REQUIRED_REVIEWER_INPUT",
+      "license_name": "REQUIRED_REVIEWER_INPUT",
+      "license_url": "REQUIRED_REVIEWER_INPUT",
+      "alt_text": "REQUIRED_REVIEWER_INPUT",
+      "reviewed_at": "REQUIRED_REVIEWER_INPUT"
+    }
+  ],
+  "retirements": []
+}

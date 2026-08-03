@@ -112,22 +112,51 @@ the resulting launch-ready count here.
 The closed-beta catalog gate is not met. Test-only synthetic records created by
 integration or browser suites must never be reported as production foods.
 
+## Corrected catalog-review intake evidence (2026-08-02)
+
+- Current catalog source inspection found an intentionally empty production
+  seed (`supabase/seed.sql`) and runtime-only synthetic fixtures under
+  `tests/integration/` and `tests/e2e/`; no production rows or stable
+  production IDs exist.
+- `docs/catalog-review/current-catalog-inventory.md` records counts by source,
+  exact ID patterns, verbatim representative values, classifications, and
+  provenance gaps.
+- `docs/catalog-review/catalog-review-form.template.md` provides separate
+  feeding/developmental, allergy/restriction, nutrition/age-stage, and
+  taxonomy/labeling review sections with owner adjudication fields.
+- `docs/catalog-review/catalog-review.schema.json` parses successfully and
+  defines the four review areas and six decisions.
+- `docs/catalog-review/missing-data-and-provenance.md` consolidates absent
+  production sources, approval references, stable IDs, nutrition/stage fields,
+  and competing-source evidence.
+- The first-ten tracker was removed; no launch-food scope was established.
+- Validation passed: `node` schema parse/assertion, `node scripts/check-whitespace.mjs`,
+  and `git diff --check`. No production values, migrations, or application
+  behavior changed.
+
 ## Reviewer intake packet
 
-The repository now contains a blank, non-importable reviewer packet under
-`docs/catalog-review/`:
+The packet now inventories the current repository values rather than asking
+reviewers to author a catalog:
 
-- `README.md` describes the reviewer authority contract, privacy boundary, and
-  release handoff.
-- `reviewer-authority.template.md` records role mappings and durable evidence
-  references without private contact details.
-- `first-ten-foods.template.md` tracks the PRD target foods without supplying
-  safety values.
-- `catalog-package.template.json` mirrors the importer shape and uses explicit
-  `REQUIRED_REVIEWER_INPUT` markers until qualified reviewers provide the data.
+- `docs/catalog-review/README.md` explains scope, roles, privacy, and owner
+  adjudication.
+- `docs/catalog-review/current-catalog-inventory.md` cites repository-relative
+  paths, generated fixture identifiers, verbatim values, classifications, and
+  provenance gaps. It records 0 production/seed records and labels all runtime
+  catalog fixtures as synthetic test content.
+- `docs/catalog-review/catalog-review-form.template.md` separates feeding,
+  allergy/restriction, nutrition/age-stage, and taxonomy/labeling decisions.
+- `docs/catalog-review/catalog-review.schema.json` captures completed review
+  responses without requiring code edits.
+- `docs/catalog-review/missing-data-and-provenance.md` consolidates absent
+  sources, stable production IDs, nutrition/stage representation, and approval
+  evidence.
+- `catalog-package.template.json` remains only an optional post-review import
+  shape. The unsupported first-ten-food tracker was removed.
 
-This packet is preparation for the external review workstream only. It does
-not change the empty production seed or create launch-ready content.
+This packet does not change the empty production seed or create launch-ready
+content. Qualified reviewer completion remains an external gate.
 
 ## Engineering evidence and changed artifacts
 

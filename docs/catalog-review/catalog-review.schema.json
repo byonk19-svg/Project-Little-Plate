@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Catalog review intake",
+  "type": "object",
+  "required": ["inventory_snapshot", "records"],
+  "properties": {
+    "inventory_snapshot": { "type": "string" },
+    "reviewer_identity": { "type": ["string", "null"] },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["repository_path", "record_id", "record_type", "classification", "existing_value", "existing_provenance", "missing_data", "reviews"],
+        "properties": {
+          "repository_path": { "type": "string", "pattern": "^(?![A-Za-z]:)[^\\\\]+" },
+          "record_id": { "type": "string" },
+          "record_type": { "type": "string", "enum": ["food", "preparation", "revision", "source", "tag", "storage_rule", "visual", "other"] },
+          "classification": { "type": "string", "enum": ["production", "fixture", "seed", "demo", "test"] },
+          "existing_value": {},
+          "existing_provenance": {},
+          "missing_data": { "type": "array", "items": { "type": "string" } },
+          "reviews": { "type": "array", "items": { "$ref": "#/$defs/review" } }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "$defs": {
+    "review": {
+      "type": "object",
+      "required": ["area", "reviewer_role", "decision", "specific_concern", "missing_information_or_provenance", "evidence_sources", "proposed_replacement_or_addition", "notes", "approval_reference_id", "review_date", "follow_up_required"],
+      "properties": {
+        "area": { "type": "string", "enum": ["feeding_safety_developmental", "allergy_restriction", "nutrition_age_stage", "taxonomy_labeling"] },
+        "reviewer_role": { "type": "string" },
+        "decision": { "type": "string", "enum": ["Accept", "Accept with clarification", "Revise", "Block", "Not applicable", "Insufficient evidence"] },
+        "specific_concern": { "type": "string" },
+        "missing_information_or_provenance": { "type": "string" },
+        "evidence_sources": { "type": "array", "items": { "type": "string" } },
+        "proposed_replacement_or_addition": {},
+        "notes": { "type": "string" },
+        "approval_reference_id": { "type": ["string", "null"] },
+        "review_date": { "type": ["string", "null"], "format": "date" },
+        "follow_up_required": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

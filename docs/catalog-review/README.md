@@ -1,57 +1,51 @@
-# Qualified catalog intake
+# Catalog review intake packet
 
-This packet is for a qualified reviewer and the recorded release owner. It is
-not a clinical worksheet, a feeding assessment, or a source of preparation,
-allergen, choking, medical, or storage advice.
+This packet is for qualified reviewers inspecting the values that already
+exist in this repository. It is not a catalog-authoring request and it is not
+an approval or release record.
 
-The production catalog remains empty until every record is supplied from
-reviewed, source-backed material and the release owner records the required
-authority evidence. Do not copy synthetic test fixtures into this packet.
+## Current state
 
-## What to provide
+The committed production path is intentionally empty: `supabase/seed.sql`
+contains no foods, preparations, revisions, sources, or safety fixtures.
+The inventory therefore includes synthetic records embedded in integration
+and browser tests, clearly labeled as test-only. Synthetic values must not be
+copied into production or treated as evidence.
 
-Use `catalog-package.template.json` as the machine-shaped outline. Replace
-every `REQUIRED_REVIEWER_INPUT` marker with reviewer-supplied data only after
-the applicable review is complete. The completed file must still pass the
-existing `import_catalog_fixture` boundary; a reviewer completing a field does
-not by itself authorize publication.
+Start with [current-catalog-inventory.md](./current-catalog-inventory.md).
+Reviewers should evaluate the existing value verbatim, its repository path and
+stable identifier, and the provenance gaps recorded there. Do not infer or
+rewrite feeding, allergen, nutrition, developmental, preparation, or storage
+guidance.
 
-The package must include:
+## Reviewer roles and workflow
 
-- structured sources with publisher, title, URL, source date, and access date;
-- controlled skill and allergen tags;
-- foods and reusable preparations;
-- revisions with source, reviewer role, review date, approval date, next-review
-  date, preparation-time band, explicit visual requirement, and reviewed
-  preparation content;
-- explicit storage support or unsupported state for each reviewed revision;
-- visual records when required, including rights basis, rights holder, alt
-  text, and license fields when licensed; and
-- no retirement records unless the release owner has an explicit retirement
-  decision and evidence.
+The packet names required reviewer roles but leaves identity and approval
+references blank. Reviewers provide domain recommendations; they do not edit
+code, migrations, seed data, or repository records. The repository owner
+adjudicates conflicting recommendations, implements accepted changes, and
+records the final approval evidence.
 
-## Authority and privacy
+For each applicable record, copy the entry in
+`catalog-review-form.template.md` (or use `catalog-review.schema.json`) and
+review these dimensions separately:
 
-Complete `reviewer-authority.template.md` with role mappings and evidence
-locations. Record references to approval documents or systems, not private
-reviewer contact details. Do not put exact birthdates, allergy details,
-reaction descriptions, medical notes, caregiver notes, or credentials in this
-repository.
+1. Feeding safety and developmental suitability: shape, size, texture,
+   consistency, preparation, skill assumptions, choking or serving concerns.
+2. Allergy and restriction metadata: major allergens, ambiguity or
+   cross-contact, restriction tags, and misleading omissions.
+3. Nutrition and age/stage representation: claims or implications, stage
+   language, portion/frequency implications, and unsupported assumptions.
+4. Taxonomy and labeling: food/preparation names, tags, categories, duplicates,
+   overlap, and caregiver-facing clarity.
 
-## Release handoff
+Use one of: `Accept`, `Accept with clarification`, `Revise`, `Block`, `Not
+applicable`, or `Insufficient evidence`. Unknown values stay unknown. A source
+URL, blog, product page, or generated text is not automatically authoritative;
+the reviewer must identify the evidence and the qualification basis.
 
-1. The release owner records the reviewer authority map and overdue-content
-   policy.
-2. Qualified reviewers supply or approve the structured records.
-3. Codex validates the completed package from a clean local database and
-   records rejected records and reasons.
-4. Run `pnpm catalog:check-sources` and record the source report.
-5. Run `get_catalog_release_report` as the service role and record the
-   structural candidate count, overdue IDs, visual declarations, and final
-   launch-ready count.
-6. Exercise representative Foods search, filters, detail provenance, visuals,
-   unsupported storage, and mobile layout.
-7. Run `pnpm verify` and update Ticket 17 with evidence locations.
-
-Until those steps are complete, the package is intake material only and must
-not be copied into `supabase/seed.sql` or described as launch-ready content.
+Do not store private contact information, credentials, birthdates, medical
+notes, reaction histories, or caregiver notes. Do not treat a completed form as
+publication authority. The optional `catalog-package.template.json` is only a
+post-review import shape; it is not the review packet and must not be imported
+as-is.

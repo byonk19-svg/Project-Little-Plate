@@ -10,12 +10,39 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["repository_path", "record_id", "record_type", "classification", "existing_value", "existing_provenance", "missing_data", "reviews"],
+        "required": [
+          "repository_path",
+          "record_id",
+          "record_type",
+          "classification",
+          "existing_value",
+          "existing_provenance",
+          "missing_data",
+          "reviews"
+        ],
         "properties": {
-          "repository_path": { "type": "string", "pattern": "^(?![A-Za-z]:)[^\\\\]+" },
+          "repository_path": {
+            "type": "string",
+            "pattern": "^(?![A-Za-z]:)[^\\\\]+"
+          },
           "record_id": { "type": "string" },
-          "record_type": { "type": "string", "enum": ["food", "preparation", "revision", "source", "tag", "storage_rule", "visual", "other"] },
-          "classification": { "type": "string", "enum": ["production", "fixture", "seed", "demo", "test"] },
+          "record_type": {
+            "type": "string",
+            "enum": [
+              "food",
+              "preparation",
+              "revision",
+              "source",
+              "tag",
+              "storage_rule",
+              "visual",
+              "other"
+            ]
+          },
+          "classification": {
+            "type": "string",
+            "enum": ["production", "fixture", "seed", "demo", "test"]
+          },
           "existing_value": {},
           "existing_provenance": {},
           "missing_data": { "type": "array", "items": { "type": "string" } },
@@ -28,11 +55,41 @@
   "$defs": {
     "review": {
       "type": "object",
-      "required": ["area", "reviewer_role", "decision", "specific_concern", "missing_information_or_provenance", "evidence_sources", "proposed_replacement_or_addition", "notes", "approval_reference_id", "review_date", "follow_up_required"],
+      "required": [
+        "area",
+        "reviewer_role",
+        "decision",
+        "specific_concern",
+        "missing_information_or_provenance",
+        "evidence_sources",
+        "proposed_replacement_or_addition",
+        "notes",
+        "approval_reference_id",
+        "review_date",
+        "follow_up_required"
+      ],
       "properties": {
-        "area": { "type": "string", "enum": ["feeding_safety_developmental", "allergy_restriction", "nutrition_age_stage", "taxonomy_labeling"] },
+        "area": {
+          "type": "string",
+          "enum": [
+            "feeding_safety_developmental",
+            "allergy_restriction",
+            "nutrition_age_stage",
+            "taxonomy_labeling"
+          ]
+        },
         "reviewer_role": { "type": "string" },
-        "decision": { "type": "string", "enum": ["Accept", "Accept with clarification", "Revise", "Block", "Not applicable", "Insufficient evidence"] },
+        "decision": {
+          "type": "string",
+          "enum": [
+            "Accept",
+            "Accept with clarification",
+            "Revise",
+            "Block",
+            "Not applicable",
+            "Insufficient evidence"
+          ]
+        },
         "specific_concern": { "type": "string" },
         "missing_information_or_provenance": { "type": "string" },
         "evidence_sources": { "type": "array", "items": { "type": "string" } },

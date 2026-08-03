@@ -18,7 +18,7 @@ medical notes.
 | Preparation method, shape, and texture   | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
 | Developmental skill compatibility        | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
 | Allergen and restriction metadata        | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
-| Storage support or unsupported state     | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Storage support and handling             | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
 | Visual requirement, rights, and alt text | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
 
 ## Approval record
@@ -32,3 +32,8 @@ medical notes.
 Do not mark this record complete from an informal conversation. The evidence
 reference must be durable enough for a later release audit while remaining
 privacy-safe.
+
+Each review submission must cite an opaque, durable authority reference that
+establishes the authorized role, covered dimensions, validity period when
+applicable, evidence location, and organization or authority basis. Do not
+store names, contact details, credentials, or medical records.

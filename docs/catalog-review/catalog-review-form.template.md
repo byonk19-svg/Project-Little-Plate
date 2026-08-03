@@ -75,3 +75,40 @@ Reviewers provide recommendations, not code or repository edits.
 - Conflicting recommendations:
 - Repository-owner decision:
 - Implementation reference (filled by owner, not reviewer):
+
+## Storage and handling
+
+- Reviewer role:
+- Existing storage guidance/support value (verbatim):
+- Refrigeration/freezing value (verbatim):
+- Time or duration claim (verbatim):
+- Reheating or serving-after-storage implication (verbatim):
+- Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
+- Specific concern:
+- Missing information or provenance:
+- Evidence/source supplied by reviewer:
+- Concrete proposed replacement or addition:
+- Reviewer notes:
+- Approval/reference ID:
+- Review date:
+- Follow-up required:
+
+## Visual accessibility and rights (conditional)
+
+Complete when a visual exists or the release rules require one. Mark Not
+applicable only when the catalog/release rules confirm that no visual exists or
+is required.
+
+- Reviewer role:
+- Existing visual reference (verbatim):
+- Existing rights/license evidence (verbatim):
+- Existing alt text (verbatim):
+- Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
+- Specific concern:
+- Missing information or provenance:
+- Evidence/source supplied by reviewer:
+- Concrete proposed replacement or addition:
+- Reviewer notes:
+- Approval/reference ID:
+- Review date:
+- Follow-up required:

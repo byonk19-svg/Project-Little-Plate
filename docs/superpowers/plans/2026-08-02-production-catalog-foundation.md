@@ -20,16 +20,19 @@ without making it public.
 - **Location:** `supabase/migrations/`
 - **Dependencies:** Existing reviewed-content and catalog-release migrations
 - **Acceptance criteria:** Stable IDs link to existing revisions; dimension
-  enum, decision enum, lifecycle enum, evidence/reference requirements, and
-  append-only adjudication constraints are enforced.
+  enum includes storage and conditional visual review; decision/lifecycle
+  enums, reviewer-authority references, evidence requirements, immutable
+  submissions, and append-only adjudication constraints are enforced.
 - **Validation:** Clean reset plus role/constraint integration tests.
 
 ### Task 1.2: Add transition and eligibility RPCs
 
 - **Location:** `supabase/migrations/`
 - **Dependencies:** Task 1.1
-- **Acceptance criteria:** Legal lifecycle transitions are deterministic;
-  incomplete, blocked, synthetic, or unprovenanced cases cannot be eligible.
+- **Acceptance criteria:** Case-owned lifecycle transitions are deterministic;
+  content revisions retain publication states; incomplete, blocked, synthetic,
+  or unprovenanced cases cannot be eligible; owner adjudication cannot clear a
+  domain block.
 - **Validation:** Transition matrix tests and rejection-reason assertions.
 
 ## Sprint 2: Import and publication compatibility
@@ -72,6 +75,8 @@ private reviewer data or undocumented transitions.
 ## Testing strategy
 
 - Pure transition/release eligibility tests for every lifecycle edge.
+- Immutable multi-round review-submission and effective-review tests,
+  including `Accept with clarification` with and without required changes.
 - Supabase reset, RLS, service-role, idempotency, append-only, and public-read
   tests.
 - Browser test for zero production records and no fixture fallback.

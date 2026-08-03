@@ -45,14 +45,22 @@ second catalog table or a reviewer-specific copy of food records.
 Add a normalized review layer linked to `content_revisions`:
 
 - `catalog_review_cases`: one case per candidate revision, with case status,
-  owner decision, created/updated timestamps, and an immutable audit reference.
-- `catalog_dimension_reviews`: one row per required dimension—
+  created/updated timestamps, and an immutable audit reference. Case status
+  owns `draft`, `ready_for_review`, `in_review`, `changes_requested`,
+  `blocked`, and completed review outcomes. It does not replace the
+  publication status on `content_revisions`.
+- `catalog_review_submissions`: immutable qualified submissions, with multiple
+  review rounds permitted for one case and dimension. Each submission records
+  the candidate revision actually reviewed, an opaque reviewer authority
+  reference, and an optional superseded-submission reference. Historical
+  submissions are never overwritten or deleted.
+- `catalog_dimension_reviews` (or an equivalent derived view): one effective
+  review per required dimension—
   `feeding_safety_developmental`, `allergy_restriction`,
-  `nutrition_age_stage`, `taxonomy_labeling`—plus conditional
-  `visual_accessibility_rights` when a visual exists. Store decision,
-  reviewer role, evidence summary, approval/reference ID, review date,
-  proposed replacement/addition, notes, and follow-up state separately for
-  each dimension.
+  `nutrition_age_stage`, `taxonomy_labeling`, `storage_handling`, plus
+  conditional `visual_accessibility_rights` when a visual exists or is
+  required. Derive this view from the current effective qualified submission;
+  do not use a mutable one-row approval shortcut.
 - `catalog_review_evidence`: reviewer-supplied evidence references linked to a
   dimension and optionally an existing `sources.id`, with the exact field or
   claim path supported. Store references and claims, not private reviewer
@@ -63,16 +71,18 @@ Add a normalized review layer linked to `content_revisions`:
 
 Lifecycle should be explicit and transition-controlled:
 
-`draft → ready_for_review → in_review → changes_requested → in_review →
-approved`, with `blocked` reachable from any non-retired review state and
-`retired` represented by the existing append-only retirement event. A record
-must not become public because fields are populated; only the existing
-publication function may expose an approved, current, non-retired revision
-that passes all release gates.
+`catalog_review_cases`: `draft → ready_for_review → in_review →
+changes_requested → in_review → completed`, with `blocked` reachable from any
+non-retired review state and `retired` represented by the existing append-only
+retirement event. `content_revisions` retains its existing publication states
+(`draft`, `in_review`, `approved`). A review-case transition never publishes a
+revision; only the controlled release operation may transition a revision to
+`approved` after every gate passes.
 
 The database should enforce legal transitions through a security-definer
-service-role transition function rather than allowing arbitrary status updates.
-Existing approved append-only behavior remains unchanged.
+service-role transition function rather than allowing arbitrary status updates
+or contradictory case/revision states. Existing approved append-only behavior
+remains unchanged.
 
 ## Review and release gates
 
@@ -81,9 +91,19 @@ A candidate is release-eligible only when:
 - food, preparation, revision, and slugs have stable non-test identifiers;
 - all required dimensions have a recorded decision of `Accept` or
   `Accept with clarification`;
-- no dimension is `Block`, `Insufficient evidence`, or unresolved follow-up;
-- each required decision has a reviewer role, review date, evidence/reference,
-  and owner adjudication where recommendations conflict;
+- no dimension is `Block`, `Insufficient evidence`, `Revise`, or unresolved
+  follow-up;
+- each required decision has a reviewer role, reviewer authority reference,
+  review date, evidence/reference, and owner adjudication where recommendations
+  conflict;
+- `Accept with clarification` is eligible only when no catalog or
+  safety-sensitive value changes, the clarification is recorded, follow-up is
+  resolved, and the qualified reviewer marks it non-blocking. Any required
+  change creates a new unapproved candidate revision and new qualified review;
+- the release owner may choose between compatible qualified recommendations or
+  decline/return content, but may not clear `Block`, `Insufficient evidence`,
+  `Revise`, or unresolved follow-up. Only a later qualified submission for the
+  same dimension can clear a domain block;
 - source/evidence references resolve to immutable, attributable records;
 - storage and visual requirements continue to pass the existing release
   pipeline; and
@@ -129,15 +149,19 @@ add a separate document database in this foundation ticket.
 ## First implementation ticket acceptance criteria (23A)
 
 - Migration creates candidate review cases, dimension reviews, evidence links,
-  and append-only owner adjudications using existing catalog IDs.
+  immutable review submissions, authority references, and append-only owner
+  adjudications using existing catalog IDs.
 - Required dimension values and lifecycle statuses are constrained to explicit
-  enums; no general `approved` boolean can bypass them.
+  enums, including storage and conditional visual review; no general
+  `approved` boolean can bypass them.
 - Transition RPC rejects illegal transitions, missing stable IDs, missing
   required dimensions, or transitions that would expose non-approved content.
 - Release-eligibility RPC returns deterministic eligible/rejected status and
   machine-readable reasons for every candidate revision.
 - Existing `foods`, `preparations`, `content_revisions`, visual, storage, and
   retirement invariants remain intact; approved history is not rewritten.
+- Multiple review rounds remain auditable, and effective eligibility is derived
+  from the current qualified submission rather than overwriting history.
 - No production or seed catalog rows are added, and no synthetic fixture is
   returned by a public catalog query.
 - Migration reset, focused database tests, typecheck, lint, and `git diff

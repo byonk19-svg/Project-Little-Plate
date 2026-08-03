@@ -38,14 +38,33 @@ review these dimensions separately:
    language, portion/frequency implications, and unsupported assumptions.
 4. Taxonomy and labeling: food/preparation names, tags, categories, duplicates,
    overlap, and caregiver-facing clarity.
+5. Storage and handling: storage support, refrigeration/freezing, duration
+   claims, reheating/serving-after-storage implications, and explicit
+   unsupported or unknown states.
+6. Visual accessibility and rights, when a visual exists or is required:
+   visual reference, rights/license evidence, and alt text.
 
 Use one of: `Accept`, `Accept with clarification`, `Revise`, `Block`, `Not
 applicable`, or `Insufficient evidence`. Unknown values stay unknown. A source
 URL, blog, product page, or generated text is not automatically authoritative;
 the reviewer must identify the evidence and the qualification basis.
 
+`Accept with clarification` is release-eligible only when no catalog value
+changes, the clarification is recorded, follow-up is resolved, and the
+qualified reviewer marks it non-blocking. Any wording, metadata, preparation,
+storage, allergen, developmental, nutrition, labeling, or visual change
+requires a new candidate revision and new qualified review.
+
 Do not store private contact information, credentials, birthdates, medical
 notes, reaction histories, or caregiver notes. Do not treat a completed form as
-publication authority. The optional `catalog-package.template.json` is only a
+publication authority. The release/repository owner may adjudicate
+implementation choices between otherwise qualified recommendations, decline
+release, or return content for revision. The owner may not clear `Block`,
+`Insufficient evidence`, `Revise`, or unresolved follow-up by owner decision
+alone. A domain block can only be cleared by a later qualified submission for
+the same dimension. Owner adjudication never substitutes for feeding,
+dietitian, allergy/clinical, storage, nutrition, or visual-rights authority.
+
+The optional `catalog-package.template.json` is only a
 post-review import shape; it is not the review packet and must not be imported
 as-is.

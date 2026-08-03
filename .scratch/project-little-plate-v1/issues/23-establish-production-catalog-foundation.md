@@ -4,9 +4,25 @@
 records and qualified review without selecting launch foods or creating any
 safety-sensitive values.
 
-**Blocked by:** 17 - Expand through the reviewed catalog pipeline.
+**Blocked by:** None - Ticket 17 remains `ready-for-human`; its human review is not a prerequisite for the 23A schema gate.
 
 **Status:** proposed
+
+**Current slice:** Ticket 23A is implemented locally; 23B-23E remain intentionally out of scope.
+
+## Ticket 23A implementation evidence
+
+- Migration: `supabase/migrations/20260803144400_add_catalog_review_schema_gates.sql`.
+- Durable boundary: `docs/adr/0018-catalog-review-schema-gates.md`.
+- Review persistence is linked to the existing `foods` → `preparations` → `content_revisions` identity chain. It adds reviewer authority references and covered dimensions, one `catalog_review_cases` row per candidate revision, append-only case events, immutable submissions and evidence, and append-only owner adjudications. No production or seed catalog rows were added.
+- The six dimensions are constrained to `feeding_safety_developmental`, `allergy_restriction`, `nutrition_age_stage`, `taxonomy_labeling`, `storage_handling`, and conditional `visual_accessibility_rights`. Storage reviews require an explicit support state; visual review is required when the existing revision metadata requires it or a visual is associated.
+- Service-role-only RPCs register authorities, create cases, submit reviews, record evidence/adjudications, compute eligibility, and transition cases. Direct table writes are denied; history triggers reject mutation/deletion, and qualified submissions require explicit supersession for a later effective review.
+- Legal transitions are `draft → ready_for_review → in_review`; from `in_review`, `changes_requested`, `blocked`, or eligible `completed`; `changes_requested → in_review|blocked`; `blocked → in_review` only after a later submission. Case completion never publishes a revision.
+- `get_catalog_review_eligibility` returns deterministic machine-readable reasons including missing dimensions, missing qualified authority/evidence, domain block, insufficient evidence, revise, unresolved follow-up, clarification requiring catalog change, missing conditional visual review, synthetic classification, contradictory lifecycle state, and missing stable identifiers. Owner adjudication cannot clear a qualified domain block.
+- Integration coverage is in `tests/integration/catalog-review-schema-gates.test.ts`: anonymous read/function denial, legal/illegal transitions, stable reason codes, authority and evidence gates, conditional visual behavior, domain blocks, unresolved/clarification outcomes, immutable history, and explicit supersession.
+- Validation evidence: local Supabase reset and the focused six-test integration suite pass. Production remains empty and fixture data is runtime-only synthetic input; no public catalog read path was changed.
+
+Remaining validation and risk are recorded at handoff: full repository verification is still run on this branch, and local Supabase/Docker behavior is environment-dependent even though the migration reset is currently healthy.
 
 ## Repository findings
 

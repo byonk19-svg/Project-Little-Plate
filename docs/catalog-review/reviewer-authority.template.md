@@ -13,13 +13,14 @@ medical notes.
 
 ## Authority map
 
-| Reviewed field or category               | Authorized reviewer role  | Evidence location         | Complete |
-| ---------------------------------------- | ------------------------- | ------------------------- | -------- |
-| Preparation method, shape, and texture   | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
-| Developmental skill compatibility        | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
-| Allergen and restriction metadata        | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
-| Storage support and handling             | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
-| Visual requirement, rights, and alt text | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Reviewed field or category                    | Authorized reviewer role  | Evidence location         | Complete |
+| --------------------------------------------- | ------------------------- | ------------------------- | -------- |
+| Feeding safety and developmental suitability  | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Allergy and restriction metadata              | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Nutrition and age/stage representation        | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Taxonomy and labeling                         | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Storage and handling                          | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
+| Visual accessibility and rights (conditional) | `REQUIRED_REVIEWER_INPUT` | `REQUIRED_REVIEWER_INPUT` | [ ]      |
 
 ## Approval record
 

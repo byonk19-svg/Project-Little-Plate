@@ -173,8 +173,9 @@ add a separate document database in this foundation ticket.
 - No reviewer recruitment or private identity storage.
 - No automatic authority inference from URLs, blogs, product pages, or model
   output.
-- Adding lifecycle states to `content_revisions` may affect the current import
-  check constraint and transition assumptions; compatibility tests must cover
-  existing `draft`, `in_review`, `approved`, and retirement fixtures.
+- The existing `content_revisions` status constraint supports the three
+  publication states `draft`, `in_review`, and `approved`. Preserve those
+  states. Add detailed workflow states only to `catalog_review_cases` and test
+  compatibility with the existing import and publication functions.
 - Visual review is conditional in the review layer but remains mandatory when
   the existing revision visual requirement says a visual is required.

@@ -5,7 +5,6 @@
   "required": ["inventory_snapshot", "records"],
   "properties": {
     "inventory_snapshot": { "type": "string" },
-    "reviewer_authority_reference": { "type": ["string", "null"] },
     "records": {
       "type": "array",
       "items": {
@@ -83,6 +82,25 @@
         },
         "reviewer_role": { "type": "string" },
         "reviewer_authority_reference": { "type": "string" },
+        "storage_context": {
+          "type": "object",
+          "properties": {
+            "existing_storage_guidance": {},
+            "refrigeration_freezing": {},
+            "duration_claim": {},
+            "reheating_serving_implication": {}
+          },
+          "additionalProperties": false
+        },
+        "visual_context": {
+          "type": "object",
+          "properties": {
+            "visual_reference": {},
+            "rights_license_evidence": {},
+            "alt_text": {}
+          },
+          "additionalProperties": false
+        },
         "decision": {
           "type": "string",
           "enum": [
@@ -103,6 +121,24 @@
         "review_date": { "type": ["string", "null"], "format": "date" },
         "follow_up_required": { "type": "string" }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "area": { "const": "storage_handling" } },
+            "required": ["area"]
+          },
+          "then": { "required": ["storage_context"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "area": { "const": "visual_accessibility_rights" }
+            },
+            "required": ["area"]
+          },
+          "then": { "required": ["visual_context"] }
+        }
+      ],
       "additionalProperties": false
     }
   },

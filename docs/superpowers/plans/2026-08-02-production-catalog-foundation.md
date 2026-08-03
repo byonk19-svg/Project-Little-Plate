@@ -84,8 +84,10 @@ private reviewer data or undocumented transitions.
 
 ## Risks and mitigations
 
-- Existing status constraints only support three states: add compatibility
-  migration and test old fixtures before exposing new states.
+- `content_revisions` already owns the three publication states `draft`,
+  `in_review`, and `approved`; preserve them. Add detailed workflow states only
+  to `catalog_review_cases` and test compatibility with existing import and
+  publication functions.
 - Reviewer evidence could accidentally become private data: store role and
   durable references only; prohibit contact details and medical notes.
 - A broad import extension could become an authoring system: keep candidate

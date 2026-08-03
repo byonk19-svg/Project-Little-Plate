@@ -17,6 +17,7 @@ Reviewers provide recommendations, not code or repository edits.
 ## Feeding safety and developmental suitability
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing value:
 - Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
 - Specific concern (shape, size, texture, consistency, preparation, skill, choking/serving):
@@ -31,6 +32,7 @@ Reviewers provide recommendations, not code or repository edits.
 ## Allergy and restriction metadata
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing value:
 - Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
 - Specific concern (major allergen, cross-contact, restriction tag, ambiguity):
@@ -45,6 +47,7 @@ Reviewers provide recommendations, not code or repository edits.
 ## Nutrition and age/stage representation
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing value:
 - Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
 - Specific concern (claim, stage language, portion/frequency implication):
@@ -59,6 +62,7 @@ Reviewers provide recommendations, not code or repository edits.
 ## Taxonomy and labeling
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing value:
 - Decision: Accept / Accept with clarification / Revise / Block / Not applicable / Insufficient evidence
 - Specific concern (food/preparation name, tag, category, duplicate, caregiver language):
@@ -79,6 +83,7 @@ Reviewers provide recommendations, not code or repository edits.
 ## Storage and handling
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing storage guidance/support value (verbatim):
 - Refrigeration/freezing value (verbatim):
 - Time or duration claim (verbatim):
@@ -100,6 +105,7 @@ applicable only when the catalog/release rules confirm that no visual exists or
 is required.
 
 - Reviewer role:
+- Reviewer authority reference:
 - Existing visual reference (verbatim):
 - Existing rights/license evidence (verbatim):
 - Existing alt text (verbatim):

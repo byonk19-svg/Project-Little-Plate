@@ -121,11 +121,14 @@ integration or browser suites must never be reported as production foods.
 - `docs/catalog-review/current-catalog-inventory.md` records counts by source,
   exact ID patterns, verbatim representative values, classifications, and
   provenance gaps.
-- `docs/catalog-review/catalog-review-form.template.md` provides separate
-  feeding/developmental, allergy/restriction, nutrition/age-stage, and
-  taxonomy/labeling review sections with owner adjudication fields.
+- `docs/catalog-review/catalog-review-form.template.md` provides six separate
+  review sections: feeding safety and developmental suitability, allergy and
+  restriction metadata, nutrition and age/stage representation, taxonomy and
+  labeling, storage and handling, and conditional visual accessibility and
+  rights, with owner adjudication fields.
 - `docs/catalog-review/catalog-review.schema.json` parses successfully and
-  defines the four review areas and six decisions.
+  defines six review areas and six decisions, including structured storage
+  context and conditional visual accessibility/rights context.
 - `docs/catalog-review/missing-data-and-provenance.md` consolidates absent
   production sources, approval references, stable IDs, nutrition/stage fields,
   and competing-source evidence.

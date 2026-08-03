@@ -20,8 +20,11 @@ inventory. It does not propose safety values.
   age/stage eligibility field.
 - No committed nutrition claims, portion/frequency guidance, or developmental
   age-stage values were found in catalog records.
-- The four review dimensions are not persisted as separate decisions in the
-  catalog schema; this packet captures them externally for owner adjudication.
+- The six review dimensions—including storage and conditional visual review—
+  are not currently persisted as independent qualified review decisions in the
+  production catalog model; this packet captures them externally until the
+  separately authorized Ticket 23 implementation exists. Owner adjudication
+  cannot replace qualified domain review.
 
 ## Not found during inventory
 

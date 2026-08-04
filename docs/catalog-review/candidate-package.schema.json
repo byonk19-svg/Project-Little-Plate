@@ -1,0 +1,252 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-little-plate.invalid/catalog-review/candidate-package-v1",
+  "x-import-rejection-codes": [
+    "unsupported_schema_version",
+    "package_identity_missing",
+    "package_digest_conflict",
+    "unstable_identifier",
+    "invalid_classification",
+    "approved_candidate_forbidden",
+    "candidate_status_forbidden",
+    "record_identity_conflict",
+    "unknown_source",
+    "unknown_tag",
+    "invalid_storage_contract",
+    "invalid_visual_contract",
+    "candidate_revision_mismatch",
+    "candidate_snapshot_locked",
+    "review_case_missing",
+    "review_revision_mismatch",
+    "unknown_reviewer_authority",
+    "authority_dimension_mismatch",
+    "authority_not_effective",
+    "missing_review_evidence",
+    "approval_reference_missing",
+    "invalid_submission_supersession",
+    "duplicate_effective_submission",
+    "conditional_visual_review_missing",
+    "owner_adjudication_forbidden_in_packet",
+    "review_case_completed",
+    "invalid_envelope_shape"
+  ],
+  "title": "Project Little Plate candidate package envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "package_version",
+    "package_created_at",
+    "classification",
+    "payload_digest",
+    "review_cases",
+    "payload"
+  ],
+  "properties": {
+    "schema_version": { "const": "candidate-package/v1" },
+    "package_id": { "$ref": "#/$defs/id" },
+    "package_version": { "$ref": "#/$defs/id" },
+    "package_created_at": { "type": "string", "format": "date-time" },
+    "classification": { "const": "production_candidate" },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "review_cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["case_id", "revision_id"],
+        "properties": {
+          "case_id": { "$ref": "#/$defs/id" },
+          "revision_id": { "$ref": "#/$defs/id" }
+        }
+      },
+      "uniqueItems": true
+    },
+    "payload": { "$ref": "#/$defs/catalog_payload" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "catalog_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sources",
+        "tags",
+        "foods",
+        "preparations",
+        "revisions",
+        "visuals"
+      ],
+      "properties": {
+        "sources": { "type": "array", "items": { "$ref": "#/$defs/source" } },
+        "tags": { "type": "array", "items": { "$ref": "#/$defs/tag" } },
+        "foods": { "type": "array", "items": { "$ref": "#/$defs/food" } },
+        "preparations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/preparation" }
+        },
+        "revisions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/revision" }
+        },
+        "visuals": { "type": "array", "items": { "$ref": "#/$defs/visual" } }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "publisher",
+        "title",
+        "url",
+        "source_date",
+        "accessed_at"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "publisher": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "pattern": "^https://" },
+        "source_date": { "type": "string", "format": "date" },
+        "accessed_at": { "type": "string", "format": "date" }
+      }
+    },
+    "tag": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "kind": { "enum": ["skill", "allergen", "category"] },
+        "label": { "type": "string", "minLength": 1 }
+      }
+    },
+    "food": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "slug", "name", "category"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 }
+      }
+    },
+    "preparation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "food_id", "slug", "name", "is_active"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "food_id": { "$ref": "#/$defs/id" },
+        "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "is_active": { "type": "boolean" }
+      }
+    },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "preparation_id",
+        "version",
+        "method",
+        "shape_texture",
+        "source_id",
+        "tag_ids",
+        "visual_required",
+        "visual_ids",
+        "preparation_time_band",
+        "storage_rules"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "preparation_id": { "$ref": "#/$defs/id" },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "const": "draft" },
+        "method": { "type": "string", "minLength": 1 },
+        "shape_texture": { "type": "string", "minLength": 1 },
+        "source_id": { "$ref": "#/$defs/id" },
+        "tag_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "visual_required": { "type": "boolean" },
+        "visual_ids": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/id" },
+          "uniqueItems": true
+        },
+        "preparation_time_band": {
+          "enum": ["under_15_minutes", "15_to_30_minutes", "over_30_minutes"]
+        },
+        "storage_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/storage_rule" }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["visual_required"],
+            "properties": { "visual_required": { "const": true } }
+          },
+          "then": {
+            "required": ["visual_ids"],
+            "properties": { "visual_ids": { "minItems": 1 } }
+          }
+        }
+      ]
+    },
+    "storage_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "support_status",
+        "deadline_kind",
+        "duration_hours",
+        "guidance"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "support_status": { "enum": ["supported", "unsupported"] },
+        "deadline_kind": {
+          "type": ["string", "null"],
+          "enum": ["discard_after", "quality_by", "informational", null]
+        },
+        "duration_hours": { "type": ["integer", "null"], "minimum": 1 },
+        "guidance": { "type": ["string", "null"] }
+      }
+    },
+    "visual": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "asset_reference",
+        "rights_basis",
+        "rights_holder",
+        "alt_text",
+        "reviewed_at"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "asset_reference": { "type": "string", "pattern": "^/" },
+        "rights_basis": { "enum": ["original", "licensed"] },
+        "rights_holder": { "type": "string", "minLength": 1 },
+        "license_name": { "type": ["string", "null"] },
+        "license_url": { "type": ["string", "null"], "pattern": "^https://" },
+        "alt_text": { "type": "string", "minLength": 12 },
+        "reviewed_at": { "type": "string", "format": "date" }
+      }
+    }
+  }
+}

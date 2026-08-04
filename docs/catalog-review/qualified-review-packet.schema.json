@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-little-plate.invalid/catalog-review/qualified-review-packet-v1",
+  "x-import-rejection-codes": [
+    "unsupported_schema_version",
+    "package_identity_missing",
+    "package_digest_conflict",
+    "unstable_identifier",
+    "invalid_classification",
+    "approved_candidate_forbidden",
+    "candidate_status_forbidden",
+    "record_identity_conflict",
+    "unknown_source",
+    "unknown_tag",
+    "invalid_storage_contract",
+    "invalid_visual_contract",
+    "candidate_revision_mismatch",
+    "candidate_snapshot_locked",
+    "review_case_missing",
+    "review_revision_mismatch",
+    "unknown_reviewer_authority",
+    "authority_dimension_mismatch",
+    "authority_not_effective",
+    "missing_review_evidence",
+    "approval_reference_missing",
+    "invalid_submission_supersession",
+    "duplicate_effective_submission",
+    "conditional_visual_review_missing",
+    "owner_adjudication_forbidden_in_packet",
+    "review_case_completed",
+    "invalid_envelope_shape"
+  ],
+  "title": "Project Little Plate qualified review packet envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "package_version",
+    "package_created_at",
+    "case_id",
+    "revision_id",
+    "classification",
+    "payload_digest",
+    "submissions"
+  ],
+  "properties": {
+    "schema_version": { "const": "qualified-review-packet/v1" },
+    "package_id": { "$ref": "#/$defs/id" },
+    "package_version": { "$ref": "#/$defs/id" },
+    "package_created_at": { "type": "string", "format": "date-time" },
+    "case_id": { "$ref": "#/$defs/id" },
+    "revision_id": { "$ref": "#/$defs/id" },
+    "classification": { "const": "production_candidate" },
+    "payload_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "submissions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/submission" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dimension",
+        "decision",
+        "reviewer_role",
+        "reviewer_authority_reference",
+        "reviewed_at",
+        "approval_reference_id",
+        "follow_up_status",
+        "clarification_requires_catalog_change",
+        "storage_context",
+        "visual_context",
+        "supersedes_submission_id",
+        "evidence"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "dimension": {
+          "enum": [
+            "feeding_safety_developmental",
+            "allergy_restriction",
+            "nutrition_age_stage",
+            "taxonomy_labeling",
+            "storage_handling",
+            "visual_accessibility_rights"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "Accept",
+            "Accept with clarification",
+            "Revise",
+            "Block",
+            "Not applicable",
+            "Insufficient evidence"
+          ]
+        },
+        "reviewer_role": { "type": "string", "minLength": 1 },
+        "reviewer_authority_reference": { "$ref": "#/$defs/id" },
+        "reviewed_at": { "type": "string", "format": "date" },
+        "approval_reference_id": { "type": "string", "minLength": 1 },
+        "follow_up_status": { "type": "string", "minLength": 1 },
+        "clarification_requires_catalog_change": { "type": "boolean" },
+        "storage_support_state": { "type": ["string", "null"] },
+        "storage_context": { "$ref": "#/$defs/storage_context" },
+        "visual_context": { "$ref": "#/$defs/visual_context" },
+        "supersedes_submission_id": {
+          "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" },
+          "minItems": 1
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "field_or_claim", "evidence_reference"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "field_or_claim": { "type": "string", "minLength": 1 },
+        "evidence_reference": { "type": "string", "minLength": 1 },
+        "source_id": {
+          "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
+        }
+      }
+    },
+    "storage_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existing_storage_guidance": { "$ref": "#/$defs/context_text" },
+        "refrigeration_freezing": { "$ref": "#/$defs/context_text" },
+        "duration_claim": { "$ref": "#/$defs/context_text" },
+        "reheating_serving_implication": { "$ref": "#/$defs/context_text" }
+      }
+    },
+    "visual_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visual_reference": { "$ref": "#/$defs/context_text" },
+        "rights_license_evidence": { "$ref": "#/$defs/context_text" },
+        "alt_text": { "$ref": "#/$defs/context_text" }
+      }
+    },
+    "context_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
+    }
+  }
+}

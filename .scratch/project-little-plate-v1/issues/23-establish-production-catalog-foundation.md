@@ -264,3 +264,135 @@ not authorize production safety content.
 - No production code, migration, seed data, reviewer identity, or Ticket 23C-E
   implementation artifact changed in this correction. Ticket 23C-23E remain
   out of scope.
+
+### Ticket 23B local implementation evidence
+
+Implemented locally on `codex/ticket-23b-import` from merged `550779a`.
+
+- Added versioned candidate and qualified-review JSON schemas plus deterministic
+  UTF-8 canonicalization, duplicate-key transport rejection, safe-integer
+  validation, and SHA-256 digest helpers in `src/modules/catalog-import/`.
+- Added append-only import receipts, immutable approval-reference children,
+  service-role-only access, candidate snapshot locks, and SECURITY DEFINER
+  helpers in `20260804162859_catalog_import_foundation.sql`.
+- Added `import_catalog_candidate_package(jsonb)`: exact insert-or-match for
+  source-backed candidate parents, draft revisions, storage/visual metadata,
+  one-to-one candidate cases, deterministic results, receipt replay, advisory
+  locking, and rejection of approved/publication fields.
+- Added `import_catalog_review_packet(jsonb)`: exact candidate case/revision
+  binding, valid dated authority coverage, one-or-more evidence records,
+  dedicated approval-reference persistence, first/later round tip checks,
+  atomic insertion, deterministic replay, and draft/changes-requested
+  transitions only to `in_review`. It cannot adjudicate, complete, publish, or
+  reopen a blocked case.
+- Added focused real-local-Supabase integration coverage for concurrent
+  candidate replay, candidate snapshot mutation rejection, digest/classification
+  failures, public read isolation, qualified review import, evidence,
+  approval-reference persistence, and replay.
+- No production rows, seed data, UI/auth/email behavior, publication gating, or
+  Ticket 23C implementation was added.
+
+Validation evidence: migration reset passed; focused import integration passed
+(4 tests); typecheck and lint passed; unit suite passed (17 files, 128 tests);
+catalog-source checks passed; production build passed; clean-reset full
+integration passed (11 files, 78 tests); database lint and advisors reported no
+issues; and Playwright passed all 19 end-to-end tests. `git diff --check` is
+clean. The implementation remains local-only; no push or PR was performed.
+
+### Ticket 23B publication-review correction evidence
+
+The independent publication review identified a real contract gap in the first
+implementation: SQL ignored unknown nested keys, raised only the first caller
+error, used incomplete old/new snapshot edges, and did not treat associated
+visuals as conditional visual-review evidence. The correction is intentionally
+limited to Ticket 23B and preserves commit `c195d67` as an immutable base.
+
+- Added the 27th stable rejection code, `invalid_envelope_shape`, to both input
+  schemas and the design inventory. Structured rejection reports are ordered by
+  collection, record ID, field path, and code; malformed envelopes return before
+  advisory locks or writes.
+- Added SQL-side exact object-key allowlists for both envelopes and all nested
+  candidate/review records, draft/owner-field rejection, slug identity checks
+  without trimming, bounded opaque reviewer/approval/evidence references, and
+  review-packet v1 note rejection. Digest conflicts remain the only early
+  conflict path.
+- Corrected canonical review-case sorting to `case_id`, fixed nullable `$ref`
+  schema branches with `anyOf`, and made visual review conditional on either
+  `visual_required` or an associated `revision_visuals` row.
+- Snapshot locks now inspect both OLD and NEW IDs and foreign-key edges for all
+  protected parent and child tables. Existing candidate/review lifecycle and
+  receipt replay behavior remain unchanged.
+- Focused integration assertions now cover structured classification and owner
+  rejection results as well as the existing real Supabase import/replay seams.
+
+Correction validation status: canonical unit tests pass; the focused real-local
+Supabase import boundary tests pass after clean reset; full repository
+verification, database lint/advisors, and the independent final review remain
+required before any push or publication. No Ticket 23C, UI, auth, seed, or
+publication implementation was started.
+
+Independent final correction review over `origin/main..64cd84f` completed with
+0 Critical, 0 High, 0 Medium, and 0 Low findings (APPROVE). The review
+explicitly confirmed blocked-case non-reopen, completed-case exact replay/new
+package rejection, and full side-effect assertions for rejected candidate
+imports. No push, PR, Ticket 23C, schema publication, or unrelated application
+work was performed.
+
+Final correction evidence: the focused catalog-import boundary suite now has
+six passing tests, including side-effect-free rejection, blocked-case
+non-reopen, and completed-case replay/new-package rejection. The prior full
+`pnpm test:integration` run passed after clean reset (11 files, 79 tests);
+the added lifecycle assertions pass in the focused run. `pnpm format:check`,
+`pnpm lint`, `pnpm typecheck`,
+`pnpm test` (17 files, 128 tests), `pnpm test:catalog-sources`, `pnpm build`,
+database lint, database advisors, and `git diff --check` passed. The canonical
+`pnpm verify` command reached Playwright but exceeded its 15-minute runner
+limit. A direct browser run isolated two existing fixture-label failures in
+`feeding-eligibility.spec.ts` and `manual-meal-planning.spec.ts` (the page
+renders the seeded batch/planner ability labels, while those tests request
+older eligibility/planning labels); `mobile-shell.spec.ts` and
+`local-email-delivery.spec.ts` pass. This correction changed no UI or fixture
+seed, so that browser mismatch is documented as an external/pre-existing
+verification block rather than folded into Ticket 23B.
+
+### Ticket 23B trusted-input-boundary correction evidence
+
+The publication review of draft PR #5 identified two high-severity and three
+medium-severity gaps in the published import contract. The correction remains
+on `codex/ticket-23b-import` and does not start Ticket 23C or change UI,
+authentication, email behavior, seed data, or production content.
+
+- Added migration `20260804214313_harden_catalog_import_boundaries.sql` with
+  strict date/timestamp parsing, candidate semantic preflight checks, review
+  enum/authority/evidence/lifecycle checks, context allowlists and privacy-safe
+  bounded text validation, independent visual applicability, deterministic
+  current-tip counting, and public wrappers that normalize expected SQL/race
+  failures into the existing structured rejection contract.
+- Tightened `qualified-review-packet.schema.json` storage/visual contexts to
+  exact v1 allowlists with bounded control-character-free values, and added
+  the candidate `visual_required`/`visual_ids` conditional schema rule.
+- Transport parser failures for duplicate keys, malformed tokens, unsupported
+  JSON shapes, and noncanonical numeric forms now use
+  `invalid_envelope_shape`; stable identity failures retain
+  `unstable_identifier`.
+- Added real local Supabase tests for impossible dates, invalid candidate
+  contracts, required-visual atomic rejection, invalid review decision and
+  follow-up values, unknown context keys/value privacy, ambiguous current
+  tips, structured completed-case rejection, and no receipt/domain writes on
+  failed imports. The focused catalog-import suite now passes 9 tests.
+
+Correction validation: migration reset passed; focused catalog-import boundary
+tests passed (9 tests); canonical unit tests passed (6 tests). Full formatting,
+lint, typecheck, unit, integration, build, catalog-source, database
+lint/advisors, and `git diff --check` remain required before publication.
+GitHub Verify for the existing draft PR remains the publication gate. No Ticket
+23C work was started.
+
+Final local correction verification completed: `pnpm verify` passed end to end,
+including formatting, lint, typecheck, 129 unit tests, catalog-source checks,
+production build, database reset, 84 integration tests, Playwright, and the
+repository whitespace check. Direct database lint and advisors both reported
+no issues, and `git diff --check` passed. The two-axis standards/spec review
+approved the correction with zero findings on both axes. The correction is
+ready to commit and push to the existing draft PR; it remains draft and Ticket
+23C remains unstarted.

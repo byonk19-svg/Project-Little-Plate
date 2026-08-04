@@ -1,0 +1,34 @@
+{
+  "schema_version": "qualified-review-packet/v1",
+  "package_id": "review-fixture-v1",
+  "package_version": "1",
+  "package_created_at": "2026-08-04T12:00:00Z",
+  "case_id": "case-fixture-v1",
+  "revision_id": "revision-fixture-v1",
+  "classification": "production_candidate",
+  "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "submissions": [
+    {
+      "id": "submission-storage-v1",
+      "dimension": "storage_handling",
+      "decision": "Accept",
+      "reviewer_role": "qualified-role-reference",
+      "reviewer_authority_reference": "authority-fixture-v1",
+      "reviewed_at": "2026-08-04",
+      "approval_reference_id": "approval-fixture-v1",
+      "follow_up_status": "none",
+      "clarification_requires_catalog_change": false,
+      "storage_support_state": "supported",
+      "storage_context": {},
+      "visual_context": {},
+      "supersedes_submission_id": null,
+      "evidence": [
+        {
+          "id": "evidence-storage-v1",
+          "field_or_claim": "storage_support_state",
+          "evidence_reference": "durable-reference"
+        }
+      ]
+    }
+  ]
+}

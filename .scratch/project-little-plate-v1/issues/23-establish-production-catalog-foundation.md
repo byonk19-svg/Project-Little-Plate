@@ -8,7 +8,12 @@ safety-sensitive values.
 
 **Status:** ready-for-human
 
-**Current slice:** Ticket 23A is implemented locally; 23B-23E remain intentionally out of scope.
+**Current slice:** Ticket 23A merged in `2369f7a`; Ticket 23B is the proposed
+current slice. Ticket 23C-23E remain intentionally out of scope.
+
+**23A merge evidence:** PR #3 was squash-merged into `main` as
+`2369f7a6d968fc6ab3d1e22035d634c6c0f81067`; GitHub Verify passed on the final
+branch head. The merged change contains no production catalog content.
 
 ## Ticket 23A implementation evidence
 
@@ -210,3 +215,52 @@ add a separate document database in this foundation ticket.
 - `blocked` requires a current unsuperseded `Block`; reopening requires qualified same-dimension, same-lineage clearing submissions for every historical blocker. The clearing set is `Accept` or non-blocking `Accept with clarification` with resolved follow-up, required evidence, valid authority, and no catalog change.
 - Entering `blocked` now also requires the current `Block` submission to have effective authority coverage and recorded evidence; the focused suite covers rejection of a dimension-mismatched authority blocker.
 - Packet classification now includes `production_candidate`, matching the database candidate boundary. Enum metadata assertions inspect PostgreSQL catalog types directly.
+
+## Ticket 23B proposed handoff
+
+The grounded design is recorded in
+`docs/superpowers/plans/2026-08-04-ticket-23b-import-design.md`.
+
+The proposed 23B slice adds two separate service-role import boundaries:
+
+- Candidate package import creates stable, unapproved candidate catalog rows
+  and draft review cases. It never imports review decisions, owner
+  adjudications, approval, or publication.
+- Qualified review packet import appends submissions and evidence against one
+  exact existing candidate revision/case. It never mutates catalog values,
+  creates authority, adjudicates, completes, or publishes.
+
+Both imports require versioned envelopes, canonical payload digests, append-only
+receipts, atomic transactions, deterministic rejection reports, and explicit
+idempotency. A review case locks the candidate snapshot; corrections require a
+new candidate revision rather than rewriting reviewed values under the same ID.
+
+Ticket 23B remains design-only until the implementation-gate decisions recorded
+in the plan are explicitly accepted. The design now fixes the defaults for the
+import envelope, dedicated approval-reference persistence for new imported
+submissions, snapshot-lock breadth, per-dimension first/later packet semantics,
+canonicalization and receipt concurrency. Schema-validator choice and reviewer
+coverage/budget/format remain implementation or operational follow-up and do
+not authorize production safety content.
+
+### 23B design-review correction evidence
+
+- Initial read-only review classified the design as requiring minor fixes because
+  packet completeness was described as a package-wide mode, approval-reference
+  persistence was unresolved, canonicalization omitted exact number/string/null
+  rules, and receipt locking lacked a complete transaction sequence.
+- The design plan now records per-dimension current-tip semantics, partial and
+  mixed-round packets, a dedicated immutable approval-reference child record,
+  explicit canonical material and serialization rules, and advisory-lock plus
+  `FOR UPDATE` receipt ordering before domain writes.
+- The plan also records candidate-to-case mappings, shared-parent snapshot-lock
+  behavior, stable `approval_reference_missing` rejection handling, concurrent
+  conflicting-import tests, and a classified decision table separating
+  implementation gates from operational follow-up.
+- A fresh post-correction review found two minor contract ambiguities: the
+  obsolete `partial_import_rejected` code and missing explicit lifecycle tests
+  for blocked-case non-reopening and completed-case replay-only behavior. The
+  code was removed and both lifecycle assertions were added to the plan.
+- No production code, migration, seed data, reviewer identity, or Ticket 23C-E
+  implementation artifact changed in this correction. Ticket 23C-23E remain
+  out of scope.

@@ -163,11 +163,54 @@ describe("catalog import RPC boundaries", () => {
         p_envelope: forbidden
       }
     );
-    expect(forbiddenResult.error?.message).toContain("invalid_classification");
+    expect(forbiddenResult.error).toBeNull();
+    expect(forbiddenResult.data).toMatchObject({ accepted: false });
+    expect(forbiddenResult.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "invalid_classification" })
+      ])
+    );
 
     const publicRead = await anonymous.from("foods").select("id");
     expect(publicRead.error).not.toBeNull();
     expect(publicRead.data).toBeNull();
+  });
+
+  test("returns ordered shape rejections before candidate writes", async () => {
+    const { envelope } = candidateEnvelope();
+    const malformed = structuredClone(envelope) as Record<string, unknown> & {
+      payload: {
+        sources: Array<Record<string, unknown>>;
+        foods: Array<Record<string, unknown>>;
+      };
+    };
+    malformed.payload.sources[0].unexpected = true;
+    malformed.payload.foods[0].id = ` ${malformed.payload.foods[0].id}`;
+    malformed.payload_digest = canonicalizeCatalogImport(malformed).digest;
+
+    const rejected = await rpc(admin, "import_catalog_candidate_package", {
+      p_envelope: malformed
+    });
+    expect(rejected.error).toBeNull();
+    expect(rejected.data).toMatchObject({ accepted: false });
+    expect(rejected.data.rejections).toEqual([
+      expect.objectContaining({
+        collection: "foods",
+        field_path: "id",
+        code: "unstable_identifier"
+      }),
+      expect.objectContaining({
+        collection: "sources",
+        field_path: "unexpected",
+        code: "invalid_envelope_shape"
+      })
+    ]);
+    const rows = await admin
+      .from("foods")
+      .select("id")
+      .eq("id", String(malformed.payload.foods[0].id));
+    expect(rows.error).toBeNull();
+    expect(rows.data).toEqual([]);
   });
 
   test("imports a qualified review packet with evidence and approval reference, then replays", async () => {
@@ -237,8 +280,14 @@ describe("catalog import RPC boundaries", () => {
     const forbiddenResult = await rpc(admin, "import_catalog_review_packet", {
       p_envelope: forbidden
     });
-    expect(forbiddenResult.error?.message).toContain(
-      "owner_adjudication_forbidden_in_packet"
+    expect(forbiddenResult.error).toBeNull();
+    expect(forbiddenResult.data).toMatchObject({ accepted: false });
+    expect(forbiddenResult.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "owner_adjudication_forbidden_in_packet"
+        })
+      ])
     );
     const first = await rpc(admin, "import_catalog_review_packet", {
       p_envelope: packet

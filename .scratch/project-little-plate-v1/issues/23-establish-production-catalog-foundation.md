@@ -8,7 +8,12 @@ safety-sensitive values.
 
 **Status:** ready-for-human
 
-**Current slice:** Ticket 23A is implemented locally; 23B-23E remain intentionally out of scope.
+**Current slice:** Ticket 23A merged in `2369f7a`; Ticket 23B is the proposed
+current slice. Ticket 23C-23E remain intentionally out of scope.
+
+**23A merge evidence:** PR #3 was squash-merged into `main` as
+`2369f7a6d968fc6ab3d1e22035d634c6c0f81067`; GitHub Verify passed on the final
+branch head. The merged change contains no production catalog content.
 
 ## Ticket 23A implementation evidence
 
@@ -210,3 +215,27 @@ add a separate document database in this foundation ticket.
 - `blocked` requires a current unsuperseded `Block`; reopening requires qualified same-dimension, same-lineage clearing submissions for every historical blocker. The clearing set is `Accept` or non-blocking `Accept with clarification` with resolved follow-up, required evidence, valid authority, and no catalog change.
 - Entering `blocked` now also requires the current `Block` submission to have effective authority coverage and recorded evidence; the focused suite covers rejection of a dimension-mismatched authority blocker.
 - Packet classification now includes `production_candidate`, matching the database candidate boundary. Enum metadata assertions inspect PostgreSQL catalog types directly.
+
+## Ticket 23B proposed handoff
+
+The grounded design is recorded in
+`docs/superpowers/plans/2026-08-04-ticket-23b-import-design.md`.
+
+The proposed 23B slice adds two separate service-role import boundaries:
+
+- Candidate package import creates stable, unapproved candidate catalog rows
+  and draft review cases. It never imports review decisions, owner
+  adjudications, approval, or publication.
+- Qualified review packet import appends submissions and evidence against one
+  exact existing candidate revision/case. It never mutates catalog values,
+  creates authority, adjudicates, completes, or publishes.
+
+Both imports require versioned envelopes, canonical payload digests, append-only
+receipts, atomic transactions, deterministic rejection reports, and explicit
+idempotency. A review case locks the candidate snapshot; corrections require a
+new candidate revision rather than rewriting reviewed values under the same ID.
+
+Ticket 23B remains design-only until owner decisions are made on the import
+envelope, approval-reference storage, snapshot-lock breadth, initial versus
+supplemental packet shape, schema-validator dependency, and reviewer coverage
+budget/format. Ticket 23C-23E remain out of scope.

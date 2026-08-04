@@ -330,3 +330,16 @@ Supabase import boundary tests pass after clean reset; full repository
 verification, database lint/advisors, and the independent final review remain
 required before any push or publication. No Ticket 23C, UI, auth, seed, or
 publication implementation was started.
+
+Final correction evidence: `pnpm test:integration` passed after clean reset
+(11 files, 79 tests); `pnpm format:check`, `pnpm lint`, `pnpm typecheck`,
+`pnpm test` (17 files, 128 tests), `pnpm test:catalog-sources`, `pnpm build`,
+database lint, database advisors, and `git diff --check` passed. The canonical
+`pnpm verify` command reached Playwright but exceeded its 15-minute runner
+limit. A direct browser run isolated two existing fixture-label failures in
+`feeding-eligibility.spec.ts` and `manual-meal-planning.spec.ts` (the page
+renders the seeded batch/planner ability labels, while those tests request
+older eligibility/planning labels); `mobile-shell.spec.ts` and
+`local-email-delivery.spec.ts` pass. This correction changed no UI or fixture
+seed, so that browser mismatch is documented as an external/pre-existing
+verification block rather than folded into Ticket 23B.

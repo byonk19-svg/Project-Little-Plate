@@ -617,6 +617,7 @@ declare
   food_record public.foods%rowtype;
   dimension_value text;
   effective_review public.catalog_review_submissions%rowtype;
+  effective_adjudication public.catalog_owner_adjudications%rowtype;
   effective_count integer;
   evidence_count integer;
   authority_covered boolean;
@@ -788,6 +789,28 @@ begin
         )
       order by submission.submitted_at desc, submission.id desc
       limit 1;
+
+      if exists (
+        select 1 from public.catalog_owner_adjudications adjudication
+        where adjudication.case_id = review_case.id
+          and adjudication.dimension::text = dimension_value
+      ) then
+        select adjudication.* into effective_adjudication
+        from public.catalog_owner_adjudications adjudication
+        where adjudication.case_id = review_case.id
+          and adjudication.dimension::text = dimension_value
+          and not exists (
+            select 1 from public.catalog_owner_adjudications successor
+            where successor.supersedes_adjudication_id = adjudication.id
+          );
+        if effective_adjudication.id is null
+          or effective_adjudication.outcome <> 'select_qualified_recommendation'
+          or effective_adjudication.selected_submission_id <> effective_review.id then
+          reasons := reasons || jsonb_build_array(jsonb_build_object(
+            'code', 'owner_adjudication_invalid', 'dimension', dimension_value));
+          continue;
+        end if;
+      end if;
     end if;
 
     select exists (

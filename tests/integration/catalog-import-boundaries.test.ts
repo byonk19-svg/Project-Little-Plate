@@ -254,10 +254,7 @@ describe("catalog import RPC boundaries", () => {
     const { data: approvals, error: approvalError } = await admin
       .from("catalog_review_submission_approval_references")
       .select("submission_id, approval_reference_id")
-      .eq(
-        "submission_id",
-        (packet.submissions as Array<{ id: string }>)[0].id
-      );
+      .eq("submission_id", (packet.submissions as Array<{ id: string }>)[0].id);
     expect(approvalError).toBeNull();
     expect(approvals).toHaveLength(1);
     expect(approvals[0].approval_reference_id).toBe(

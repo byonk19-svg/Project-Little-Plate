@@ -256,6 +256,7 @@ describe("catalog import RPC boundaries", () => {
       .select("submission_id, approval_reference_id")
       .eq("submission_id", (packet.submissions as Array<{ id: string }>)[0].id);
     expect(approvalError).toBeNull();
+    if (!approvals) throw new Error("approval rows were not returned");
     expect(approvals).toHaveLength(1);
     expect(approvals[0].approval_reference_id).toBe(
       (packet.submissions as Array<{ approval_reference_id: string }>)[0]

@@ -331,8 +331,12 @@ verification, database lint/advisors, and the independent final review remain
 required before any push or publication. No Ticket 23C, UI, auth, seed, or
 publication implementation was started.
 
-Final correction evidence: `pnpm test:integration` passed after clean reset
-(11 files, 79 tests); `pnpm format:check`, `pnpm lint`, `pnpm typecheck`,
+Final correction evidence: the focused catalog-import boundary suite now has
+six passing tests, including side-effect-free rejection, blocked-case
+non-reopen, and completed-case replay/new-package rejection. The prior full
+`pnpm test:integration` run passed after clean reset (11 files, 79 tests);
+the added lifecycle assertions pass in the focused run. `pnpm format:check`,
+`pnpm lint`, `pnpm typecheck`,
 `pnpm test` (17 files, 128 tests), `pnpm test:catalog-sources`, `pnpm build`,
 database lint, database advisors, and `git diff --check` passed. The canonical
 `pnpm verify` command reached Playwright but exceeded its 15-minute runner

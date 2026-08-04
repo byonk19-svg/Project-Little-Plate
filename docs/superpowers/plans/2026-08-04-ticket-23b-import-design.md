@@ -205,10 +205,23 @@ Required behavior:
 - require `production_candidate` classification;
 - require authority existence, dimension coverage, and date effectiveness;
 - require evidence for every imported submission;
-- require the five always-required dimensions for an initial packet and a
-  required visual submission when authoritative revision metadata requires it;
-- allow later packets to add a bounded review round for one or more dimensions,
-  while preserving explicit supersession and currentness;
+- validate each dimension independently rather than imposing a package-wide
+  "initial" or "later" mode. A packet may mix first submissions and later
+  submissions for different dimensions, and may be partial. For a dimension
+  with no current submission, `supersedes_submission_id` must be null. For a
+  dimension with a current submission, it must name that exact current tip;
+  import order never chooses the effective review;
+- require an opaque approval reference for every newly imported qualified
+  submission. Persist it in a dedicated immutable one-to-one
+  `catalog_review_submission_approval_references` record keyed by submission;
+  legacy 23A submissions may remain null for compatibility, and 23B does not
+  change 23A eligibility until a separately authorized release gate adopts the
+  reference requirement;
+- keep missing required dimensions, including storage, as deterministic
+  eligibility failures rather than silently filling them. A case cannot
+  complete until all five always-required dimensions have a current qualified
+  submission; visual review is additionally required only when the candidate's
+  authoritative visual metadata requires it;
 - reject cross-case, cross-revision, cross-dimension, missing-parent, stale-tip,
   and branching supersession;
 - reject owner adjudication keys, owner decisions, catalog mutations, and
@@ -220,10 +233,13 @@ Required behavior:
 
 The existing reviewer-facing schema remains the form contract. The import
 envelope is a transport/identity wrapper around it, not a replacement for the
-form. A small additive `approval_reference_id` field on
-`catalog_review_submissions` (or an append-only submission-reference child
-table) is needed because the form already carries that value and the 23A table
-does not. This is an implementation decision to approve before migration.
+form. The implementation adds a dedicated immutable one-to-one
+`catalog_review_submission_approval_references` record because the form
+already carries `approval_reference_id` and the 23A submission table does not.
+The reference is required for new imported qualified submissions, opaque and
+durable, contains no private identity or embedded document, and is nullable
+only for legacy 23A rows. It is not used by 23A eligibility until a separately
+authorized release gate adopts it.
 
 ## Proposed versioned contracts
 
@@ -237,8 +253,12 @@ and import semantics without turning the reviewer form into database transport.
   "schema_version": "candidate-package/v1",
   "package_id": "candidate-package-example",
   "package_version": "2026-08-04.1",
+  "package_created_at": "2026-08-04T12:00:00Z",
   "classification": "production_candidate",
   "payload_digest": "sha256:<canonical-digest>",
+  "review_cases": [
+    { "case_id": "case-example", "revision_id": "revision-example" }
+  ],
   "payload": {
     "sources": [],
     "tags": [],
@@ -265,6 +285,7 @@ the reviewer-facing review records in a normalized import form:
   "schema_version": "qualified-review-packet/v1",
   "package_id": "review-packet-example",
   "package_version": "2026-08-04.1",
+  "package_created_at": "2026-08-04T12:00:00Z",
   "case_id": "case-example",
   "revision_id": "revision-example",
   "classification": "production_candidate",
@@ -297,11 +318,13 @@ the reviewer-facing review records in a normalized import form:
 }
 ```
 
-The envelope must not accept `owner_adjudications`, catalog values, authority
-definitions, or publication status. The mapping from the existing reviewer form
-is explicit: `reviews[*]` becomes submissions, `evidence_sources` becomes
-evidence rows, and `approval_reference_id` becomes the additive submission
-reference field/child table.
+The candidate `review_cases` array is required to map each payload revision to
+exactly one newly created case; duplicate or missing revision mappings are
+rejected. The envelope must not accept `owner_adjudications`, catalog values,
+authority definitions, or publication status. The mapping from the existing
+reviewer form is explicit: `reviews[*]` becomes submissions,
+`evidence_sources` becomes evidence rows, and `approval_reference_id` becomes
+the immutable approval-reference child row.
 
 ## Canonical digest and idempotency
 
@@ -311,34 +334,62 @@ Create an append-only `catalog_import_receipts` table with:
 - `package_id`, `package_version`, and `schema_version`;
 - `payload_digest` (SHA-256 of canonical JSON);
 - a deterministic `result_json` containing sorted IDs, counts, and case IDs;
-- `recorded_at` for audit only; and
+- `package_created_at` from the producer, included in canonical material;
+- `recorded_at` for importer audit only, excluded from canonical material; and
 - a unique key on `(import_kind, package_id, package_version)`.
 
 RLS is enabled; only `service_role` may inspect receipts, and only the two
 import RPCs may write them. An append-only trigger blocks update/delete.
 
-Canonicalization rules:
+Canonicalization is versioned with the envelope and is deliberately explicit:
 
-1. Validate the envelope and reject duplicate stable IDs.
-2. Recursively sort object keys.
-3. Sort every identity-bearing array by its stable ID (`sources`, `tags`,
+1. The transport validator parses UTF-8 JSON with duplicate-object-key
+   rejection before conversion to `jsonb`; PostgreSQL `jsonb` cannot preserve
+   duplicate keys, so a duplicate-key payload is rejected before the RPC is
+   called. The database still recomputes the digest from the parsed value and
+   never trusts the caller's digest.
+2. The canonical material includes `schema_version`, `package_id`,
+   `package_version`, `package_created_at`, `classification`, and the payload
+   fields defined by that schema. `payload_digest`, `recorded_at`, and
+   `result_json` are excluded. Review envelopes additionally include
+   `case_id`, `revision_id`, and all submission/evidence fields.
+3. Object keys are sorted by their UTF-8 byte sequence. Strings preserve their
+   Unicode code points without normalization; escaping uses the minimal JSON
+   escape form. Omitted fields and explicit `null` are distinct and are
+   accepted only where the schema explicitly allows both.
+4. Numeric values are finite integers only, written as base-10 JSON integers
+   with no leading zero, exponent, fraction, or negative zero. A future schema
+   that needs fractional values must define a new canonicalization version.
+5. Identity-bearing arrays are sorted by stable ID, then by the remaining
+   canonical row bytes as a tie-breaker. This applies to `sources`, `tags`,
    `foods`, `preparations`, `revisions`, `visuals`, submissions, evidence,
-   `tag_ids`, `visual_ids`, and storage rules).
-4. Serialize compact UTF-8 JSON and hash with SHA-256.
-5. Recompute the digest inside the database RPC; the client-supplied digest is
+   `tag_ids`, `visual_ids`, and storage rules. Arrays whose order is meaningful
+   are explicitly marked ordered by the schema and retain their order.
+6. Serialize compact UTF-8 JSON and hash with SHA-256. The database RPC
+   recomputes this exact canonical form; the client-supplied digest is
    advisory and must match the database result.
 
-The receipt key is locked before semantic writes. An exact existing key and
-digest returns the stored result without writing. The same key with a
-different digest returns `package_digest_conflict`. Stable IDs that already
-exist with different values return `record_identity_conflict`. The result must
-not contain import timestamps, array-order-dependent counts, or nondeterministic
-ordering. Exact retries therefore return the same stored result.
+The database transaction uses this exact sequence for both import RPCs:
 
-The unique receipt key and a transaction-level advisory lock derived from the
-import kind/package identity should serialize concurrent duplicate imports.
-The transaction must roll back all candidate/review rows if any validation or
-receipt step fails.
+1. Validate envelope shape, duplicate IDs, and canonical digest before any
+   domain write.
+2. Begin the function transaction and take
+   `pg_advisory_xact_lock(hashtextextended(import_kind || E'\\0' || package_id
+|| E'\\0' || package_version, 0))`.
+3. `SELECT ... FOR UPDATE` the receipt for the unique
+   `(import_kind, package_id, package_version)` key. An exact existing key and
+   digest returns its stored result without any write. The same key with a
+   different digest returns `package_digest_conflict` without semantic writes.
+4. Run semantic validation, lock any candidate parent rows needed for
+   identity comparison, and write domain rows. A stable ID with different
+   values returns `record_identity_conflict`.
+5. Insert the immutable receipt only after every domain write succeeds, then
+   commit. Any validation, domain, or receipt failure rolls back all rows.
+
+The result contains sorted IDs, counts, and case IDs only; it contains no
+timestamps, array-order-dependent values, or nondeterministic ordering. Exact
+retries therefore return the same stored result, while two concurrent callers
+cannot both treat a new package identity as unseen.
 
 ## Candidate snapshot integrity
 
@@ -347,7 +398,9 @@ when a `catalog_review_cases` row exists for the revision. A later review
 submission or evidence row is covered automatically by the case foreign key.
 
 Add database triggers that reject update/delete (and child insert/update/delete)
-when the target revision is locked:
+when the target revision is locked. The same guard must run for direct DML and
+every existing service mutation path, including `import_catalog_fixture`, the
+catalog-release wrapper, and both new import RPCs:
 
 - `content_revisions`;
 - `revision_tags`, `storage_rules`, `revision_catalog_metadata`;
@@ -362,11 +415,15 @@ also retain the existing stronger approved-content protection. A no-op update
 should be rejected rather than treated as an opportunity to hide a rewrite.
 
 Candidate import writes all values before creating the review case in the same
-transaction, so the snapshot becomes locked at commit. Any later correction
-must create a new candidate revision and case. `import_catalog_fixture` remains
-usable for unreviewed synthetic fixtures, but fixture updates against a locked
-revision must fail safely; add a compatibility regression test for that
-boundary. `import_catalog_fixture_unchecked` must not bypass triggers.
+transaction, so the snapshot becomes locked at commit. A shared source, tag,
+preparation, food, or visual may be reused exactly by other revisions, but any
+update/delete or locked-edge change that would alter the meaning of the locked
+revision is rejected. Any later correction must create a new candidate revision
+and case. The lock remains active for draft, in-review, changes-requested,
+blocked, and completed cases. `import_catalog_fixture` remains usable for
+unreviewed synthetic fixtures, but fixture updates against a locked revision
+must fail safely; add a compatibility regression test for that boundary.
+`import_catalog_fixture_unchecked` must not bypass triggers.
 
 ## Lifecycle behavior
 
@@ -437,12 +494,13 @@ codes when they represent the same semantic condition.
 18. `authority_dimension_mismatch`
 19. `authority_not_effective`
 20. `missing_review_evidence`
-21. `invalid_submission_supersession`
-22. `duplicate_effective_submission`
-23. `conditional_visual_review_missing`
-24. `owner_adjudication_forbidden_in_packet`
-25. `review_case_completed`
-26. `partial_import_rejected`
+21. `approval_reference_missing`
+22. `invalid_submission_supersession`
+23. `duplicate_effective_submission`
+24. `conditional_visual_review_missing`
+25. `owner_adjudication_forbidden_in_packet`
+26. `review_case_completed`
+27. `partial_import_rejected`
 
 Within each collection, sort failures by collection name, stable record ID,
 field path, and code. Return the complete ordered list for validation failures;
@@ -568,6 +626,10 @@ candidate immutability, no completion/publication, rollback, and concurrency.
 - storage and visual contract failures;
 - late failure rolls back every table and receipt;
 - concurrent duplicate import serializes to one result;
+- concurrent conflicting imports serialize so one commits and the other returns
+  `package_digest_conflict`;
+- duplicate JSON keys, number-format variants, Unicode strings, omitted versus
+  null fields, and meaningful-array ordering produce the documented digest;
 - public catalog isolation and empty production state;
 - snapshot lock prevents later parent/child rewrites.
 
@@ -577,7 +639,9 @@ candidate immutability, no completion/publication, rollback, and concurrency.
 - missing, mismatched, expired, and uncovered authority;
 - missing evidence;
 - cross-case, cross-revision, and cross-dimension references;
+- missing approval reference;
 - valid supersession, stale-tip rejection, and branching rejection;
+- one packet mixing first submissions and later supersessions across dimensions;
 - multiple review rounds;
 - required storage and conditional visual review;
 - no candidate mutation;
@@ -634,22 +698,26 @@ promise a cost, or promise a turnaround. Owner approval is required for:
 - emergency re-review and expiry policy; and
 - whether taxonomy and visual-rights review are internal or external.
 
-## Open decisions requiring owner approval
+## Open decisions and resolution gates
 
-1. Add `approval_reference_id` directly to submissions or normalize it into an
-   append-only reference child table.
-2. Confirm candidate revision status is draft-only at import, rather than
-   allowing an explicit unapproved `in_review` payload.
-3. Confirm initial review packets must contain all five always-required
-   dimensions in one envelope, with later packets allowed to be partial rounds.
-4. Approve the snapshot lock at case creation, including parent identities
-   shared by multiple revisions.
-5. Approve receipt scope and whether the same package identity may be reused
-   across different import kinds.
-6. Approve Ajv as a dev-only schema-contract dependency if the implementation
-   needs full draft-2020-12 validation.
-7. Approve reviewer coverage roles, public evidence requirements, quote budget,
-   turnaround expectations, and review formats before real content is sent.
+The following defaults are part of this design. They are classified so an
+implementation cannot accidentally treat an operational question as permission
+to weaken a safety or integrity boundary.
+
+| Decision                                               | Default in this plan                                                                                                                                    | Gate                                                                                             |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Approval-reference persistence                         | Dedicated immutable one-to-one child record; required for new imported qualified submissions; nullable only for legacy 23A rows                         | Must be accepted before implementation; not a blocker for merging this design once recorded here |
+| Candidate status at import                             | Draft-only, with no caller-supplied `in_review` or publication state                                                                                    | Must be accepted before implementation                                                           |
+| Review-round semantics                                 | Per-dimension current-tip/supersession rules; packets may be partial and may mix first/later dimensions; missing dimensions remain eligibility failures | Must be accepted before implementation                                                           |
+| Snapshot-lock breadth                                  | Lock revision, all meaning-bearing children, and referenced parent/visual identities at case creation; exact shared reuse is allowed, mutation is not   | Must be accepted before implementation                                                           |
+| Canonicalization and receipt concurrency               | Versioned canonical rules above, database recomputation, advisory transaction lock, `FOR UPDATE` receipt lookup, receipt inserted after domain writes   | Must be accepted before implementation                                                           |
+| Receipt identity scope                                 | `(import_kind, package_id, package_version)` is unique; the same package identity may be reused across kinds only as a distinct receipt namespace       | Operational confirmation before implementation tests                                             |
+| Schema validator dependency                            | Ajv may be added as a development-only validator if implementation needs draft-2020-12 coverage; SQL remains authoritative                              | Implementation-time dependency decision                                                          |
+| Reviewer coverage, budget, timing, and delivery format | Use the generic role/source map in this plan; JSON is the canonical packet, with forms/spreadsheets as later collection aids                            | Operational follow-up; never a reason to invent or auto-approve safety content                   |
+
+No unresolved decision is required to merge the documentation-only design PR
+after these defaults are reviewed. The first five rows must be explicitly
+accepted before any production migration or importer implementation begins.
 
 ## Risks and rollback plan
 

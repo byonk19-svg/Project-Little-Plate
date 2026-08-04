@@ -235,7 +235,28 @@ receipts, atomic transactions, deterministic rejection reports, and explicit
 idempotency. A review case locks the candidate snapshot; corrections require a
 new candidate revision rather than rewriting reviewed values under the same ID.
 
-Ticket 23B remains design-only until owner decisions are made on the import
-envelope, approval-reference storage, snapshot-lock breadth, initial versus
-supplemental packet shape, schema-validator dependency, and reviewer coverage
-budget/format. Ticket 23C-23E remain out of scope.
+Ticket 23B remains design-only until the implementation-gate decisions recorded
+in the plan are explicitly accepted. The design now fixes the defaults for the
+import envelope, dedicated approval-reference persistence for new imported
+submissions, snapshot-lock breadth, per-dimension first/later packet semantics,
+canonicalization and receipt concurrency. Schema-validator choice and reviewer
+coverage/budget/format remain implementation or operational follow-up and do
+not authorize production safety content.
+
+### 23B design-review correction evidence
+
+- Initial read-only review classified the design as requiring minor fixes because
+  packet completeness was described as a package-wide mode, approval-reference
+  persistence was unresolved, canonicalization omitted exact number/string/null
+  rules, and receipt locking lacked a complete transaction sequence.
+- The design plan now records per-dimension current-tip semantics, partial and
+  mixed-round packets, a dedicated immutable approval-reference child record,
+  explicit canonical material and serialization rules, and advisory-lock plus
+  `FOR UPDATE` receipt ordering before domain writes.
+- The plan also records candidate-to-case mappings, shared-parent snapshot-lock
+  behavior, stable `approval_reference_missing` rejection handling, concurrent
+  conflicting-import tests, and a classified decision table separating
+  implementation gates from operational follow-up.
+- No production code, migration, seed data, reviewer identity, or Ticket 23C-E
+  implementation artifact changed in this correction. Ticket 23C-23E remain
+  out of scope.

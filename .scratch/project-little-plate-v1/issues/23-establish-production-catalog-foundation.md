@@ -264,3 +264,34 @@ not authorize production safety content.
 - No production code, migration, seed data, reviewer identity, or Ticket 23C-E
   implementation artifact changed in this correction. Ticket 23C-23E remain
   out of scope.
+
+### Ticket 23B local implementation evidence
+
+Implemented locally on `codex/ticket-23b-import` from merged `550779a`.
+
+- Added versioned candidate and qualified-review JSON schemas plus deterministic
+  UTF-8 canonicalization, duplicate-key transport rejection, safe-integer
+  validation, and SHA-256 digest helpers in `src/modules/catalog-import/`.
+- Added append-only import receipts, immutable approval-reference children,
+  service-role-only access, candidate snapshot locks, and SECURITY DEFINER
+  helpers in `20260804162859_catalog_import_foundation.sql`.
+- Added `import_catalog_candidate_package(jsonb)`: exact insert-or-match for
+  source-backed candidate parents, draft revisions, storage/visual metadata,
+  one-to-one candidate cases, deterministic results, receipt replay, advisory
+  locking, and rejection of approved/publication fields.
+- Added `import_catalog_review_packet(jsonb)`: exact candidate case/revision
+  binding, valid dated authority coverage, one-or-more evidence records,
+  dedicated approval-reference persistence, first/later round tip checks,
+  atomic insertion, deterministic replay, and draft/changes-requested
+  transitions only to `in_review`. It cannot adjudicate, complete, publish, or
+  reopen a blocked case.
+- Added focused real-local-Supabase integration coverage for concurrent
+  candidate replay, candidate snapshot mutation rejection, digest/classification
+  failures, public read isolation, qualified review import, evidence,
+  approval-reference persistence, and replay.
+- No production rows, seed data, UI/auth/email behavior, publication gating, or
+  Ticket 23C implementation was added.
+
+Validation evidence: migration reset passed; focused import integration passed
+(3 tests); typecheck and lint passed. Full verification, database lint/advisors,
+and end-to-end checks remain to be run before the local implementation commit.

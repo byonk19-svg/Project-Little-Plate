@@ -45,11 +45,14 @@ begin
     raise exception 'review_packet_identity_missing';
   end if;
 
-  if p_envelope->>'classification' <> 'production_candidate'
-    or p_envelope ? 'owner_adjudications'
+  if p_envelope->>'classification' <> 'production_candidate' then
+    raise exception 'invalid_classification';
+  end if;
+  if p_envelope ? 'owner_adjudications'
+    or p_envelope ? 'owner_decisions'
     or p_envelope ? 'publication_status'
     or p_envelope ? 'approved_at' then
-    raise exception 'review_packet_forbidden';
+    raise exception 'owner_adjudication_forbidden_in_packet';
   end if;
 
   if nullif(btrim(p_envelope->>'case_id'), '') is null
@@ -101,10 +104,9 @@ begin
   if review_case.id is null then raise exception 'review_case_missing'; end if;
   if review_case.revision_id <> p_envelope->>'revision_id'
     or review_case.classification <> 'production_candidate' then
-    raise exception 'review_case_mismatch';
+    raise exception 'review_revision_mismatch';
   end if;
   if review_case.status::text = 'completed' then raise exception 'review_case_completed'; end if;
-  if review_case.status::text = 'blocked' then raise exception 'review_case_blocked'; end if;
 
   select * into revision from public.content_revisions
   where id = review_case.revision_id for update;
@@ -150,25 +152,47 @@ begin
       ) then raise exception 'review_dimension_invalid'; end if;
 
       if not exists (
-        select 1 from public.catalog_reviewer_authority_dimensions ad
-        join public.catalog_reviewer_authorities a on a.reference = ad.authority_reference
-        where ad.authority_reference = submission_record->>'reviewer_authority_reference'
-          and ad.dimension::text = dimension_text
-          and (a.valid_from is null or a.valid_from <= (submission_record->>'reviewed_at')::date)
-          and (a.valid_until is null or a.valid_until >= (submission_record->>'reviewed_at')::date)
-      ) then raise exception 'review_authority_invalid'; end if;
+        select 1 from public.catalog_reviewer_authorities
+        where reference = submission_record->>'reviewer_authority_reference'
+      ) then raise exception 'unknown_reviewer_authority'; end if;
+      if not exists (
+        select 1 from public.catalog_reviewer_authority_dimensions
+        where authority_reference = submission_record->>'reviewer_authority_reference'
+          and dimension::text = dimension_text
+      ) then raise exception 'authority_dimension_mismatch'; end if;
+      if not exists (
+        select 1 from public.catalog_reviewer_authorities
+        where reference = submission_record->>'reviewer_authority_reference'
+          and (valid_from is null or valid_from <= (submission_record->>'reviewed_at')::date)
+          and (valid_until is null or valid_until >= (submission_record->>'reviewed_at')::date)
+      ) then raise exception 'authority_not_effective'; end if;
 
       if dimension_text = 'storage_handling' then
         if submission_record->>'storage_support_state' not in ('supported', 'unsupported', 'unknown') then
-          raise exception 'storage_context_missing';
+          raise exception 'invalid_storage_contract';
         end if;
       elsif submission_record ? 'storage_support_state'
         and submission_record->>'storage_support_state' is not null then
-        raise exception 'storage_context_forbidden';
+        raise exception 'invalid_storage_contract';
+      end if;
+
+      if dimension_text = 'visual_accessibility_rights'
+        and exists (
+          select 1 from public.revision_visual_requirements requirement
+          where requirement.revision_id = review_case.revision_id
+            and requirement.requirement_declared
+            and requirement.visual_required
+        )
+        and not exists (select 1 from jsonb_each(submission_record->'visual_context')) then
+        raise exception 'conditional_visual_review_missing';
       end if;
 
       if not exists (select 1 from jsonb_array_elements(coalesce(submission_record->'evidence', '[]'::jsonb))) then
-        raise exception 'review_evidence_missing';
+        raise exception 'missing_review_evidence';
+      end if;
+
+      if nullif(btrim(submission_record->>'approval_reference_id'), '') is null then
+        raise exception 'approval_reference_missing';
       end if;
 
       if predecessor is null then
@@ -180,7 +204,7 @@ begin
               select 1 from public.catalog_review_submissions successor
               where successor.supersedes_submission_id = current_submission.id
             )
-        ) then raise exception 'review_round_conflict'; end if;
+        ) then raise exception 'duplicate_effective_submission'; end if;
       else
         select current_submission.id into current_tip
         from public.catalog_review_submissions current_submission
@@ -190,7 +214,7 @@ begin
             select 1 from public.catalog_review_submissions successor
             where successor.supersedes_submission_id = current_submission.id
           );
-        if current_tip is distinct from predecessor then raise exception 'review_round_conflict'; end if;
+        if current_tip is distinct from predecessor then raise exception 'invalid_submission_supersession'; end if;
       end if;
 
       if exists (select 1 from public.catalog_review_submissions where id = submission_record->>'id') then
@@ -216,7 +240,7 @@ begin
           or evidence_record->>'id' !~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
           or nullif(btrim(evidence_record->>'field_or_claim'), '') is null
           or nullif(btrim(evidence_record->>'evidence_reference'), '') is null then
-          raise exception 'review_evidence_invalid';
+          raise exception 'missing_review_evidence';
         end if;
         if evidence_record ? 'source_id' and evidence_record->>'source_id' is not null
           and not exists (select 1 from public.sources where id = evidence_record->>'source_id') then
@@ -241,11 +265,14 @@ begin
       inserted_count := inserted_count + 1;
       progress := true;
     end loop;
-    if not progress then raise exception 'review_round_conflict'; end if;
+    if not progress then raise exception 'invalid_submission_supersession'; end if;
   end loop;
 
   if review_case.status::text = 'draft' then
     perform public.transition_catalog_review_case(review_case.id, 'ready_for_review', 'Qualified review packet imported');
+    perform public.transition_catalog_review_case(review_case.id, 'in_review', 'Qualified review packet imported');
+    review_case.status := 'in_review';
+  elsif review_case.status::text = 'ready_for_review' then
     perform public.transition_catalog_review_case(review_case.id, 'in_review', 'Qualified review packet imported');
     review_case.status := 'in_review';
   elsif review_case.status::text = 'changes_requested' then

@@ -500,7 +500,6 @@ codes when they represent the same semantic condition.
 24. `conditional_visual_review_missing`
 25. `owner_adjudication_forbidden_in_packet`
 26. `review_case_completed`
-27. `partial_import_rejected`
 
 Within each collection, sort failures by collection name, stable record ID,
 field path, and code. Return the complete ordered list for validation failures;
@@ -600,6 +599,11 @@ candidate immutability, no completion/publication, rollback, and concurrency.
   qualified submissions/evidence, validates authority/evidence/storage/visual
   requirements, supports explicit multi-round supersession, and is atomic and
   idempotent.
+- A partial review packet is valid when each included dimension is independently
+  qualified; missing dimensions remain eligibility failures. A clearing packet
+  appended to a blocked case never reopens it, while an exact replay against a
+  completed case returns its stored receipt and any new packet is rejected with
+  `review_case_completed`.
 - Neither importer can import owner adjudications, complete a case, approve a
   revision, publish content, or choose launch foods.
 - A review case locks the candidate snapshot across revision, child, and
@@ -644,6 +648,8 @@ candidate immutability, no completion/publication, rollback, and concurrency.
 - one packet mixing first submissions and later supersessions across dimensions;
 - multiple review rounds;
 - required storage and conditional visual review;
+- blocked-case clearing submission does not reopen the case;
+- completed-case exact replay is idempotent and a new packet is rejected;
 - no candidate mutation;
 - no owner adjudication, completion, approval, or publication;
 - late rollback and concurrent duplicate import.

@@ -257,6 +257,10 @@ not authorize production safety content.
   behavior, stable `approval_reference_missing` rejection handling, concurrent
   conflicting-import tests, and a classified decision table separating
   implementation gates from operational follow-up.
+- A fresh post-correction review found two minor contract ambiguities: the
+  obsolete `partial_import_rejected` code and missing explicit lifecycle tests
+  for blocked-case non-reopening and completed-case replay-only behavior. The
+  code was removed and both lifecycle assertions were added to the plan.
 - No production code, migration, seed data, reviewer identity, or Ticket 23C-E
   implementation artifact changed in this correction. Ticket 23C-23E remain
   out of scope.

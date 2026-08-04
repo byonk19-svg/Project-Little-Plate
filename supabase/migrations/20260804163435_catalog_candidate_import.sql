@@ -62,6 +62,9 @@ begin
   if p_envelope ? 'owner_adjudications'
     or p_envelope ? 'publication_status'
     or p_envelope ? 'approved_at'
+    or p_envelope ? 'review_decisions'
+    or p_envelope ? 'catalog_mutations'
+    or p_envelope ? 'retirements'
     or p_envelope->'payload' ? 'retirements' then
     raise exception 'approved_candidate_forbidden';
   end if;
@@ -108,6 +111,21 @@ begin
   ) or exists (
     select 1 from jsonb_array_elements(p_envelope->'review_cases') item
     group by item->>'revision_id' having count(*) > 1
+  ) or exists (
+    select 1
+    from jsonb_array_elements(payload->'revisions') revision,
+      jsonb_array_elements(coalesce(revision->'storage_rules', '[]'::jsonb)) rule
+    group by rule->>'id' having count(*) > 1
+  ) or exists (
+    select 1
+    from jsonb_array_elements(payload->'revisions') revision,
+      jsonb_array_elements_text(coalesce(revision->'tag_ids', '[]'::jsonb)) tag_id
+    group by revision->>'id', tag_id having count(*) > 1
+  ) or exists (
+    select 1
+    from jsonb_array_elements(payload->'revisions') revision,
+      jsonb_array_elements_text(coalesce(revision->'visual_ids', '[]'::jsonb)) visual_id
+    group by revision->>'id', visual_id having count(*) > 1
   ) then
     raise exception 'unstable_identifier';
   end if;

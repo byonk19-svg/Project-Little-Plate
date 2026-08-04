@@ -293,5 +293,8 @@ Implemented locally on `codex/ticket-23b-import` from merged `550779a`.
   Ticket 23C implementation was added.
 
 Validation evidence: migration reset passed; focused import integration passed
-(3 tests); typecheck and lint passed. Full verification, database lint/advisors,
-and end-to-end checks remain to be run before the local implementation commit.
+(3 tests); typecheck and lint passed; unit suite passed (17 files, 128 tests);
+catalog-source checks passed; production build passed; clean-reset full
+integration passed (11 files, 78 tests); database lint and advisors reported no
+issues; and Playwright passed all 19 end-to-end tests. `git diff --check` is
+clean. The implementation remains local-only; no push or PR was performed.

@@ -57,7 +57,7 @@ create or replace function private.catalog_canonical_jsonb(
 )
 returns text
 language plpgsql
-immutable
+stable
 set search_path = ''
 as $$
 declare
@@ -119,7 +119,7 @@ $$;
 create or replace function private.catalog_import_digest(p_envelope jsonb)
 returns text
 language sql
-immutable
+stable
 set search_path = ''
 as $$
   select 'sha256:' || encode(

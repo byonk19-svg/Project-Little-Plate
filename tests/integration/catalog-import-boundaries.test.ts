@@ -231,6 +231,15 @@ describe("catalog import RPC boundaries", () => {
       ]
     };
     packet.payload_digest = canonicalizeCatalogImport(packet).digest;
+    const forbidden = structuredClone(packet) as Record<string, unknown>;
+    forbidden.owner_adjudications = [];
+    forbidden.payload_digest = canonicalizeCatalogImport(forbidden).digest;
+    const forbiddenResult = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: forbidden
+    });
+    expect(forbiddenResult.error?.message).toContain(
+      "owner_adjudication_forbidden_in_packet"
+    );
     const first = await rpc(admin, "import_catalog_review_packet", {
       p_envelope: packet
     });
@@ -244,8 +253,16 @@ describe("catalog import RPC boundaries", () => {
 
     const { data: approvals, error: approvalError } = await admin
       .from("catalog_review_submission_approval_references")
-      .select("submission_id, approval_reference_id");
+      .select("submission_id, approval_reference_id")
+      .eq(
+        "submission_id",
+        (packet.submissions as Array<{ id: string }>)[0].id
+      );
     expect(approvalError).toBeNull();
     expect(approvals).toHaveLength(1);
+    expect(approvals[0].approval_reference_id).toBe(
+      (packet.submissions as Array<{ approval_reference_id: string }>)[0]
+        .approval_reference_id
+    );
   });
 });

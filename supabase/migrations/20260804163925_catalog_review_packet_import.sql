@@ -10,7 +10,6 @@ set search_path = ''
 as $$
 #variable_conflict use_variable
 declare
-  packet jsonb;
   submission_record jsonb;
   evidence_record jsonb;
   review_case public.catalog_review_cases%rowtype;
@@ -22,13 +21,12 @@ declare
   package_created_at timestamptz;
   current_tip text;
   predecessor text;
-  inserted_ids text[] := '{}';
+  inserted_ids text[] := ARRAY[]::text[];
   total_submissions integer;
   inserted_count integer := 0;
   progress boolean;
   result jsonb;
   dimension_text text;
-  authority_valid boolean;
 begin
   if p_envelope is null or jsonb_typeof(p_envelope) <> 'object' then
     raise exception 'review_packet_identity_missing';
@@ -51,7 +49,9 @@ begin
   if p_envelope ? 'owner_adjudications'
     or p_envelope ? 'owner_decisions'
     or p_envelope ? 'publication_status'
-    or p_envelope ? 'approved_at' then
+    or p_envelope ? 'approved_at'
+    or p_envelope ? 'catalog_mutations'
+    or p_envelope ? 'publication' then
     raise exception 'owner_adjudication_forbidden_in_packet';
   end if;
 

@@ -135,18 +135,21 @@ create or replace function private.candidate_snapshot_locked(p_revision_id text)
 returns boolean
 language sql
 stable
+security definer
 set search_path = ''
 as $$
   select exists (
     select 1
     from public.catalog_review_cases
     where catalog_review_cases.revision_id = p_revision_id
+      and catalog_review_cases.classification = 'production_candidate'
   );
 $$;
 
 create or replace function private.reject_locked_candidate_snapshot()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare

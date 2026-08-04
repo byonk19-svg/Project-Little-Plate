@@ -182,7 +182,10 @@ describe("catalog import RPC boundaries", () => {
       payload: {
         sources: Array<Record<string, unknown>>;
         foods: Array<Record<string, unknown>>;
+        preparations: Array<Record<string, unknown>>;
+        revisions: Array<Record<string, unknown>>;
       };
+      review_cases: Array<Record<string, unknown>>;
     };
     malformed.payload.sources[0].unexpected = true;
     malformed.payload.foods[0].id = ` ${malformed.payload.foods[0].id}`;
@@ -211,6 +214,24 @@ describe("catalog import RPC boundaries", () => {
       .eq("id", String(malformed.payload.foods[0].id));
     expect(rows.error).toBeNull();
     expect(rows.data).toEqual([]);
+
+    const identityChecks = [
+      ["sources", String(malformed.payload.sources[0].id)],
+      ["preparations", String(malformed.payload.preparations[0].id)],
+      ["content_revisions", String(malformed.payload.revisions[0].id)],
+      ["catalog_review_cases", String(malformed.review_cases[0].case_id)]
+    ] as const;
+    for (const [table, id] of identityChecks) {
+      const result = await admin.from(table).select("id").eq("id", id);
+      expect(result.error).toBeNull();
+      expect(result.data).toEqual([]);
+    }
+    const receipt = await admin
+      .from("catalog_import_receipts")
+      .select("package_id")
+      .eq("package_id", String(malformed.package_id));
+    expect(receipt.error).toBeNull();
+    expect(receipt.data).toEqual([]);
   });
 
   test("imports a qualified review packet with evidence and approval reference, then replays", async () => {

@@ -1,0 +1,19 @@
+{
+  "schema_version": "candidate-package/v1",
+  "package_id": "candidate-fixture-v1",
+  "package_version": "1",
+  "package_created_at": "2026-08-04T12:00:00Z",
+  "classification": "production_candidate",
+  "payload_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "review_cases": [
+    { "case_id": "case-fixture-v1", "revision_id": "revision-fixture-v1" }
+  ],
+  "payload": {
+    "sources": [],
+    "tags": [],
+    "foods": [],
+    "preparations": [],
+    "revisions": [],
+    "visuals": []
+  }
+}

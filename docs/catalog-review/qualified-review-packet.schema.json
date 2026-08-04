@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://project-little-plate.invalid/catalog-review/qualified-review-packet-v1",
+  "title": "Project Little Plate qualified review packet envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "package_version",
+    "package_created_at",
+    "case_id",
+    "revision_id",
+    "classification",
+    "payload_digest",
+    "submissions"
+  ],
+  "properties": {
+    "schema_version": { "const": "qualified-review-packet/v1" },
+    "package_id": { "$ref": "#/$defs/id" },
+    "package_version": { "$ref": "#/$defs/id" },
+    "package_created_at": { "type": "string", "format": "date-time" },
+    "case_id": { "$ref": "#/$defs/id" },
+    "revision_id": { "$ref": "#/$defs/id" },
+    "classification": { "const": "production_candidate" },
+    "payload_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "submissions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/submission" }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "dimension",
+        "decision",
+        "reviewer_role",
+        "reviewer_authority_reference",
+        "reviewed_at",
+        "approval_reference_id",
+        "follow_up_status",
+        "clarification_requires_catalog_change",
+        "storage_context",
+        "visual_context",
+        "supersedes_submission_id",
+        "evidence"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "dimension": {
+          "enum": [
+            "feeding_safety_developmental",
+            "allergy_restriction",
+            "nutrition_age_stage",
+            "taxonomy_labeling",
+            "storage_handling",
+            "visual_accessibility_rights"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "Accept",
+            "Accept with clarification",
+            "Revise",
+            "Block",
+            "Not applicable",
+            "Insufficient evidence"
+          ]
+        },
+        "reviewer_role": { "type": "string", "minLength": 1 },
+        "reviewer_authority_reference": { "$ref": "#/$defs/id" },
+        "reviewed_at": { "type": "string", "format": "date" },
+        "approval_reference_id": { "type": "string", "minLength": 1 },
+        "follow_up_status": { "type": "string", "minLength": 1 },
+        "clarification_requires_catalog_change": { "type": "boolean" },
+        "notes": { "type": "string" },
+        "storage_support_state": { "type": ["string", "null"] },
+        "storage_context": { "type": "object" },
+        "visual_context": { "type": "object" },
+        "supersedes_submission_id": {
+          "type": ["string", "null"],
+          "$ref": "#/$defs/id"
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence" },
+          "minItems": 1
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "field_or_claim", "evidence_reference"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "field_or_claim": { "type": "string", "minLength": 1 },
+        "evidence_reference": { "type": "string", "minLength": 1 },
+        "source_id": { "type": ["string", "null"], "$ref": "#/$defs/id" }
+      }
+    }
+  }
+}

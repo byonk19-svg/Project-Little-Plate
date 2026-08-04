@@ -9,7 +9,7 @@ Reviewers provide recommendations, not code or repository edits.
 - Repository path:
 - Record ID/key/slug:
 - Record type:
-- Classification: production / fixture / seed / demo / test
+- Classification: production_candidate / production / fixture / seed / demo / test
 - Existing value (verbatim):
 - Existing provenance reference (verbatim, or `None found`):
 - Missing fields or provenance:

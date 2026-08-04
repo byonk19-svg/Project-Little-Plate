@@ -4,9 +4,25 @@
 records and qualified review without selecting launch foods or creating any
 safety-sensitive values.
 
-**Blocked by:** 17 - Expand through the reviewed catalog pipeline.
+**Blocked by:** None - Ticket 17 remains `ready-for-human`; its human review is not a prerequisite for the 23A schema gate.
 
-**Status:** proposed
+**Status:** ready-for-human
+
+**Current slice:** Ticket 23A is implemented locally; 23B-23E remain intentionally out of scope.
+
+## Ticket 23A implementation evidence
+
+- Migration: `supabase/migrations/20260803144400_add_catalog_review_schema_gates.sql`.
+- Durable boundary: `docs/adr/0018-catalog-review-schema-gates.md`.
+- Review persistence is linked to the existing `foods` → `preparations` → `content_revisions` identity chain. It adds reviewer authority references and covered dimensions, one `catalog_review_cases` row per candidate revision, append-only case events, immutable submissions and evidence, and append-only owner adjudications. No production or seed catalog rows were added.
+- The six dimensions are constrained to `feeding_safety_developmental`, `allergy_restriction`, `nutrition_age_stage`, `taxonomy_labeling`, `storage_handling`, and conditional `visual_accessibility_rights`. Storage reviews require an explicit support state; visual review is required when the existing revision metadata requires it or a visual is associated.
+- Service-role-only RPCs register authorities, create cases, submit reviews, record evidence/adjudications, compute eligibility, and transition cases. Direct table writes are denied; history triggers reject mutation/deletion, and qualified submissions require explicit supersession for a later effective review.
+- Legal transitions are `draft → ready_for_review → in_review`; from `in_review`, `changes_requested`, `blocked`, or eligible `completed`; `changes_requested → in_review|blocked`; `blocked → in_review` only after a later submission. Case completion never publishes a revision.
+- `get_catalog_review_eligibility` returns deterministic machine-readable reasons including missing dimensions, missing qualified authority/evidence, domain block, insufficient evidence, revise, unresolved follow-up, clarification requiring catalog change, missing conditional visual review, synthetic classification, contradictory lifecycle state, and missing stable identifiers. Owner adjudication cannot clear a qualified domain block.
+- Integration coverage is in `tests/integration/catalog-review-schema-gates.test.ts`: anonymous read/function denial, legal/illegal transitions, stable reason codes, authority and evidence gates, conditional visual behavior, domain blocks, unresolved/clarification outcomes, immutable history, and explicit supersession.
+- Validation evidence: local Supabase reset and the focused six-test integration suite pass. Production remains empty and fixture data is runtime-only synthetic input; no public catalog read path was changed.
+
+Remaining validation and risk are recorded at handoff: full repository verification is still run on this branch, and local Supabase/Docker behavior is environment-dependent even though the migration reset is currently healthy.
 
 ## Repository findings
 
@@ -72,8 +88,8 @@ Add a normalized review layer linked to `content_revisions`:
 Lifecycle should be explicit and transition-controlled:
 
 `catalog_review_cases`: `draft → ready_for_review → in_review →
-changes_requested → in_review → completed`, with `blocked` reachable from any
-non-retired review state and `retired` represented by the existing append-only
+changes_requested → in_review → completed`, with `blocked` reachable from
+`in_review` or `changes_requested` as a qualified-review outcome, and `retired` represented by the existing append-only
 retirement event. `content_revisions` retains its existing publication states
 (`draft`, `in_review`, `approved`). A review-case transition never publishes a
 revision; only the controlled release operation may transition a revision to
@@ -179,3 +195,18 @@ add a separate document database in this foundation ticket.
   compatibility with the existing import and publication functions.
 - Visual review is conditional in the review layer but remains mandatory when
   the existing revision visual requirement says a visual is required.
+
+## Independent-review correction evidence
+
+- Shared PostgreSQL enums now back case status, review dimension, and qualified review decision columns; `content_revisions.status` remains unchanged.
+- Eligibility resolves compatible current-review conflicts only through one append-only adjudication selecting an exact current eligible submission. Domain-disqualifying reviews remain absolute; invalid or missing adjudication returns `conflicting_qualified_reviews` with `owner_adjudication_missing` detail or `owner_adjudication_invalid`.
+- The focused suite covers compatible conflict resolution, blocked-domain refusal, conditional visual review, and unchanged public catalog RPC isolation. Migration reset and the focused 8-test suite pass; a clean reset was separately checked against the catalog tables and enum metadata before fixture import.
+- Full integration passes after a clean reset: 10 files, 75 tests. Unit, lint, typecheck, catalog-source checks, build, database lint, and security advisors pass. Direct Playwright runs 18/19 tests; the sole failure is the pre-existing local-email-delivery expectation because the local inbox is configured and the UI correctly includes the captured-link affordance.
+- Ticket 23B and later 23C–23E slices remain unimplemented.
+
+### Final correctness correction evidence
+
+- Owner adjudications now form an append-only chain with one root and at most one successor per predecessor. Eligibility uses only the chain tip; stale selections remain invalid until a later explicit adjudication supersedes the tip.
+- `blocked` requires a current unsuperseded `Block`; reopening requires qualified same-dimension, same-lineage clearing submissions for every historical blocker. The clearing set is `Accept` or non-blocking `Accept with clarification` with resolved follow-up, required evidence, valid authority, and no catalog change.
+- Entering `blocked` now also requires the current `Block` submission to have effective authority coverage and recorded evidence; the focused suite covers rejection of a dimension-mismatched authority blocker.
+- Packet classification now includes `production_candidate`, matching the database candidate boundary. Enum metadata assertions inspect PostgreSQL catalog types directly.

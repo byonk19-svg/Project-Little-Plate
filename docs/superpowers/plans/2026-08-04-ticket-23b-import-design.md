@@ -362,7 +362,7 @@ Canonicalization is versioned with the envelope and is deliberately explicit:
    that needs fractional values must define a new canonicalization version.
 5. Identity-bearing arrays are sorted by stable ID, then by the remaining
    canonical row bytes as a tie-breaker. This applies to `sources`, `tags`,
-   `foods`, `preparations`, `revisions`, `visuals`, submissions, evidence,
+   `foods`, `preparations`, `revisions`, `visuals`, `review_cases`, submissions, evidence,
    `tag_ids`, `visual_ids`, and storage rules. Arrays whose order is meaningful
    are explicitly marked ordered by the schema and retain their order.
 6. Serialize compact UTF-8 JSON and hash with SHA-256. The database RPC
@@ -627,6 +627,7 @@ candidate immutability, no completion/publication, rollback, and concurrency.
 - production/fixture/test/demo/seed classification rejection;
 - approved or non-draft revision rejection;
 - unknown source, tag, visual, and invalid slug/ID;
+- missing, duplicate, or mismatched `review_cases` revision mapping;
 - storage and visual contract failures;
 - late failure rolls back every table and receipt;
 - concurrent duplicate import serializes to one result;

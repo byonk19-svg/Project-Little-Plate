@@ -153,7 +153,7 @@ function rejectDuplicateObjectKeys(raw: string) {
   const parseString = () => {
     if (raw[index] !== '"')
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         "Expected JSON string"
       );
     const start = index;
@@ -168,7 +168,7 @@ function rejectDuplicateObjectKeys(raw: string) {
       if (char === '"') return JSON.parse(raw.slice(start, index)) as string;
     }
     throw new CatalogImportValidationError(
-      "unstable_identifier",
+      "invalid_envelope_shape",
       "Unterminated JSON string"
     );
   };
@@ -187,14 +187,14 @@ function rejectDuplicateObjectKeys(raw: string) {
         const key = parseString();
         if (keys.has(key))
           throw new CatalogImportValidationError(
-            "unstable_identifier",
+            "invalid_envelope_shape",
             `Duplicate JSON object key: ${key}`
           );
         keys.add(key);
         skipWhitespace();
         if (raw[index++] !== ":")
           throw new CatalogImportValidationError(
-            "unstable_identifier",
+            "invalid_envelope_shape",
             "Expected object separator"
           );
         parseValue();
@@ -205,12 +205,12 @@ function rejectDuplicateObjectKeys(raw: string) {
         }
         if (raw[index++] !== ",")
           throw new CatalogImportValidationError(
-            "unstable_identifier",
+            "invalid_envelope_shape",
             "Expected object comma"
           );
       }
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         "Unterminated JSON object"
       );
     }
@@ -230,12 +230,12 @@ function rejectDuplicateObjectKeys(raw: string) {
         }
         if (raw[index++] !== ",")
           throw new CatalogImportValidationError(
-            "unstable_identifier",
+            "invalid_envelope_shape",
             "Expected array comma"
           );
       }
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         "Unterminated JSON array"
       );
     }
@@ -248,18 +248,18 @@ function rejectDuplicateObjectKeys(raw: string) {
     const token = raw.slice(start, index);
     if (token === "-0")
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         "Negative zero is not canonical"
       );
     if (/^-?(?:0|[1-9]\d*)$/.test(token)) return;
     if (/^-?\d/.test(token))
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         `Non-canonical numeric form: ${token}`
       );
     if (!["true", "false", "null"].includes(token))
       throw new CatalogImportValidationError(
-        "unstable_identifier",
+        "invalid_envelope_shape",
         `Invalid JSON token: ${token}`
       );
   };
@@ -267,17 +267,25 @@ function rejectDuplicateObjectKeys(raw: string) {
   skipWhitespace();
   if (index !== length)
     throw new CatalogImportValidationError(
-      "unstable_identifier",
+      "invalid_envelope_shape",
       "Trailing JSON content"
     );
 }
 
 export function parseCatalogImportJson(raw: string): Record<string, unknown> {
   rejectDuplicateObjectKeys(raw);
-  const parsed: unknown = JSON.parse(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new CatalogImportValidationError(
+      "invalid_envelope_shape",
+      "Import envelope is not valid JSON"
+    );
+  }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new CatalogImportValidationError(
-      "package_identity_missing",
+      "invalid_envelope_shape",
       "Import envelope must be an object"
     );
   }

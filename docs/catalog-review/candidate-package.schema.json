@@ -191,7 +191,19 @@
           "type": "array",
           "items": { "$ref": "#/$defs/storage_rule" }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": ["visual_required"],
+            "properties": { "visual_required": { "const": true } }
+          },
+          "then": {
+            "required": ["visual_ids"],
+            "properties": { "visual_ids": { "minItems": 1 } }
+          }
+        }
+      ]
     },
     "storage_rule": {
       "type": "object",

@@ -354,3 +354,45 @@ older eligibility/planning labels); `mobile-shell.spec.ts` and
 `local-email-delivery.spec.ts` pass. This correction changed no UI or fixture
 seed, so that browser mismatch is documented as an external/pre-existing
 verification block rather than folded into Ticket 23B.
+
+### Ticket 23B trusted-input-boundary correction evidence
+
+The publication review of draft PR #5 identified two high-severity and three
+medium-severity gaps in the published import contract. The correction remains
+on `codex/ticket-23b-import` and does not start Ticket 23C or change UI,
+authentication, email behavior, seed data, or production content.
+
+- Added migration `20260804214313_harden_catalog_import_boundaries.sql` with
+  strict date/timestamp parsing, candidate semantic preflight checks, review
+  enum/authority/evidence/lifecycle checks, context allowlists and privacy-safe
+  bounded text validation, independent visual applicability, deterministic
+  current-tip counting, and public wrappers that normalize expected SQL/race
+  failures into the existing structured rejection contract.
+- Tightened `qualified-review-packet.schema.json` storage/visual contexts to
+  exact v1 allowlists with bounded control-character-free values, and added
+  the candidate `visual_required`/`visual_ids` conditional schema rule.
+- Transport parser failures for duplicate keys, malformed tokens, unsupported
+  JSON shapes, and noncanonical numeric forms now use
+  `invalid_envelope_shape`; stable identity failures retain
+  `unstable_identifier`.
+- Added real local Supabase tests for impossible dates, invalid candidate
+  contracts, required-visual atomic rejection, invalid review decision and
+  follow-up values, unknown context keys/value privacy, ambiguous current
+  tips, structured completed-case rejection, and no receipt/domain writes on
+  failed imports. The focused catalog-import suite now passes 9 tests.
+
+Correction validation: migration reset passed; focused catalog-import boundary
+tests passed (9 tests); canonical unit tests passed (6 tests). Full formatting,
+lint, typecheck, unit, integration, build, catalog-source, database
+lint/advisors, and `git diff --check` remain required before publication.
+GitHub Verify for the existing draft PR remains the publication gate. No Ticket
+23C work was started.
+
+Final local correction verification completed: `pnpm verify` passed end to end,
+including formatting, lint, typecheck, 129 unit tests, catalog-source checks,
+production build, database reset, 84 integration tests, Playwright, and the
+repository whitespace check. Direct database lint and advisors both reported
+no issues, and `git diff --check` passed. The two-axis standards/spec review
+approved the correction with zero findings on both axes. The correction is
+ready to commit and push to the existing draft PR; it remains draft and Ticket
+23C remains unstarted.

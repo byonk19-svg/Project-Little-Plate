@@ -107,8 +107,8 @@
         "follow_up_status": { "type": "string", "minLength": 1 },
         "clarification_requires_catalog_change": { "type": "boolean" },
         "storage_support_state": { "type": ["string", "null"] },
-        "storage_context": { "type": "object" },
-        "visual_context": { "type": "object" },
+        "storage_context": { "$ref": "#/$defs/storage_context" },
+        "visual_context": { "$ref": "#/$defs/visual_context" },
         "supersedes_submission_id": {
           "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
         },
@@ -131,6 +131,31 @@
           "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
         }
       }
+    },
+    "storage_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "existing_storage_guidance": { "$ref": "#/$defs/context_text" },
+        "refrigeration_freezing": { "$ref": "#/$defs/context_text" },
+        "duration_claim": { "$ref": "#/$defs/context_text" },
+        "reheating_serving_implication": { "$ref": "#/$defs/context_text" }
+      }
+    },
+    "visual_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visual_reference": { "$ref": "#/$defs/context_text" },
+        "rights_license_evidence": { "$ref": "#/$defs/context_text" },
+        "alt_text": { "$ref": "#/$defs/context_text" }
+      }
+    },
+    "context_text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\u0000-\\u001F\\u007F]*$"
     }
   }
 }

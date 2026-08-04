@@ -68,16 +68,41 @@ describe("catalog import canonicalization", () => {
   });
 
   test("rejects duplicate raw object keys before JSON parsing collapses them", () => {
-    expect(() =>
-      parseCatalogImportJson('{"package_id":"one","package_id":"two"}')
-    ).toThrowError(CatalogImportValidationError);
+    try {
+      parseCatalogImportJson('{"package_id":"one","package_id":"two"}');
+      throw new Error("expected parser rejection");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CatalogImportValidationError);
+      expect((error as CatalogImportValidationError).code).toBe(
+        "invalid_envelope_shape"
+      );
+    }
   });
 
   test("rejects exponent, fraction, leading-zero, and negative-zero numeric forms", () => {
     for (const raw of ["1e0", "1.0", "01", "-0"]) {
-      expect(() =>
-        parseCatalogImportJson(`{"package_version":${raw}}`)
-      ).toThrowError(CatalogImportValidationError);
+      try {
+        parseCatalogImportJson(`{"package_version":${raw}}`);
+        throw new Error("expected parser rejection");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CatalogImportValidationError);
+        expect((error as CatalogImportValidationError).code).toBe(
+          "invalid_envelope_shape"
+        );
+      }
+    }
+  });
+
+  test("classifies malformed JSON tokens as envelope-shape failures", () => {
+    expect(() => parseCatalogImportJson('{"package_id": nope}')).toThrow(
+      CatalogImportValidationError
+    );
+    try {
+      parseCatalogImportJson('{"package_id": nope}');
+    } catch (error) {
+      expect((error as CatalogImportValidationError).code).toBe(
+        "invalid_envelope_shape"
+      );
     }
   });
 

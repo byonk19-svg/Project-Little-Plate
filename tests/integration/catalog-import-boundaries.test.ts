@@ -21,6 +21,29 @@ function ids(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
 }
 
+type JsonRecord = Record<string, unknown>;
+type MutableCandidateRevision = JsonRecord & {
+  storage_rules: JsonRecord[];
+};
+type MutableCandidateEnvelope = JsonRecord & {
+  payload: {
+    sources: JsonRecord[];
+    tags: JsonRecord[];
+    foods: JsonRecord[];
+    preparations: JsonRecord[];
+    revisions: MutableCandidateRevision[];
+    visuals: JsonRecord[];
+  };
+  review_cases: JsonRecord[];
+};
+type MutableReviewPacket = JsonRecord & {
+  submissions: Array<
+    JsonRecord & {
+      evidence: JsonRecord[];
+    }
+  >;
+};
+
 function candidateEnvelope() {
   const suffix = crypto.randomUUID();
   const sourceId = `source-${suffix}`;
@@ -151,7 +174,11 @@ describe("catalog import RPC boundaries", () => {
     const rejected = await rpc(admin, "import_catalog_candidate_package", {
       p_envelope: conflict
     });
-    expect(rejected.error?.message).toContain("package_digest_conflict");
+    expect(rejected.error).toBeNull();
+    expect(rejected.data).toEqual({
+      accepted: false,
+      rejections: [expect.objectContaining({ code: "package_digest_conflict" })]
+    });
 
     const forbidden = structuredClone(envelope) as Record<string, unknown>;
     forbidden.classification = "production";
@@ -196,18 +223,25 @@ describe("catalog import RPC boundaries", () => {
     });
     expect(rejected.error).toBeNull();
     expect(rejected.data).toMatchObject({ accepted: false });
-    expect(rejected.data.rejections).toEqual([
-      expect.objectContaining({
-        collection: "foods",
-        field_path: "id",
-        code: "unstable_identifier"
-      }),
-      expect.objectContaining({
-        collection: "sources",
-        field_path: "unexpected",
-        code: "invalid_envelope_shape"
-      })
-    ]);
+    expect(rejected.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          collection: "foods",
+          field_path: "id",
+          code: "unstable_identifier"
+        }),
+        expect.objectContaining({
+          collection: "sources",
+          field_path: "unexpected",
+          code: "invalid_envelope_shape"
+        }),
+        expect.objectContaining({
+          collection: "preparations",
+          field_path: "food_id",
+          code: "unknown_source"
+        })
+      ])
+    );
     const rows = await admin
       .from("foods")
       .select("id")
@@ -231,6 +265,61 @@ describe("catalog import RPC boundaries", () => {
       .select("package_id")
       .eq("package_id", String(malformed.package_id));
     expect(receipt.error).toBeNull();
+    expect(receipt.data).toEqual([]);
+  });
+
+  test("normalizes malformed candidate values and rejects required visuals atomically", async () => {
+    const { envelope } = candidateEnvelope();
+    const malformed = structuredClone(envelope) as MutableCandidateEnvelope;
+    malformed.package_created_at = "2026-99-99T12:00:00Z";
+    malformed.payload.sources[0].source_date = "2026-02-30";
+    malformed.payload.tags[0].kind = "medical";
+    malformed.payload.revisions[0].preparation_time_band = "whenever";
+    malformed.payload.revisions[0].storage_rules[0] = {
+      id: "bad-storage-rule",
+      support_status: "supported",
+      deadline_kind: null,
+      duration_hours: null,
+      guidance: null
+    };
+    malformed.payload_digest = canonicalizeCatalogImport(malformed).digest;
+    const rejected = await rpc(admin, "import_catalog_candidate_package", {
+      p_envelope: malformed
+    });
+    expect(rejected.error).toBeNull();
+    expect(rejected.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "invalid_envelope_shape" }),
+        expect.objectContaining({ code: "invalid_storage_contract" })
+      ])
+    );
+    expect(
+      rejected.data.rejections.some((item: JsonRecord) => item.detail)
+    ).toBe(false);
+    const requiredVisual = structuredClone(
+      envelope
+    ) as MutableCandidateEnvelope;
+    requiredVisual.package_id = ids("candidate-required-visual");
+    requiredVisual.payload.revisions[0].visual_required = true;
+    requiredVisual.payload_digest =
+      canonicalizeCatalogImport(requiredVisual).digest;
+    const visualRejected = await rpc(
+      admin,
+      "import_catalog_candidate_package",
+      {
+        p_envelope: requiredVisual
+      }
+    );
+    expect(visualRejected.error).toBeNull();
+    expect(visualRejected.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "invalid_visual_contract" })
+      ])
+    );
+    const receipt = await admin
+      .from("catalog_import_receipts")
+      .select("package_id")
+      .eq("package_id", requiredVisual.package_id);
     expect(receipt.data).toEqual([]);
   });
 
@@ -334,6 +423,92 @@ describe("catalog import RPC boundaries", () => {
     );
   });
 
+  test("returns structured review rejections without persisting context values", async () => {
+    const candidate = candidateEnvelope();
+    expect(
+      (
+        await rpc(admin, "import_catalog_candidate_package", {
+          p_envelope: candidate.envelope
+        })
+      ).error
+    ).toBeNull();
+    const authority = ids("authority");
+    expect(
+      (
+        await rpc(admin, "register_catalog_reviewer_authority", {
+          p_reference: authority,
+          p_authority_basis: "Synthetic qualified authority",
+          p_evidence_location: `https://example.test/${authority}`,
+          p_dimensions: ["storage_handling"]
+        })
+      ).error
+    ).toBeNull();
+    const packet: MutableReviewPacket = {
+      schema_version: "qualified-review-packet/v1",
+      package_id: ids("review-invalid"),
+      package_version: "1",
+      package_created_at: "2026-08-04T12:00:00Z",
+      case_id: candidate.caseId,
+      revision_id: candidate.revisionId,
+      classification: "production_candidate",
+      submissions: [
+        {
+          id: ids("submission-invalid"),
+          dimension: "storage_handling",
+          decision: "Unknown decision",
+          reviewer_role: "synthetic qualified reviewer",
+          reviewer_authority_reference: authority,
+          reviewed_at: "2026-99-99",
+          approval_reference_id: ids("approval-invalid"),
+          follow_up_status: "later",
+          clarification_requires_catalog_change: false,
+          storage_support_state: "unsupported",
+          storage_context: { secret: "do-not-persist" },
+          visual_context: {},
+          supersedes_submission_id: null,
+          evidence: [
+            {
+              id: ids("evidence-invalid"),
+              field_or_claim: "storage_support_state",
+              evidence_reference: "https://example.test/evidence"
+            }
+          ]
+        }
+      ]
+    };
+    packet.payload_digest = canonicalizeCatalogImport(packet).digest;
+    const rejected = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: packet
+    });
+    expect(rejected.error).toBeNull();
+    expect(rejected.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field_path: "decision",
+          code: "invalid_envelope_shape"
+        }),
+        expect.objectContaining({
+          field_path: "follow_up_status",
+          code: "invalid_envelope_shape"
+        }),
+        expect.objectContaining({
+          field_path: "reviewed_at",
+          code: "invalid_envelope_shape"
+        }),
+        expect.objectContaining({
+          field_path: "storage_context.secret",
+          code: "invalid_envelope_shape"
+        })
+      ])
+    );
+    expect(JSON.stringify(rejected.data)).not.toContain("do-not-persist");
+    const receipt = await admin
+      .from("catalog_import_receipts")
+      .select("package_id")
+      .eq("package_id", packet.package_id);
+    expect(receipt.data).toEqual([]);
+  });
+
   test("keeps blocked cases blocked when a clearing round is imported", async () => {
     const candidate = candidateEnvelope();
     expect(
@@ -432,6 +607,102 @@ describe("catalog import RPC boundaries", () => {
     expect(state.data).toEqual([{ status: "blocked" }]);
   });
 
+  test("rejects a later round when more than one current review tip exists", async () => {
+    const candidate = candidateEnvelope();
+    expect(
+      (
+        await rpc(admin, "import_catalog_candidate_package", {
+          p_envelope: candidate.envelope
+        })
+      ).error
+    ).toBeNull();
+    const authority = ids("authority");
+    expect(
+      (
+        await rpc(admin, "register_catalog_reviewer_authority", {
+          p_reference: authority,
+          p_authority_basis: "Synthetic qualified authority",
+          p_evidence_location: `https://example.test/${authority}`,
+          p_dimensions: ["storage_handling"]
+        })
+      ).error
+    ).toBeNull();
+    const firstId = ids("submission");
+    const firstPacket: MutableReviewPacket = {
+      schema_version: "qualified-review-packet/v1",
+      package_id: ids("review-tip"),
+      package_version: "1",
+      package_created_at: "2026-08-04T12:00:00Z",
+      case_id: candidate.caseId,
+      revision_id: candidate.revisionId,
+      classification: "production_candidate",
+      submissions: [
+        {
+          id: firstId,
+          dimension: "storage_handling",
+          decision: "Accept",
+          reviewer_role: "synthetic qualified reviewer",
+          reviewer_authority_reference: authority,
+          reviewed_at: "2026-08-04",
+          approval_reference_id: ids("approval"),
+          follow_up_status: "none",
+          clarification_requires_catalog_change: false,
+          storage_support_state: "unsupported",
+          storage_context: {},
+          visual_context: {},
+          supersedes_submission_id: null,
+          evidence: [
+            {
+              id: ids("evidence"),
+              field_or_claim: "storage_support_state",
+              evidence_reference: "https://example.test/evidence"
+            }
+          ]
+        }
+      ]
+    };
+    firstPacket.payload_digest = canonicalizeCatalogImport(firstPacket).digest;
+    expect(
+      (
+        await rpc(admin, "import_catalog_review_packet", {
+          p_envelope: firstPacket
+        })
+      ).error
+    ).toBeNull();
+    const secondDirect = await rpc(admin, "submit_catalog_review", {
+      p_submission_id: ids("direct-tip"),
+      p_case_id: candidate.caseId,
+      p_revision_id: candidate.revisionId,
+      p_dimension: "storage_handling",
+      p_decision: "Accept",
+      p_reviewer_role: "synthetic qualified reviewer",
+      p_reviewer_authority_reference: authority,
+      p_reviewed_at: "2026-08-04",
+      p_follow_up_status: "none",
+      p_clarification_requires_catalog_change: false,
+      p_storage_support_state: "unsupported",
+      p_storage_context: {},
+      p_visual_context: {}
+    });
+    expect(secondDirect.error).toBeNull();
+    const later: MutableReviewPacket = structuredClone(firstPacket);
+    later.package_id = ids("review-ambiguous");
+    later.submissions[0].id = ids("submission-later");
+    later.submissions[0].supersedes_submission_id = firstId;
+    later.submissions[0].approval_reference_id = ids("approval-later");
+    later.submissions[0].evidence[0].id = ids("evidence-later");
+    later.payload_digest = canonicalizeCatalogImport(later).digest;
+    const rejected = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: later
+    });
+    expect(rejected.error).toBeNull();
+    expect(rejected.data.rejections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "duplicate_effective_submission" })
+      ])
+    );
+  });
+
   test("replays an exact completed packet but rejects a new packet", async () => {
     const candidate = candidateEnvelope();
     expect(
@@ -515,6 +786,10 @@ describe("catalog import RPC boundaries", () => {
     const rejected = await rpc(admin, "import_catalog_review_packet", {
       p_envelope: newPacket
     });
-    expect(rejected.error?.message).toContain("review_case_completed");
+    expect(rejected.error).toBeNull();
+    expect(rejected.data).toEqual({
+      accepted: false,
+      rejections: [expect.objectContaining({ code: "review_case_completed" })]
+    });
   });
 });

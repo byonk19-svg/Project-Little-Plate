@@ -333,4 +333,188 @@ describe("catalog import RPC boundaries", () => {
         .approval_reference_id
     );
   });
+
+  test("keeps blocked cases blocked when a clearing round is imported", async () => {
+    const candidate = candidateEnvelope();
+    expect(
+      (
+        await rpc(admin, "import_catalog_candidate_package", {
+          p_envelope: candidate.envelope
+        })
+      ).error
+    ).toBeNull();
+    const authority = ids("authority");
+    expect(
+      (
+        await rpc(admin, "register_catalog_reviewer_authority", {
+          p_reference: authority,
+          p_authority_basis: "Synthetic qualified authority",
+          p_evidence_location: `https://example.test/${authority}`,
+          p_dimensions: ["storage_handling"]
+        })
+      ).error
+    ).toBeNull();
+    const submission = {
+      id: ids("submission"),
+      dimension: "storage_handling",
+      decision: "Block",
+      reviewer_role: "synthetic qualified reviewer",
+      reviewer_authority_reference: authority,
+      reviewed_at: "2026-08-04",
+      approval_reference_id: ids("approval"),
+      follow_up_status: "none",
+      clarification_requires_catalog_change: false,
+      storage_support_state: "unsupported",
+      storage_context: {},
+      visual_context: {},
+      supersedes_submission_id: null,
+      evidence: [
+        {
+          id: ids("evidence"),
+          field_or_claim: "storage_support_state",
+          evidence_reference: "https://example.test/evidence"
+        }
+      ]
+    };
+    const packet: Record<string, unknown> = {
+      schema_version: "qualified-review-packet/v1",
+      package_id: ids("review"),
+      package_version: "1",
+      package_created_at: "2026-08-04T12:00:00Z",
+      case_id: candidate.caseId,
+      revision_id: candidate.revisionId,
+      classification: "production_candidate",
+      submissions: [submission]
+    };
+    packet.payload_digest = canonicalizeCatalogImport(packet).digest;
+    expect(
+      (await rpc(admin, "import_catalog_review_packet", { p_envelope: packet }))
+        .error
+    ).toBeNull();
+    expect(
+      (
+        await rpc(admin, "transition_catalog_review_case", {
+          p_case_id: candidate.caseId,
+          p_target_status: "blocked",
+          p_reason: "qualified block"
+        })
+      ).error
+    ).toBeNull();
+
+    const clearingPacket = structuredClone(packet) as Record<string, unknown>;
+    clearingPacket.package_id = ids("review-clearing");
+    const clearingSubmission = structuredClone(submission) as Record<
+      string,
+      unknown
+    >;
+    clearingSubmission.id = ids("submission-clearing");
+    clearingSubmission.decision = "Accept";
+    clearingSubmission.supersedes_submission_id = submission.id;
+    clearingSubmission.approval_reference_id = ids("approval-clearing");
+    clearingSubmission.evidence = [
+      {
+        id: ids("evidence-clearing"),
+        field_or_claim: "storage_support_state",
+        evidence_reference: "https://example.test/evidence-clearing"
+      }
+    ];
+    clearingPacket.submissions = [clearingSubmission];
+    clearingPacket.payload_digest =
+      canonicalizeCatalogImport(clearingPacket).digest;
+    const imported = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: clearingPacket
+    });
+    expect(imported.error).toBeNull();
+    const state = await admin
+      .from("catalog_review_cases")
+      .select("status")
+      .eq("id", candidate.caseId);
+    expect(state.data).toEqual([{ status: "blocked" }]);
+  });
+
+  test("replays an exact completed packet but rejects a new packet", async () => {
+    const candidate = candidateEnvelope();
+    expect(
+      (
+        await rpc(admin, "import_catalog_candidate_package", {
+          p_envelope: candidate.envelope
+        })
+      ).error
+    ).toBeNull();
+    const authority = ids("authority");
+    const dimensions = [
+      "feeding_safety_developmental",
+      "allergy_restriction",
+      "nutrition_age_stage",
+      "taxonomy_labeling",
+      "storage_handling"
+    ];
+    expect(
+      (
+        await rpc(admin, "register_catalog_reviewer_authority", {
+          p_reference: authority,
+          p_authority_basis: "Synthetic qualified authority",
+          p_evidence_location: `https://example.test/${authority}`,
+          p_dimensions: dimensions
+        })
+      ).error
+    ).toBeNull();
+    const submissions = dimensions.map((dimension) => ({
+      id: ids("submission"),
+      dimension,
+      decision: "Accept",
+      reviewer_role: "synthetic qualified reviewer",
+      reviewer_authority_reference: authority,
+      reviewed_at: "2026-08-04",
+      approval_reference_id: ids("approval"),
+      follow_up_status: "none",
+      clarification_requires_catalog_change: false,
+      ...(dimension === "storage_handling"
+        ? { storage_support_state: "unsupported" }
+        : {}),
+      storage_context: {},
+      visual_context: {},
+      supersedes_submission_id: null,
+      evidence: [
+        {
+          id: ids("evidence"),
+          field_or_claim: dimension,
+          evidence_reference: `https://example.test/${dimension}`
+        }
+      ]
+    }));
+    const packet: Record<string, unknown> = {
+      schema_version: "qualified-review-packet/v1",
+      package_id: ids("review"),
+      package_version: "1",
+      package_created_at: "2026-08-04T12:00:00Z",
+      case_id: candidate.caseId,
+      revision_id: candidate.revisionId,
+      classification: "production_candidate",
+      submissions
+    };
+    packet.payload_digest = canonicalizeCatalogImport(packet).digest;
+    const imported = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: packet
+    });
+    expect(imported.error).toBeNull();
+    const completed = await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: candidate.caseId,
+      p_target_status: "completed",
+      p_reason: "qualified dimensions complete"
+    });
+    expect(completed.error).toBeNull();
+    const replay = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: packet
+    });
+    expect(replay.error).toBeNull();
+    expect(replay.data).toEqual(imported.data);
+    const newPacket = structuredClone(packet) as Record<string, unknown>;
+    newPacket.package_id = ids("review-new");
+    newPacket.payload_digest = canonicalizeCatalogImport(newPacket).digest;
+    const rejected = await rpc(admin, "import_catalog_review_packet", {
+      p_envelope: newPacket
+    });
+    expect(rejected.error?.message).toContain("review_case_completed");
+  });
 });

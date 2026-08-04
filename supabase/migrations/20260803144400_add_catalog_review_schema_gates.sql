@@ -128,8 +128,10 @@ create table public.catalog_owner_adjudications (
   case_id text not null references public.catalog_review_cases(id)
     on delete restrict,
   dimension public.catalog_review_dimension not null,
-  selected_submission_id text not null
+  selected_submission_id text
     references public.catalog_review_submissions(id) on delete restrict,
+  supersedes_adjudication_id text
+    references public.catalog_owner_adjudications(id) on delete restrict,
   outcome text not null check (outcome in (
     'select_qualified_recommendation',
     'record_compatible_conflict',
@@ -141,8 +143,13 @@ create table public.catalog_owner_adjudications (
   recorded_at timestamptz not null default now()
 );
 
-create unique index catalog_owner_adjudications_one_per_dimension
-  on public.catalog_owner_adjudications(case_id, dimension);
+create unique index catalog_owner_adjudications_one_root_per_dimension
+  on public.catalog_owner_adjudications(case_id, dimension)
+  where supersedes_adjudication_id is null;
+
+create unique index catalog_owner_adjudications_one_successor
+  on public.catalog_owner_adjudications(supersedes_adjudication_id)
+  where supersedes_adjudication_id is not null;
 
 alter table public.catalog_reviewer_authorities enable row level security;
 alter table public.catalog_reviewer_authority_dimensions enable row level security;
@@ -494,7 +501,8 @@ create or replace function public.record_catalog_owner_adjudication(
   p_outcome text,
   p_notes text,
   p_implementation_reference text default null,
-  p_selected_submission_id text default null
+  p_selected_submission_id text default null,
+  p_supersedes_adjudication_id text default null
 )
 returns jsonb
 language plpgsql
@@ -509,12 +517,45 @@ begin
       using errcode = '22023';
   end if;
 
-  if p_selected_submission_id is null then
-    raise exception 'Owner adjudication must select an exact qualified submission'
+  if p_outcome = 'select_qualified_recommendation'
+    and p_selected_submission_id is null then
+    raise exception 'Selection adjudication must select an exact qualified submission'
       using errcode = '22023';
   end if;
 
-  if not exists (
+  if p_outcome <> 'select_qualified_recommendation'
+    and p_selected_submission_id is not null then
+    raise exception 'Return or decline adjudication cannot select a submission'
+      using errcode = '22023';
+  end if;
+
+  if p_supersedes_adjudication_id is null then
+    if exists (
+      select 1 from public.catalog_owner_adjudications existing
+      where existing.case_id = p_case_id
+        and existing.dimension::text = p_dimension
+        and existing.supersedes_adjudication_id is null
+    ) then
+      raise exception 'Only one root owner adjudication is allowed per case dimension'
+        using errcode = '22023';
+    end if;
+  else
+    if not exists (
+      select 1 from public.catalog_owner_adjudications predecessor
+      where predecessor.id = p_supersedes_adjudication_id
+        and predecessor.case_id = p_case_id
+        and predecessor.dimension::text = p_dimension
+        and not exists (
+          select 1 from public.catalog_owner_adjudications successor
+          where successor.supersedes_adjudication_id = predecessor.id
+        )
+    ) then
+      raise exception 'Adjudication must supersede the current tip for the same case and dimension'
+        using errcode = '22023';
+    end if;
+  end if;
+
+  if p_outcome = 'select_qualified_recommendation' and not exists (
     select 1
     from public.catalog_review_submissions submission
     where submission.id = p_selected_submission_id
@@ -523,6 +564,20 @@ begin
       and submission.decision in ('Accept', 'Accept with clarification')
       and submission.follow_up_status not in ('required', 'unresolved')
       and not submission.clarification_requires_catalog_change
+      and exists (
+        select 1
+        from public.catalog_reviewer_authority_dimensions authority_dimension
+        join public.catalog_reviewer_authorities authority
+          on authority.reference = authority_dimension.authority_reference
+        where authority_dimension.authority_reference = submission.reviewer_authority_reference
+          and authority_dimension.dimension = submission.dimension
+          and (authority.valid_from is null or authority.valid_from <= submission.reviewed_at)
+          and (authority.valid_until is null or authority.valid_until >= submission.reviewed_at)
+      )
+      and exists (
+        select 1 from public.catalog_review_submission_evidence evidence
+        where evidence.submission_id = submission.id
+      )
       and not exists (
         select 1
         from public.catalog_review_submissions superseding
@@ -533,21 +588,13 @@ begin
       using errcode = '22023';
   end if;
 
-  if exists (
-    select 1
-    from public.catalog_owner_adjudications existing
-    where existing.case_id = p_case_id
-      and existing.dimension::text = p_dimension
-  ) then
-    raise exception 'Only one effective owner adjudication is allowed per case dimension'
-      using errcode = '22023';
-  end if;
-
   insert into public.catalog_owner_adjudications (
-    id, case_id, dimension, selected_submission_id, outcome, notes, implementation_reference
+    id, case_id, dimension, selected_submission_id, supersedes_adjudication_id,
+    outcome, notes, implementation_reference
   ) values (
     p_adjudication_id, p_case_id,
-    p_dimension::public.catalog_review_dimension, p_selected_submission_id, p_outcome,
+    p_dimension::public.catalog_review_dimension, p_selected_submission_id,
+    p_supersedes_adjudication_id, p_outcome,
     p_notes, p_implementation_reference
   );
 
@@ -709,6 +756,10 @@ begin
         on adjudication.selected_submission_id = submission.id
        and adjudication.case_id = review_case.id
        and adjudication.dimension::text = dimension_value
+       and not exists (
+         select 1 from public.catalog_owner_adjudications successor
+         where successor.supersedes_adjudication_id = adjudication.id
+       )
       where submission.case_id = review_case.id
         and submission.dimension::text = dimension_value
         and not exists (select 1 from public.catalog_review_submissions superseding
@@ -855,20 +906,54 @@ begin
       select 1
       from public.catalog_review_submissions submission
       where submission.case_id = p_case_id
-        and submission.decision in ('Block', 'Insufficient evidence')
+        and submission.decision = 'Block'
+        and not exists (
+          select 1 from public.catalog_review_submissions superseding
+          where superseding.supersedes_submission_id = submission.id
+        )
     ) then
-    raise exception 'Blocked status requires a domain block or insufficient evidence submission'
+    raise exception 'Blocked status requires a current qualified domain block'
       using errcode = '22023';
   end if;
 
   if review_case.status::text = 'blocked' and p_target_status = 'in_review'
-    and not exists (
+    and exists (
       select 1
-      from public.catalog_review_submissions submission
-      where submission.case_id = p_case_id
-        and submission.submitted_at > review_case.status_changed_at
+      from public.catalog_review_submissions blocker
+      where blocker.case_id = p_case_id
+        and blocker.decision = 'Block'
+        and not exists (
+          with recursive descendants(id) as (
+            select blocker.id
+            union all
+            select child.id
+            from public.catalog_review_submissions child
+            join descendants parent on child.supersedes_submission_id = parent.id
+          )
+          select 1
+          from descendants cleared
+          join public.catalog_review_submissions clearing on clearing.id = cleared.id
+          where clearing.id <> blocker.id
+            and clearing.decision in ('Accept', 'Accept with clarification')
+            and clearing.follow_up_status not in ('required', 'unresolved')
+            and not clearing.clarification_requires_catalog_change
+            and exists (
+              select 1
+              from public.catalog_reviewer_authority_dimensions authority_dimension
+              join public.catalog_reviewer_authorities authority
+                on authority.reference = authority_dimension.authority_reference
+              where authority_dimension.authority_reference = clearing.reviewer_authority_reference
+                and authority_dimension.dimension = clearing.dimension
+                and (authority.valid_from is null or authority.valid_from <= clearing.reviewed_at)
+                and (authority.valid_until is null or authority.valid_until >= clearing.reviewed_at)
+            )
+            and exists (
+              select 1 from public.catalog_review_submission_evidence evidence
+              where evidence.submission_id = clearing.id
+            )
+        )
     ) then
-    raise exception 'Blocked review requires a later qualified submission'
+    raise exception 'Blocked review requires a qualified clearing submission for every current blocker'
       using errcode = '22023';
   end if;
 
@@ -912,7 +997,7 @@ revoke all on function public.record_catalog_review_evidence(
   text, text, text, text, text
 ) from public, anon, authenticated;
 revoke all on function public.record_catalog_owner_adjudication(
-  text, text, text, text, text, text, text
+  text, text, text, text, text, text, text, text
 ) from public, anon, authenticated;
 revoke all on function public.get_catalog_review_eligibility(text)
   from public, anon, authenticated;
@@ -932,7 +1017,7 @@ grant execute on function public.record_catalog_review_evidence(
   text, text, text, text, text
 ) to service_role;
 grant execute on function public.record_catalog_owner_adjudication(
-  text, text, text, text, text, text, text
+  text, text, text, text, text, text, text, text
 ) to service_role;
 grant execute on function public.get_catalog_review_eligibility(text)
   to service_role;

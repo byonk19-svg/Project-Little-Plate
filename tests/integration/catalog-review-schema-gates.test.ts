@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, test } from "vitest";
 
@@ -158,6 +159,50 @@ describe("catalog review schema and transition gates", () => {
     anonymous = createClient(status.API_URL, status.ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
+    const enumColumns = execFileSync(
+      "docker",
+      [
+        "exec",
+        "supabase_db_mealboard-baby",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-Atc",
+        "select table_name || '.' || column_name || '=' || udt_name from information_schema.columns where table_schema='public' and ((table_name='catalog_review_cases' and column_name='status') or (table_name='catalog_review_submissions' and column_name in ('dimension','decision')));"
+      ],
+      { encoding: "utf8" }
+    ).trim();
+    expect(enumColumns).toContain(
+      "catalog_review_cases.status=catalog_review_case_status"
+    );
+    expect(enumColumns).toContain(
+      "catalog_review_submissions.dimension=catalog_review_dimension"
+    );
+    expect(enumColumns).toContain(
+      "catalog_review_submissions.decision=catalog_review_decision"
+    );
+    const enumTypes = execFileSync(
+      "docker",
+      [
+        "exec",
+        "supabase_db_mealboard-baby",
+        "psql",
+        "-U",
+        "postgres",
+        "-d",
+        "postgres",
+        "-Atc",
+        "select typname || '=' || typtype::text from pg_type where typname in ('catalog_review_case_status','catalog_review_dimension','catalog_review_decision');"
+      ],
+      { encoding: "utf8" }
+    ).trim();
+    expect(enumTypes.split(/\r?\n/).sort()).toEqual([
+      "catalog_review_case_status=e",
+      "catalog_review_decision=e",
+      "catalog_review_dimension=e"
+    ]);
     fixtureId = crypto.randomUUID();
     sourceId = id("source");
     authorityId = await registerAuthority("all");
@@ -198,7 +243,7 @@ describe("catalog review schema and transition gates", () => {
           is_active: true
         }
       ],
-      revisions: Array.from({ length: 8 }, (_, index) => ({
+      revisions: Array.from({ length: 9 }, (_, index) => ({
         id: id(`revision-${index}`),
         preparation_id: id("preparation"),
         version: index + 1,
@@ -211,8 +256,8 @@ describe("catalog review schema and transition gates", () => {
         approved_at: null,
         next_review_at: null,
         tag_ids: [id("skill"), id("allergen")],
-        visual_required: index === 7,
-        visual_ids: index === 7 ? [id("visual")] : [],
+        visual_required: index === 8,
+        visual_ids: index === 8 ? [id("visual")] : [],
         preparation_time_band: "under_15_minutes",
         storage_rules: [
           {
@@ -245,6 +290,7 @@ describe("catalog review schema and transition gates", () => {
     for (const [index, label] of [
       "transitions",
       "conflict",
+      "rounds",
       "missing",
       "complete",
       "blocked",
@@ -484,6 +530,101 @@ describe("catalog review schema and transition gates", () => {
     );
   });
 
+  test("supports append-only adjudication rounds after review supersession", async () => {
+    const caseId = await createCase("rounds");
+    await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: caseId,
+      p_target_status: "ready_for_review",
+      p_reason: "ready"
+    });
+    await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: caseId,
+      p_target_status: "in_review",
+      p_reason: "review started"
+    });
+    const first = await submit(
+      caseId,
+      "feeding_safety_developmental",
+      "round-a"
+    );
+    await addEvidence(first, "round-a");
+    const second = await submit(
+      caseId,
+      "feeding_safety_developmental",
+      "round-b"
+    );
+    await addEvidence(second, "round-b");
+    for (const dimension of alwaysRequired.slice(1)) {
+      const submissionId = await submit(
+        caseId,
+        dimension,
+        `round-${dimension}`
+      );
+      await addEvidence(submissionId, `round-${dimension}`);
+    }
+    const firstAdjudication = id("adjudication-round-one");
+    const created = await rpc(admin, "record_catalog_owner_adjudication", {
+      p_adjudication_id: firstAdjudication,
+      p_case_id: caseId,
+      p_dimension: "feeding_safety_developmental",
+      p_outcome: "select_qualified_recommendation",
+      p_selected_submission_id: first,
+      p_notes: "First compatible selection"
+    });
+    expect(created.error).toBeNull();
+
+    const replacement = await submit(
+      caseId,
+      "feeding_safety_developmental",
+      "round-replacement",
+      { supersedesSubmissionId: first }
+    );
+    await addEvidence(replacement, "round-replacement");
+    const stale = await rpc<{ reason_codes: Array<{ code: string }> }>(
+      admin,
+      "get_catalog_review_eligibility",
+      { p_case_id: caseId }
+    );
+    expect(stale.data?.reason_codes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "owner_adjudication_invalid" })
+      ])
+    );
+
+    const secondRoot = await rpc(admin, "record_catalog_owner_adjudication", {
+      p_adjudication_id: id("adjudication-round-root-two"),
+      p_case_id: caseId,
+      p_dimension: "feeding_safety_developmental",
+      p_outcome: "select_qualified_recommendation",
+      p_selected_submission_id: replacement,
+      p_notes: "Second root must be rejected"
+    });
+    expect(secondRoot.error?.message).toMatch(/current tip|root/i);
+
+    const secondAdjudication = await rpc(
+      admin,
+      "record_catalog_owner_adjudication",
+      {
+        p_adjudication_id: id("adjudication-round-two"),
+        p_case_id: caseId,
+        p_dimension: "feeding_safety_developmental",
+        p_outcome: "select_qualified_recommendation",
+        p_selected_submission_id: replacement,
+        p_supersedes_adjudication_id: firstAdjudication,
+        p_notes: "Second explicit selection"
+      }
+    );
+    expect(secondAdjudication.error).toBeNull();
+    const resolved = await rpc<{ eligible: boolean; reason_codes: unknown[] }>(
+      admin,
+      "get_catalog_review_eligibility",
+      { p_case_id: caseId }
+    );
+    expect(resolved.data).toEqual(
+      expect.objectContaining({ eligible: true, reason_codes: [] })
+    );
+  });
+
   test("rejects blocked, unresolved, and clarification-changing reviews", async () => {
     const blockedCase = await createCase("blocked");
     await rpc(admin, "transition_catalog_review_case", {
@@ -543,6 +684,19 @@ describe("catalog review schema and transition gates", () => {
         expect.objectContaining({ code: "domain_block" })
       ])
     );
+    const clearing = await submit(
+      blockedCase,
+      "feeding_safety_developmental",
+      "clear-block",
+      { supersedesSubmissionId: blockSubmission, decision: "Accept" }
+    );
+    await addEvidence(clearing, "clear-block");
+    const reopened = await rpc(admin, "transition_catalog_review_case", {
+      p_case_id: blockedCase,
+      p_target_status: "in_review",
+      p_reason: "qualified clearing review"
+    });
+    expect(reopened.error).toBeNull();
 
     const clarificationCase = await createCase("clarification");
     await rpc(admin, "transition_catalog_review_case", {
@@ -587,7 +741,7 @@ describe("catalog review schema and transition gates", () => {
       p_adjudication_id: adjudicationId,
       p_case_id: caseId,
       p_dimension: "storage_handling",
-      p_outcome: "record_compatible_conflict",
+      p_outcome: "select_qualified_recommendation",
       p_notes: "Synthetic history adjudication",
       p_selected_submission_id: second
     });

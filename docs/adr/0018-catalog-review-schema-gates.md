@@ -21,10 +21,17 @@ Case transitions are controlled by a service-role function and never publish a
 revision. Public catalog reads remain unchanged and candidate/fixture content
 is not seeded.
 
-Owner adjudication records a compatible choice or return/decline decision; it
+Owner adjudication records a compatible choice or return/decline decision in an
+append-only supersession chain. Only the chain tip is effective; adjudication
 cannot replace qualified domain review or clear a domain block. Conditional
 visual review uses the existing revision visual metadata, and storage reviews
 must state whether reviewed support is present.
+
+The `blocked` workflow state is entered only from `in_review` or
+`changes_requested` when a current unsuperseded qualified `Block` exists. It
+reopens only after every historical blocker has a same-dimension, same-lineage
+qualified clearing submission (`Accept`, or non-blocking `Accept with
+clarification` with resolved follow-up and no catalog change).
 
 ## Consequences
 

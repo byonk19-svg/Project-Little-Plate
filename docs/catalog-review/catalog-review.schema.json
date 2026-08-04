@@ -40,7 +40,14 @@
           },
           "classification": {
             "type": "string",
-            "enum": ["production", "fixture", "seed", "demo", "test"]
+            "enum": [
+              "production_candidate",
+              "production",
+              "fixture",
+              "seed",
+              "demo",
+              "test"
+            ]
           },
           "existing_value": {},
           "existing_provenance": {},

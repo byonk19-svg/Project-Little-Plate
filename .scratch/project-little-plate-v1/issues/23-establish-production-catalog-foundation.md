@@ -203,3 +203,9 @@ add a separate document database in this foundation ticket.
 - The focused suite covers compatible conflict resolution, blocked-domain refusal, conditional visual review, and unchanged public catalog RPC isolation. Migration reset and the focused 8-test suite pass; a clean reset was separately checked against the catalog tables and enum metadata before fixture import.
 - Full integration passes after a clean reset: 10 files, 74 tests. Unit, lint, typecheck, catalog-source checks, build, database lint, and security advisors pass. Direct Playwright runs 18/19 tests; the sole failure is the pre-existing local-email-delivery expectation because the local inbox is configured and the UI correctly includes the captured-link affordance.
 - Ticket 23B and later 23C–23E slices remain unimplemented.
+
+### Final correctness correction evidence
+
+- Owner adjudications now form an append-only chain with one root and at most one successor per predecessor. Eligibility uses only the chain tip; stale selections remain invalid until a later explicit adjudication supersedes the tip.
+- `blocked` requires a current unsuperseded `Block`; reopening requires qualified same-dimension, same-lineage clearing submissions for every historical blocker. The clearing set is `Accept` or non-blocking `Accept with clarification` with resolved follow-up, required evidence, valid authority, and no catalog change.
+- Packet classification now includes `production_candidate`, matching the database candidate boundary. Enum metadata assertions inspect PostgreSQL catalog types directly.

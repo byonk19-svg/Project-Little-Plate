@@ -88,6 +88,7 @@ product specification.
 - [Privacy-safe learning and recovery decision](docs/adr/0015-privacy-safe-learning-and-recovery-boundary.md)
 - [Deletion and operational control decision](docs/adr/0016-deletion-and-operational-control-boundary.md)
 - [Catalog release pipeline decision](docs/adr/0017-catalog-release-pipeline-boundary.md)
+- [Catalog review schema gates decision](docs/adr/0018-catalog-review-schema-gates.md)
 - [Catalog release procedure](docs/operations/catalog-release.md)
 
 ## Prerequisites

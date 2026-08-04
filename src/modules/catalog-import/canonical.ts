@@ -27,6 +27,10 @@ const identityArrayKeys = new Set([
   "storage_rules"
 ]);
 
+const identityKeyByArrayKey: Record<string, string> = {
+  review_cases: "case_id"
+};
+
 const utf8Compare = (left: string, right: string) => {
   const leftBytes = new TextEncoder().encode(left);
   const rightBytes = new TextEncoder().encode(right);
@@ -39,18 +43,34 @@ const utf8Compare = (left: string, right: string) => {
   return leftBytes.length - rightBytes.length;
 };
 
-function stableId(value: unknown) {
+function stableId(value: unknown, arrayKey?: string) {
   if (typeof value === "string") return value;
   if (value && typeof value === "object" && "id" in value) {
     const id = (value as { id?: unknown }).id;
     if (typeof id === "string" && id.length > 0) return id;
   }
+  const identityKey = arrayKey ? identityKeyByArrayKey[arrayKey] : undefined;
+  if (
+    identityKey &&
+    value &&
+    typeof value === "object" &&
+    identityKey in value
+  ) {
+    const id = (value as Record<string, unknown>)[identityKey];
+    if (typeof id === "string" && id.length > 0) return id;
+  }
   return null;
 }
 
-function assertUniqueStableIds(value: unknown, path: string) {
+function assertUniqueStableIds(
+  value: unknown,
+  path: string,
+  arrayKey?: string
+) {
   if (!Array.isArray(value)) return;
-  const ids = value.map(stableId).filter((id): id is string => id !== null);
+  const ids = value
+    .map((item) => stableId(item, arrayKey))
+    .filter((id): id is string => id !== null);
   if (ids.length !== value.length) return;
   const seen = new Set<string>();
   ids.forEach((id, index) => {
@@ -84,12 +104,12 @@ function canonicalValue(value: unknown, key?: string): string {
     return String(value);
   }
   if (Array.isArray(value)) {
-    assertUniqueStableIds(value, key ?? "array");
+    assertUniqueStableIds(value, key ?? "array", key);
     const items = value.map((item) => canonicalValue(item));
     if (key && identityArrayKeys.has(key)) {
       return `[${value
         .map((item) => ({
-          id: stableId(item) ?? "",
+          id: stableId(item, key) ?? "",
           bytes: canonicalValue(item)
         }))
         .sort(

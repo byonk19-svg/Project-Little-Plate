@@ -1,6 +1,35 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://project-little-plate.invalid/catalog-review/qualified-review-packet-v1",
+  "x-import-rejection-codes": [
+    "unsupported_schema_version",
+    "package_identity_missing",
+    "package_digest_conflict",
+    "unstable_identifier",
+    "invalid_classification",
+    "approved_candidate_forbidden",
+    "candidate_status_forbidden",
+    "record_identity_conflict",
+    "unknown_source",
+    "unknown_tag",
+    "invalid_storage_contract",
+    "invalid_visual_contract",
+    "candidate_revision_mismatch",
+    "candidate_snapshot_locked",
+    "review_case_missing",
+    "review_revision_mismatch",
+    "unknown_reviewer_authority",
+    "authority_dimension_mismatch",
+    "authority_not_effective",
+    "missing_review_evidence",
+    "approval_reference_missing",
+    "invalid_submission_supersession",
+    "duplicate_effective_submission",
+    "conditional_visual_review_missing",
+    "owner_adjudication_forbidden_in_packet",
+    "review_case_completed",
+    "invalid_envelope_shape"
+  ],
   "title": "Project Little Plate qualified review packet envelope v1",
   "type": "object",
   "additionalProperties": false,
@@ -30,7 +59,7 @@
     }
   },
   "$defs": {
-    "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
     "submission": {
       "type": "object",
       "additionalProperties": false,
@@ -77,13 +106,11 @@
         "approval_reference_id": { "type": "string", "minLength": 1 },
         "follow_up_status": { "type": "string", "minLength": 1 },
         "clarification_requires_catalog_change": { "type": "boolean" },
-        "notes": { "type": "string" },
         "storage_support_state": { "type": ["string", "null"] },
         "storage_context": { "type": "object" },
         "visual_context": { "type": "object" },
         "supersedes_submission_id": {
-          "type": ["string", "null"],
-          "$ref": "#/$defs/id"
+          "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
         },
         "evidence": {
           "type": "array",
@@ -100,7 +127,9 @@
         "id": { "$ref": "#/$defs/id" },
         "field_or_claim": { "type": "string", "minLength": 1 },
         "evidence_reference": { "type": "string", "minLength": 1 },
-        "source_id": { "type": ["string", "null"], "$ref": "#/$defs/id" }
+        "source_id": {
+          "anyOf": [{ "$ref": "#/$defs/id" }, { "type": "null" }]
+        }
       }
     }
   }

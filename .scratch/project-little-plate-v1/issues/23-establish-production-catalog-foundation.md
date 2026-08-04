@@ -293,8 +293,40 @@ Implemented locally on `codex/ticket-23b-import` from merged `550779a`.
   Ticket 23C implementation was added.
 
 Validation evidence: migration reset passed; focused import integration passed
-(3 tests); typecheck and lint passed; unit suite passed (17 files, 128 tests);
+(4 tests); typecheck and lint passed; unit suite passed (17 files, 128 tests);
 catalog-source checks passed; production build passed; clean-reset full
 integration passed (11 files, 78 tests); database lint and advisors reported no
 issues; and Playwright passed all 19 end-to-end tests. `git diff --check` is
 clean. The implementation remains local-only; no push or PR was performed.
+
+### Ticket 23B publication-review correction evidence
+
+The independent publication review identified a real contract gap in the first
+implementation: SQL ignored unknown nested keys, raised only the first caller
+error, used incomplete old/new snapshot edges, and did not treat associated
+visuals as conditional visual-review evidence. The correction is intentionally
+limited to Ticket 23B and preserves commit `c195d67` as an immutable base.
+
+- Added the 27th stable rejection code, `invalid_envelope_shape`, to both input
+  schemas and the design inventory. Structured rejection reports are ordered by
+  collection, record ID, field path, and code; malformed envelopes return before
+  advisory locks or writes.
+- Added SQL-side exact object-key allowlists for both envelopes and all nested
+  candidate/review records, draft/owner-field rejection, slug identity checks
+  without trimming, bounded opaque reviewer/approval/evidence references, and
+  review-packet v1 note rejection. Digest conflicts remain the only early
+  conflict path.
+- Corrected canonical review-case sorting to `case_id`, fixed nullable `$ref`
+  schema branches with `anyOf`, and made visual review conditional on either
+  `visual_required` or an associated `revision_visuals` row.
+- Snapshot locks now inspect both OLD and NEW IDs and foreign-key edges for all
+  protected parent and child tables. Existing candidate/review lifecycle and
+  receipt replay behavior remain unchanged.
+- Focused integration assertions now cover structured classification and owner
+  rejection results as well as the existing real Supabase import/replay seams.
+
+Correction validation status: canonical unit tests pass; the focused real-local
+Supabase import boundary tests pass after clean reset; full repository
+verification, database lint/advisors, and the independent final review remain
+required before any push or publication. No Ticket 23C, UI, auth, seed, or
+publication implementation was started.

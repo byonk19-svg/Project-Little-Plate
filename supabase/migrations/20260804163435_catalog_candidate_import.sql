@@ -39,9 +39,17 @@ declare
   expected_rules jsonb;
   actual_rules jsonb;
   result jsonb;
+  rejections jsonb[];
 begin
-  if p_envelope is null or jsonb_typeof(p_envelope) <> 'object' then
-    raise exception 'package_identity_missing';
+  if p_envelope is not null and jsonb_typeof(p_envelope) = 'object'
+    and p_envelope->>'payload_digest' is not null
+    and p_envelope->>'payload_digest' ~ '^sha256:[0-9a-f]{64}$'
+    and private.catalog_import_digest(p_envelope) <> p_envelope->>'payload_digest' then
+    raise exception 'package_digest_conflict';
+  end if;
+  rejections := private.catalog_candidate_rejections(p_envelope);
+  if cardinality(rejections) > 0 then
+    return private.catalog_rejection_result(rejections);
   end if;
 
   if p_envelope->>'schema_version' <> 'candidate-package/v1' then
@@ -137,8 +145,8 @@ begin
   select * into receipt
   from public.catalog_import_receipts as ci
   where ci.import_kind = 'candidate_package'
-    and ci.package_id = p_envelope->>'package_id'
-    and ci.package_version = p_envelope->>'package_version'
+    and ci.package_id = package_id
+    and ci.package_version = package_version
   for update;
 
   if receipt.package_id is not null then

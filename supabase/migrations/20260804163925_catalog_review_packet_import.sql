@@ -27,9 +27,17 @@ declare
   progress boolean;
   result jsonb;
   dimension_text text;
+  rejections jsonb[];
 begin
-  if p_envelope is null or jsonb_typeof(p_envelope) <> 'object' then
-    raise exception 'review_packet_identity_missing';
+  if p_envelope is not null and jsonb_typeof(p_envelope) = 'object'
+    and p_envelope->>'payload_digest' is not null
+    and p_envelope->>'payload_digest' ~ '^sha256:[0-9a-f]{64}$'
+    and private.catalog_import_digest(p_envelope) <> p_envelope->>'payload_digest' then
+    raise exception 'package_digest_conflict';
+  end if;
+  rejections := private.catalog_review_rejections(p_envelope);
+  if cardinality(rejections) > 0 then
+    return private.catalog_rejection_result(rejections);
   end if;
 
   if p_envelope->>'schema_version' <> 'qualified-review-packet/v1' then
@@ -40,7 +48,7 @@ begin
   package_version := nullif(btrim(p_envelope->>'package_version'), '');
   if package_id is null or package_version is null
     or p_envelope->>'package_created_at' is null then
-    raise exception 'review_packet_identity_missing';
+    raise exception 'package_identity_missing';
   end if;
 
   if p_envelope->>'classification' <> 'production_candidate' then
@@ -59,7 +67,7 @@ begin
     or p_envelope->>'case_id' !~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'
     or nullif(btrim(p_envelope->>'revision_id'), '') is null
     or jsonb_typeof(p_envelope->'submissions') <> 'array' then
-    raise exception 'review_packet_identity_missing';
+    raise exception 'package_identity_missing';
   end if;
 
   package_digest := private.catalog_import_digest(p_envelope);
@@ -87,8 +95,8 @@ begin
   select * into receipt
   from public.catalog_import_receipts as ci
   where ci.import_kind = 'qualified_review_packet'
-    and ci.package_id = p_envelope->>'package_id'
-    and ci.package_version = p_envelope->>'package_version'
+    and ci.package_id = package_id
+    and ci.package_version = package_version
   for update;
   if receipt.package_id is not null then
     if receipt.payload_digest <> package_digest then
@@ -115,7 +123,7 @@ begin
   end if;
 
   total_submissions := jsonb_array_length(p_envelope->'submissions');
-  if total_submissions = 0 then raise exception 'review_submission_missing'; end if;
+  if total_submissions = 0 then raise exception 'invalid_submission_supersession'; end if;
 
   -- Insert roots before descendants so a packet can contain several rounds.
   while inserted_count < total_submissions loop
@@ -141,7 +149,7 @@ begin
         or submission_record->>'reviewed_at' is null
         or jsonb_typeof(submission_record->'storage_context') <> 'object'
         or jsonb_typeof(submission_record->'visual_context') <> 'object' then
-        raise exception 'review_submission_invalid';
+        raise exception 'invalid_envelope_shape';
       end if;
 
       dimension_text := submission_record->>'dimension';
@@ -149,7 +157,7 @@ begin
         'feeding_safety_developmental', 'allergy_restriction',
         'nutrition_age_stage', 'taxonomy_labeling', 'storage_handling',
         'visual_accessibility_rights'
-      ) then raise exception 'review_dimension_invalid'; end if;
+      ) then raise exception 'invalid_envelope_shape'; end if;
 
       if not exists (
         select 1 from public.catalog_reviewer_authorities
@@ -181,7 +189,13 @@ begin
           select 1 from public.revision_visual_requirements requirement
           where requirement.revision_id = review_case.revision_id
             and requirement.requirement_declared
-            and requirement.visual_required
+            and (
+              requirement.visual_required
+              or exists (
+                select 1 from public.revision_visuals associated_visual
+                where associated_visual.revision_id = requirement.revision_id
+              )
+            )
         )
         and not exists (select 1 from jsonb_each(submission_record->'visual_context')) then
         raise exception 'conditional_visual_review_missing';
@@ -218,7 +232,7 @@ begin
       end if;
 
       if exists (select 1 from public.catalog_review_submissions where id = submission_record->>'id') then
-        raise exception 'submission_identity_conflict';
+        raise exception 'record_identity_conflict';
       end if;
 
       perform public.submit_catalog_review(
@@ -244,7 +258,7 @@ begin
         end if;
         if evidence_record ? 'source_id' and evidence_record->>'source_id' is not null
           and not exists (select 1 from public.sources where id = evidence_record->>'source_id') then
-          raise exception 'review_evidence_source_missing';
+          raise exception 'unknown_source';
         end if;
         perform public.record_catalog_review_evidence(
           evidence_record->>'id', submission_record->>'id', evidence_record->>'field_or_claim',

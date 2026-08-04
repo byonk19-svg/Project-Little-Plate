@@ -500,6 +500,7 @@ codes when they represent the same semantic condition.
 24. `conditional_visual_review_missing`
 25. `owner_adjudication_forbidden_in_packet`
 26. `review_case_completed`
+27. `invalid_envelope_shape`
 
 Within each collection, sort failures by collection name, stable record ID,
 field path, and code. Return the complete ordered list for validation failures;

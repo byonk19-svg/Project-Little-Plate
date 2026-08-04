@@ -647,13 +647,40 @@ describe("catalog review schema and transition gates", () => {
         .is("supersedes_submission_id", null)
         .single();
     expect(priorFeedingReviewError).toBeNull();
+    const mismatchedAuthority = await registerAuthority("feeding-mismatch", [
+      "allergy_restriction"
+    ]);
+    const unqualifiedBlock = await submit(
+      blockedCase,
+      "feeding_safety_developmental",
+      "missing-authority-block",
+      {
+        decision: "Block",
+        authorityReference: mismatchedAuthority,
+        supersedesSubmissionId: priorFeedingReview!.id
+      }
+    );
+    await addEvidence(unqualifiedBlock, "missing-authority-block");
+    const unqualifiedTransition = await rpc(
+      admin,
+      "transition_catalog_review_case",
+      {
+        p_case_id: blockedCase,
+        p_target_status: "blocked",
+        p_reason: "unqualified domain block must not block"
+      }
+    );
+    expect(unqualifiedTransition.error?.message).toMatch(
+      /current qualified domain block/i
+    );
+
     const blockSubmission = await submit(
       blockedCase,
       "feeding_safety_developmental",
       "block",
       {
         decision: "Block",
-        supersedesSubmissionId: priorFeedingReview!.id
+        supersedesSubmissionId: unqualifiedBlock
       }
     );
     await addEvidence(blockSubmission, "block");

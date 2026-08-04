@@ -934,6 +934,20 @@ begin
           select 1 from public.catalog_review_submissions superseding
           where superseding.supersedes_submission_id = submission.id
         )
+        and exists (
+          select 1
+          from public.catalog_reviewer_authority_dimensions authority_dimension
+          join public.catalog_reviewer_authorities authority
+            on authority.reference = authority_dimension.authority_reference
+          where authority_dimension.authority_reference = submission.reviewer_authority_reference
+            and authority_dimension.dimension = submission.dimension
+            and (authority.valid_from is null or authority.valid_from <= submission.reviewed_at)
+            and (authority.valid_until is null or authority.valid_until >= submission.reviewed_at)
+        )
+        and exists (
+          select 1 from public.catalog_review_submission_evidence evidence
+          where evidence.submission_id = submission.id
+        )
     ) then
     raise exception 'Blocked status requires a current qualified domain block'
       using errcode = '22023';

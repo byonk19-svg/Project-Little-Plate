@@ -10,6 +10,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 
 const transactionReadyMarker = "ticket-07-transaction-ready";
 const execFileAsync = promisify(execFile);
@@ -456,10 +457,32 @@ describe("refrigerated batch creation", () => {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: ticketSixFixture()
+    const fixture = ticketSixFixture();
+    const retiredRevision = fixture.revisions.find(
+      ({ id }) => id === "revision-ticket-12-retired"
+    );
+    if (!retiredRevision)
+      throw new Error("retired fixture revision is missing");
+    const historicalRetiredFixture = {
+      ...fixture,
+      preparations: fixture.preparations
+        .filter(({ id }) => id === "prep-ticket-12")
+        .map((preparation) => ({ ...preparation, is_active: false })),
+      foods: fixture.foods.filter(({ id }) => id === "food-ticket-12"),
+      revisions: [retiredRevision],
+      retirements: []
+    };
+    const historicalImport = await admin.rpc("import_catalog_fixture", {
+      p_fixture: historicalRetiredFixture
     });
-    expect(imported.error).toBeNull();
+    expect(historicalImport.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, {
+      ...fixture,
+      revisions: fixture.revisions.filter(
+        ({ id }) => id !== "revision-ticket-12-retired"
+      ),
+      retirements: fixture.retirements
+    });
 
     const profileImported = await admin.rpc("import_storage_rule_profiles", {
       p_profiles: [

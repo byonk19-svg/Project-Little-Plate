@@ -6,10 +6,11 @@ safety-sensitive values.
 
 **Blocked by:** None - Ticket 17 remains `ready-for-human`; its human review is not a prerequisite for the 23A schema gate.
 
-**Status:** ready-for-human
+**Status:** completed
 
-**Current slice:** Ticket 23A merged in `2369f7a`; Ticket 23B is the proposed
-current slice. Ticket 23C-23E remain intentionally out of scope.
+**Current slice:** Ticket 23C publication gate, implemented from fresh
+`origin/main` at `fc1fd1f1751ac171d370b458396daa1643aafdd1`. Ticket 23D-23E
+remain intentionally out of scope.
 
 **23A merge evidence:** PR #3 was squash-merged into `main` as
 `2369f7a6d968fc6ab3d1e22035d634c6c0f81067`; GitHub Verify passed on the final
@@ -388,6 +389,29 @@ lint/advisors, and `git diff --check` remain required before publication.
 GitHub Verify for the existing draft PR remains the publication gate. No Ticket
 23C work was started.
 
+### Ticket 23C execution plan
+
+Implementation starts from fresh `origin/main` at
+`fc1fd1f1751ac171d370b458396daa1643aafdd1` on isolated branch
+`codex/ticket-23c-publication-gate`.
+
+The smallest coherent slice is one service-role publication RPC plus an
+immutable publication-proof table and a single authoritative current-publication
+read boundary. The RPC will lock one exact production-candidate case/revision,
+recompute eligibility, require effective approval-reference coverage and
+source-validation evidence, reject synthetic or overdue/retired/incomplete
+states, and atomically transition the revision to `approved` while recording
+an idempotent publication proof. The read boundary will require that proof,
+the completed eligible case, current non-retired publication, and existing
+storage/visual/source/tag metadata before returning a row. Existing
+parent-facing RPCs will continue to consume that boundary so Foods, detail,
+Today/Week, planner, and feeding-eligibility flows cannot bypass it.
+
+Test-first work will add real local-Supabase integration coverage for one
+published synthetic candidate and each required invisible state, including
+empty-catalog and unavailable behavior. No real food rows, seed changes,
+safety guidance, reviewer UI, or Ticket 23D/23E work is in scope.
+
 Final local correction verification completed: `pnpm verify` passed end to end,
 including formatting, lint, typecheck, 129 unit tests, catalog-source checks,
 production build, database reset, 84 integration tests, Playwright, and the
@@ -396,3 +420,48 @@ no issues, and `git diff --check` passed. The two-axis standards/spec review
 approved the correction with zero findings on both axes. The correction is
 ready to commit and push to the existing draft PR; it remains draft and Ticket
 23C remains unstarted.
+
+### Ticket 23C implementation evidence
+
+Ticket 23C is implemented on the isolated branch from the recorded fresh
+`origin/main` base. The new publication gate adds
+`supabase/migrations/20260804230000_catalog_publication_gate.sql` with:
+
+- an immutable `catalog_publications` proof tied to one completed production
+  candidate case/revision, effective qualified submissions, approval-reference
+  IDs, adjudication tips, release-owner decision, source-validation reference,
+  and approved/next-review dates;
+- a service-role-only, operationally locked publication RPC that recomputes
+  eligibility, requires approval coverage and source metadata, rejects
+  incomplete/synthetic/overdue/retired states, rejects an active preparation
+  unless it has a replaceable prior publication, performs an atomic proof plus
+  revision/preparation transition, and supports exact idempotent replay;
+- an authoritative `current_published_preparations` boundary consumed by the
+  existing catalog, Today/Week, planner, feeding, and Kitchen read seams;
+  missing proof, missing reviewed metadata, retired, expired, or unsupported
+  rows remain unavailable; an unpublished successor does not hide the current
+  publication, while a controlled successor publication replaces it.
+
+The test-only bridge in
+`tests/integration/support/catalog-publication.ts` drives fixtures through
+candidate import, qualified review import, completion, and controlled
+publication. No production catalog content, seed rows, safety guidance, UI,
+auth, email, or later Ticket 23 slices were added.
+
+Validation evidence for this slice:
+
+- `pnpm format:check`, `pnpm lint`, `pnpm typecheck`, 129 unit tests, catalog
+  source checks, production build, and `git diff --check` passed.
+- Clean Supabase reset and database lint passed; local advisors returned only
+  informational existing unindexed-FK/empty-policy findings.
+- Full integration verification passed: 12 files, 89 tests.
+- Full Playwright verification passed: 19 tests.
+- The independent implementation review found one high and one medium
+  lifecycle issue; both were resolved and covered by targeted replacement and
+  race-confirmation tests. Formatting, lint, typecheck, unit tests, catalog
+  source checks, build, database reset/lint/advisors, integration, Playwright,
+  whitespace, and `git diff --check` are green. The composite `pnpm verify`
+  command was attempted but exceeded the local command-runner limit while its
+  independently passing stages completed; no stage reported a test failure.
+  No push, PR, merge, real-food pilot, or Ticket 23D/23E work is authorized in
+  this slice.

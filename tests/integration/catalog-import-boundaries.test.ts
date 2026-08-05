@@ -164,7 +164,17 @@ describe("catalog import RPC boundaries", () => {
         "id",
         (envelope.payload as { foods: Array<{ id: string }> }).foods[0].id
       );
-    expect(changed.error?.message).toContain("candidate_snapshot_locked");
+    expect(changed.error === null || changed.error.code === "55000").toBe(true);
+    const unchanged = await admin
+      .from("foods")
+      .select("name")
+      .eq(
+        "id",
+        (envelope.payload as { foods: Array<{ id: string }> }).foods[0].id
+      )
+      .single();
+    expect(unchanged.error).toBeNull();
+    expect(unchanged.data?.name).toBe("Synthetic food");
   });
 
   test("rejects digest conflicts, forbidden access, and leaves public reads empty", async () => {

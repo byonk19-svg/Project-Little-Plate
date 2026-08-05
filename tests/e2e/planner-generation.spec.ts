@@ -9,6 +9,7 @@ import {
 } from "@playwright/test";
 
 import { readLocalSupabaseStatus } from "../integration/support/local-supabase";
+import { publishCatalogFixtureForTest } from "../integration/support/catalog-publication";
 import { waitForMagicLink } from "./support/passwordless-auth";
 
 function plannerFixture(suffix: string) {
@@ -183,13 +184,7 @@ test.beforeAll(async () => {
 
 async function importPlannerFixture(): Promise<string> {
   const fixture = plannerFixture(crypto.randomUUID());
-  expect(
-    (
-      await admin.rpc("import_catalog_fixture", {
-        p_fixture: fixture.catalog
-      })
-    ).error
-  ).toBeNull();
+  await publishCatalogFixtureForTest(admin, fixture.catalog);
   expect(
     (
       await admin.rpc("import_storage_rule_profiles", {

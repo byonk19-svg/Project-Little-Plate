@@ -8,6 +8,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 
 type TestUser = { id: string; client: SupabaseClient };
 
@@ -174,11 +175,8 @@ describe("transactional planner generation", () => {
     admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: fixture()
-    });
-    expect(imported.error).toBeNull();
-    fixtureImported = imported.error === null;
+    await publishCatalogFixtureForTest(admin, fixture());
+    fixtureImported = true;
     expect(
       (
         await admin.rpc("import_storage_rule_profiles", {

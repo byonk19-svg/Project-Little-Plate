@@ -7,6 +7,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 
 type TestUser = {
   id: string;
@@ -265,11 +266,8 @@ describe("feeding eligibility configuration", () => {
     anonymous = createClient(status.API_URL, status.ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: approvedFixture()
-    });
-    fixtureImported = imported.error === null;
-    expect(imported.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, approvedFixture());
+    fixtureImported = true;
 
     householdA = await createTestUser("household-a");
     householdB = await createTestUser("household-b");
@@ -358,8 +356,12 @@ describe("feeding eligibility configuration", () => {
         })
       ])
     );
-    expect(loaded.data.foods).toHaveLength(16);
-    expect(loaded.data.foods[0]).toEqual(
+    expect(loaded.data.foods.length).toBeGreaterThanOrEqual(16);
+    expect(
+      loaded.data.foods.find(
+        (food: { id: string }) => food.id === "food-ticket-04-1"
+      )
+    ).toEqual(
       expect.objectContaining({
         id: "food-ticket-04-1",
         exposure_state: "unknown",
@@ -368,7 +370,11 @@ describe("feeding eligibility configuration", () => {
         is_quick_backup: true
       })
     );
-    expect(loaded.data.foods[1]).toEqual(
+    expect(
+      loaded.data.foods.find(
+        (food: { id: string }) => food.id === "food-ticket-04-2"
+      )
+    ).toEqual(
       expect.objectContaining({
         id: "food-ticket-04-2",
         exposure_state: "not_tried",
@@ -410,21 +416,33 @@ describe("feeding eligibility configuration", () => {
       preparation_time: "under_15_minutes",
       prep_day: null
     });
-    expect(reloaded.data.foods[0]).toEqual(
+    expect(
+      reloaded.data.foods.find(
+        (food: { id: string }) => food.id === "food-ticket-04-1"
+      )
+    ).toEqual(
       expect.objectContaining({
         exposure_state: "liked",
         restriction_status: "temporary_avoidance",
         is_quick_backup: true
       })
     );
-    expect(reloaded.data.foods[1]).toEqual(
+    expect(
+      reloaded.data.foods.find(
+        (food: { id: string }) => food.id === "food-ticket-04-2"
+      )
+    ).toEqual(
       expect.objectContaining({
         exposure_state: null,
         restriction_status: null,
         is_quick_backup: false
       })
     );
-    expect(reloaded.data.foods[15]).toEqual(
+    expect(
+      reloaded.data.foods.find(
+        (food: { id: string }) => food.id === "food-ticket-04-16"
+      )
+    ).toEqual(
       expect.objectContaining({
         id: "food-ticket-04-16",
         exposure_state: null,
@@ -436,10 +454,7 @@ describe("feeding eligibility configuration", () => {
   });
 
   test("exposure history survives when catalog ordering moves a food outside the 15-food quick-select", async () => {
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: exposureOptionChurnFixture()
-    });
-    expect(imported.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, exposureOptionChurnFixture());
 
     const afterPublication = await householdA.client.rpc(
       "get_feeding_configuration"

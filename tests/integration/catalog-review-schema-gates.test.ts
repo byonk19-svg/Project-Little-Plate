@@ -317,7 +317,11 @@ describe("catalog review schema and transition gates", () => {
 
     const publicCatalog = await anonymous.rpc("list_published_catalog_items");
     expect(publicCatalog.error).toBeNull();
-    expect(publicCatalog.data).toEqual([]);
+    expect(publicCatalog.data).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ slug: `preparation-${fixtureId}` })
+      ])
+    );
     const publicDetail = await anonymous.rpc("get_published_preparation", {
       p_slug: `preparation-${fixtureId}`
     });

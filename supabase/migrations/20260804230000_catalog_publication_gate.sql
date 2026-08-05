@@ -19,10 +19,35 @@ create table public.catalog_publications (
   published_at timestamptz not null default now()
 );
 
+do $$
+begin
+  if not exists (
+    select 1 from pg_catalog.pg_roles where rolname = 'catalog_publication_writer'
+  ) then
+    create role catalog_publication_writer noinherit nologin;
+  end if;
+end;
+$$;
+
+grant catalog_publication_writer to postgres;
+alter role catalog_publication_writer with bypassrls;
+
 alter table public.catalog_publications enable row level security;
 revoke all on table public.catalog_publications
-  from public, anon, authenticated, service_role;
+from public, anon, authenticated, service_role;
 grant select on table public.catalog_publications to service_role;
+grant select, insert, update on table public.catalog_publications
+to catalog_publication_writer;
+
+create policy catalog_publication_writer_select
+on public.catalog_publications
+for select to catalog_publication_writer
+using (true);
+
+create policy catalog_publication_writer_insert
+on public.catalog_publications
+for insert to catalog_publication_writer
+with check (true);
 
 create function public.prevent_catalog_publication_changes()
 returns trigger
@@ -42,7 +67,7 @@ for each row execute function public.prevent_catalog_publication_changes();
 create or replace function private.reject_locked_candidate_snapshot()
 returns trigger
 language plpgsql
-security definer
+security invoker
 set search_path = ''
 as $$
 declare
@@ -90,8 +115,7 @@ begin
     );
   end if;
 
-  if is_locked
-    and coalesce(current_setting('app.catalog_publication_transition', true), 'off') <> 'on' then
+  if is_locked and current_user <> 'catalog_publication_writer' then
     raise exception 'candidate_snapshot_locked' using errcode = '55000';
   end if;
 
@@ -145,8 +169,7 @@ begin
     ) into is_approved_reference;
   end if;
 
-  if is_approved_reference
-    and coalesce(current_setting('app.catalog_publication_transition', true), 'off') <> 'on' then
+  if is_approved_reference and current_user <> 'catalog_publication_writer' then
     raise exception 'Approved content references are append-only'
       using errcode = '55000';
   end if;
@@ -397,8 +420,6 @@ begin
     p_next_review_at
   );
 
-  perform set_config('app.catalog_publication_transition', 'on', true);
-
   update public.preparations
   set is_active = true
   where id = preparation_record.id;
@@ -421,6 +442,32 @@ begin
 end;
 $$;
 
+grant select on table public.catalog_review_cases,
+  public.content_revisions,
+  public.preparations,
+  public.sources,
+  public.content_retirements,
+  public.catalog_review_submissions,
+  public.catalog_review_submission_approval_references,
+  public.catalog_owner_adjudications
+  to catalog_publication_writer;
+grant update on table public.content_revisions, public.preparations
+  to catalog_publication_writer;
+grant update on table public.catalog_review_cases
+  to catalog_publication_writer;
+grant usage, create on schema public to catalog_publication_writer;
+grant usage on schema private to catalog_publication_writer;
+grant execute on function public.lock_operational_control(text)
+  to catalog_publication_writer;
+grant execute on function public.get_catalog_review_eligibility(text)
+  to catalog_publication_writer;
+grant execute on function private.candidate_snapshot_locked(text)
+  to catalog_publication_writer, service_role;
+alter function public.publish_catalog_review_case(
+  text, text, text, text, date, date
+) owner to catalog_publication_writer;
+revoke create on schema public from catalog_publication_writer;
+
 revoke all on function public.publish_catalog_review_case(
   text, text, text, text, date, date
 ) from public, anon, authenticated;
@@ -441,43 +488,73 @@ stable
 security definer
 set search_path = ''
 as $$
-  select distinct on (preparations.id)
-    preparations.id,
-    preparations.food_id,
-    foods.name,
-    preparations.slug,
-    content_revisions.id
-  from public.preparations
-  join public.foods on foods.id = preparations.food_id
-  join public.content_revisions
-    on content_revisions.preparation_id = preparations.id
-  join public.catalog_publications publication
-    on publication.revision_id = content_revisions.id
-  join public.catalog_review_cases review_case
-    on review_case.id = publication.case_id
-   and review_case.revision_id = content_revisions.id
-  join public.sources on sources.id = content_revisions.source_id
-  where preparations.is_active
-    and content_revisions.status = 'approved'
-    and review_case.classification = 'production_candidate'
-    and review_case.status = 'completed'
-    and publication.classification = 'production_candidate'
-    and publication.approved_at = content_revisions.approved_at
-    and publication.next_review_at = content_revisions.next_review_at
-    and publication.next_review_at >= current_date
-    and nullif(btrim(content_revisions.reviewer_role), '') is not null
-    and content_revisions.reviewed_at is not null
-    and content_revisions.approved_at is not null
-    and content_revisions.next_review_at is not null
+  with latest_publication as (
+    select distinct on (preparations.id)
+      preparations.id as preparation_id,
+      preparations.food_id,
+      foods.name as food_name,
+      preparations.slug as preparation_slug,
+      preparations.is_active,
+      content_revisions.id as revision_id,
+      content_revisions.status as revision_status,
+      content_revisions.version as revision_version,
+      content_revisions.reviewer_role,
+      content_revisions.reviewed_at,
+      content_revisions.approved_at as revision_approved_at,
+      content_revisions.next_review_at as revision_next_review_at,
+      content_revisions.source_id,
+      review_case.classification as review_classification,
+      review_case.status as review_status,
+      publication.classification as publication_classification,
+      publication.approved_at as publication_approved_at,
+      publication.next_review_at as publication_next_review_at,
+      publication.published_at
+    from public.preparations
+    join public.foods on foods.id = preparations.food_id
+    join public.content_revisions
+      on content_revisions.preparation_id = preparations.id
+    join public.catalog_publications publication
+      on publication.revision_id = content_revisions.id
+    join public.catalog_review_cases review_case
+      on review_case.id = publication.case_id
+     and review_case.revision_id = content_revisions.id
+    order by preparations.id, content_revisions.version desc,
+      publication.published_at desc, publication.id desc
+  )
+  select latest_publication.preparation_id,
+    latest_publication.food_id,
+    latest_publication.food_name,
+    latest_publication.preparation_slug,
+    latest_publication.revision_id
+  from latest_publication
+  where latest_publication.is_active
+    and latest_publication.revision_status = 'approved'
+    and latest_publication.review_classification = 'production_candidate'
+    and latest_publication.review_status = 'completed'
+    and latest_publication.publication_classification = 'production_candidate'
+    and latest_publication.publication_approved_at =
+      latest_publication.revision_approved_at
+    and latest_publication.publication_next_review_at =
+      latest_publication.revision_next_review_at
+    and latest_publication.publication_next_review_at >= current_date
+    and nullif(btrim(latest_publication.reviewer_role), '') is not null
+    and latest_publication.reviewed_at is not null
+    and latest_publication.revision_approved_at is not null
+    and latest_publication.revision_next_review_at is not null
+    and exists (
+      select 1
+      from public.sources
+      where sources.id = latest_publication.source_id
+    )
     and not exists (
       select 1
       from public.content_retirements
-      where content_retirements.revision_id = content_revisions.id
+      where content_retirements.revision_id = latest_publication.revision_id
     )
     and exists (
       select 1
       from public.revision_visual_requirements requirement
-      where requirement.revision_id = content_revisions.id
+      where requirement.revision_id = latest_publication.revision_id
         and requirement.requirement_declared
         and (
           not requirement.visual_required
@@ -485,7 +562,7 @@ as $$
             select 1
             from public.revision_visuals association
             join public.catalog_visuals visual on visual.id = association.visual_id
-            where association.revision_id = content_revisions.id
+            where association.revision_id = latest_publication.revision_id
           )
         )
     )
@@ -493,22 +570,21 @@ as $$
       select 1
       from public.revision_tags
       join public.tags on tags.id = revision_tags.tag_id
-      where revision_tags.revision_id = content_revisions.id
+      where revision_tags.revision_id = latest_publication.revision_id
         and tags.kind = 'skill'
     )
     and exists (
       select 1
       from public.revision_tags
       join public.tags on tags.id = revision_tags.tag_id
-      where revision_tags.revision_id = content_revisions.id
+      where revision_tags.revision_id = latest_publication.revision_id
         and tags.kind = 'allergen'
     )
     and exists (
       select 1
       from public.storage_rules
-      where storage_rules.revision_id = content_revisions.id
-    )
-  order by preparations.id, content_revisions.version desc;
+      where storage_rules.revision_id = latest_publication.revision_id
+    );
 $$;
 
 create or replace function public.list_published_preparations_unchecked()

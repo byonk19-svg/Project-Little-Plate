@@ -164,7 +164,11 @@ describe("catalog import RPC boundaries", () => {
         "id",
         (envelope.payload as { foods: Array<{ id: string }> }).foods[0].id
       );
-    expect(changed.error === null || changed.error.code === "55000").toBe(true);
+    expect(
+      changed.error === null ||
+        changed.error.code === "55000" ||
+        changed.error.code === "42501"
+    ).toBe(true);
     const unchanged = await admin
       .from("foods")
       .select("name")

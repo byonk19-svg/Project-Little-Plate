@@ -465,3 +465,38 @@ Validation evidence for this slice:
   independently passing stages completed; no stage reported a test failure.
   No push, PR, merge, real-food pilot, or Ticket 23D/23E work is authorized in
   this slice.
+
+### Ticket 23C High-finding corrections
+
+The final implementation review identified two high-severity gaps. This
+correction remains limited to those findings and does not begin Ticket 23D or
+23E, add real catalog content, or change UI, auth, email, seed, or broader
+architecture behavior.
+
+- `current_published_preparations()` now selects the latest publication proof
+  for each preparation before evaluating expiry, retirement, approval, source,
+  visual, tag, and storage requirements. An invalid successor therefore makes
+  the lineage unavailable; the read boundary never falls back to an older
+  proof. Foods, detail, Today/Week, planner, feeding-eligibility, and manual
+  meal-planning reads continue to consume this same boundary.
+- The former session-GUC authorization bypass is removed. Publication writes
+  run under the non-login `catalog_publication_writer` database role through
+  the controlled SECURITY DEFINER RPC. The service role retains read-only
+  access needed by existing fixture/read helpers but has no direct insert,
+  update, or delete privilege on publication proofs; frozen snapshot triggers
+  authorize only the dedicated database role and do not inspect caller-set
+  session state.
+- Focused local-Supabase coverage proves visible A, visible replacing B,
+  expired/retired B hiding both B and A, retained historical proofs not
+  re-entering public reads, direct service-role DML/GUC attempts failing at
+  both transaction and session scope, and controlled RPC replay remaining
+  atomic and idempotent.
+
+Correction validation: format, lint, typecheck, 129 unit tests,
+catalog-source checks, production build, clean Supabase reset, database lint,
+database advisors, the full integration suite (12 files, 91 tests), the full
+Playwright suite (19 tests), whitespace checks, and `git diff --check` all
+passed. The composite `pnpm verify` command was not used as the evidence
+source because its local runner budget is shorter than the combined database,
+integration, and browser stages; each stage was run independently and passed.
+No push or PR creation is authorized here.

@@ -1,3 +1,6 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { beforeAll, describe, expect, test } from "vitest";
 
@@ -10,6 +13,23 @@ import {
 let status: LocalSupabaseStatus;
 let admin: SupabaseClient;
 let anonymous: SupabaseClient;
+const execFileAsync = promisify(execFile);
+
+async function runDatabaseCommand(sql: string): Promise<void> {
+  await execFileAsync("docker", [
+    "exec",
+    "supabase_db_mealboard-baby",
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    "postgres",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-c",
+    sql
+  ]);
+}
 
 const rpc = async (
   client: SupabaseClient,
@@ -242,6 +262,36 @@ describe("catalog publication gate", () => {
     });
   });
 
+  beforeAll(async () => {
+    await runDatabaseCommand(`
+      create or replace function public.test_catalog_guc_mutation(
+        p_revision_id text,
+        p_is_local boolean
+      ) returns jsonb
+      language plpgsql
+      security invoker
+      set search_path = public, pg_catalog
+      as $function$
+      begin
+        perform pg_catalog.set_config(
+          'app.catalog_publication_transition',
+          'on',
+          p_is_local
+        );
+        update public.content_revisions
+        set method = method || '-spoofed'
+        where id = p_revision_id;
+        return jsonb_build_object('updated', true);
+      end;
+      $function$;
+      revoke all on function public.test_catalog_guc_mutation(text, boolean)
+        from public, anon, authenticated;
+      grant execute on function public.test_catalog_guc_mutation(text, boolean)
+        to service_role;
+      notify pgrst, 'reload schema';
+    `);
+  });
+
   test("publishes one completed eligible candidate through every public catalog read", async () => {
     const candidate = candidateEnvelope();
     await importCandidate(candidate);
@@ -376,6 +426,172 @@ describe("catalog publication gate", () => {
     expect(afterReplacement.data).toMatchObject({
       revision_id: successor.revisionId
     });
+
+    const retiredSuccessor = await admin.from("content_retirements").insert({
+      revision_id: successor.revisionId,
+      retired_at: "2026-08-05",
+      reason: "Synthetic successor retirement regression"
+    });
+    expect(retiredSuccessor.error).toBeNull();
+    const afterRetirement = await rpc(anonymous, "get_published_preparation", {
+      p_slug: first.slug
+    });
+    expect(afterRetirement.error).toBeNull();
+    expect(afterRetirement.data).toBeNull();
+  });
+
+  test("an expired successor does not reactivate its historical predecessor", async () => {
+    const first = candidateEnvelope();
+    await importCandidate(first);
+    await importQualifiedReviews(first, [
+      "feeding_safety_developmental",
+      "allergy_restriction",
+      "nutrition_age_stage",
+      "taxonomy_labeling",
+      "storage_handling"
+    ]);
+    await complete(first);
+    const firstPublicationId = ids("publication");
+    expect(
+      (
+        await rpc(admin, "publish_catalog_review_case", {
+          p_publication_id: firstPublicationId,
+          p_case_id: first.caseId,
+          p_release_owner_decision_reference: `owner-decision-${firstPublicationId}`,
+          p_source_validation_reference: `source-validation-${firstPublicationId}`,
+          p_approved_at: "2026-08-04",
+          p_next_review_at: "2026-12-31"
+        })
+      ).error
+    ).toBeNull();
+
+    const successor = successorEnvelope(first);
+    await importCandidate(successor);
+    await importQualifiedReviews(successor, [
+      "feeding_safety_developmental",
+      "allergy_restriction",
+      "nutrition_age_stage",
+      "taxonomy_labeling",
+      "storage_handling"
+    ]);
+    await complete(successor);
+    const successorPublicationId = ids("publication");
+    expect(
+      (
+        await rpc(admin, "publish_catalog_review_case", {
+          p_publication_id: successorPublicationId,
+          p_case_id: successor.caseId,
+          p_release_owner_decision_reference: `owner-decision-${successorPublicationId}`,
+          p_source_validation_reference: `source-validation-${successorPublicationId}`,
+          p_approved_at: "2026-08-04",
+          p_next_review_at: "2026-12-31"
+        })
+      ).error
+    ).toBeNull();
+
+    await runDatabaseCommand(`
+      alter table public.catalog_publications disable trigger catalog_publications_append_only;
+      update public.catalog_publications
+      set next_review_at = date '2026-08-04'
+      where id = '${successorPublicationId}';
+      alter table public.catalog_publications enable trigger catalog_publications_append_only;
+    `);
+
+    const expiredDetail = await rpc(anonymous, "get_published_preparation", {
+      p_slug: first.slug
+    });
+    expect(expiredDetail.error).toBeNull();
+    expect(expiredDetail.data).toBeNull();
+    expect(
+      (await publishedItems()).some((item) => item.slug === first.slug)
+    ).toBe(false);
+  });
+
+  test("service-role GUC attempts cannot mutate a frozen publication snapshot", async () => {
+    const candidate = candidateEnvelope();
+    await importCandidate(candidate);
+    await importQualifiedReviews(candidate, [
+      "feeding_safety_developmental",
+      "allergy_restriction",
+      "nutrition_age_stage",
+      "taxonomy_labeling",
+      "storage_handling"
+    ]);
+    await complete(candidate);
+    const publicationId = ids("publication");
+    const published = await rpc(admin, "publish_catalog_review_case", {
+      p_publication_id: publicationId,
+      p_case_id: candidate.caseId,
+      p_release_owner_decision_reference: `owner-decision-${publicationId}`,
+      p_source_validation_reference: `source-validation-${publicationId}`,
+      p_approved_at: "2026-08-04",
+      p_next_review_at: "2026-12-31"
+    });
+    expect(published.error).toBeNull();
+
+    for (const p_is_local of [false, true]) {
+      const attempted = await rpc(admin, "test_catalog_guc_mutation", {
+        p_revision_id: candidate.revisionId,
+        p_is_local
+      });
+      expect(attempted.error).not.toBeNull();
+    }
+
+    const unchanged = await admin
+      .from("content_revisions")
+      .select("method")
+      .eq("id", candidate.revisionId)
+      .single();
+    expect(unchanged.error).toBeNull();
+    expect(unchanged.data).toMatchObject({ method: "Synthetic method" });
+
+    const directUpdate = await admin
+      .from("catalog_publications")
+      .update({ release_owner_decision_reference: "direct-update" })
+      .eq("id", publicationId)
+      .select("id");
+    expect(directUpdate.error).not.toBeNull();
+
+    const directDelete = await admin
+      .from("catalog_publications")
+      .delete()
+      .eq("id", publicationId)
+      .select("id");
+    expect(directDelete.error).not.toBeNull();
+
+    const directInsert = await admin.from("catalog_publications").insert({
+      id: ids("direct-publication"),
+      case_id: candidate.caseId,
+      revision_id: candidate.revisionId,
+      classification: "production_candidate",
+      effective_submission_ids: [],
+      effective_approval_reference_ids: [],
+      effective_adjudication_ids: [],
+      release_owner_decision_reference: "direct-insert",
+      source_validation_reference: "direct-insert",
+      approved_at: "2026-08-04",
+      next_review_at: "2026-12-31"
+    });
+    expect(directInsert.error).not.toBeNull();
+
+    const stillPublished = await rpc(anonymous, "get_published_preparation", {
+      p_slug: candidate.slug
+    });
+    expect(stillPublished.error).toBeNull();
+    expect(stillPublished.data).toMatchObject({
+      revision_id: candidate.revisionId
+    });
+
+    const replay = await rpc(admin, "publish_catalog_review_case", {
+      p_publication_id: publicationId,
+      p_case_id: candidate.caseId,
+      p_release_owner_decision_reference: `owner-decision-${publicationId}`,
+      p_source_validation_reference: `source-validation-${publicationId}`,
+      p_approved_at: "2026-08-04",
+      p_next_review_at: "2026-12-31"
+    });
+    expect(replay.error).toBeNull();
+    expect(replay.data).toMatchObject({ published: true, replayed: true });
   });
 
   test("keeps draft, in-review, changes-requested, completed-unpublished, and synthetic rows invisible", async () => {

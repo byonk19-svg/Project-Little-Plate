@@ -20,6 +20,10 @@ guidance.
 
 ## Reviewer roles and workflow
 
+The operational lifecycle, owner-adjudication boundary, re-review rules,
+retirement handling, and evidence-retention checklist are in
+[Catalog review operations](../operations/catalog-review-operations.md).
+
 The packet names required reviewer roles but leaves identity and approval
 references blank. Reviewers provide domain recommendations; they do not edit
 code, migrations, seed data, or repository records. The repository owner

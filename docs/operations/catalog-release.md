@@ -3,6 +3,12 @@
 Production catalog expansion is a human-approved release operation. Synthetic
 fixtures prove the pipeline but never count toward the 40-to-60-food target.
 
+The review lifecycle and owner boundary are defined in [Catalog review
+operations](./catalog-review-operations.md). Complete that operating checklist
+before treating a package as release-ready. This runbook does not authorize a
+release, replace qualified review, or permit owner adjudication to clear a
+domain block.
+
 ## Required package
 
 The version-controlled package must contain structured sources, controlled
@@ -26,26 +32,41 @@ Do not put private reviewer contact details in the catalog package or issue.
 
 ## Release sequence
 
-1. Start from a clean database and import the package through
-   `import_catalog_fixture`. A new approved revision whose next-review date is
-   already past is rejected. An exact retry of an existing approved revision
-   remains idempotent.
-2. Call `get_catalog_release_report` as the service role with the intended
+1. Confirm the review case has completed the documented lifecycle: all current
+   dimensions have qualified evidence, any compatible conflict has an explicit
+   owner adjudication, no domain block or unresolved follow-up remains, and
+   every retirement/overdue disposition is recorded in the release issue.
+2. Start from a clean database and import the candidate package through
+   `import_catalog_candidate_package`, then import each qualified review packet
+   through `import_catalog_review_packet`. A new approved revision whose
+   next-review date is already past is rejected. An exact retry of an existing
+   candidate or publication request remains idempotent. The legacy
+   `import_catalog_fixture` helper is test-only and is not a production release
+   path.
+3. Call `get_catalog_review_eligibility` for each exact case and retain its
+   machine-readable result. Only completed, eligible production candidates may
+   proceed to the controlled publication RPC.
+4. Call `get_catalog_release_report` as the service role with the intended
    release date. Record the structural candidate count, overdue revision IDs,
    and missing visual-requirement declarations. This report deliberately keeps
    `beta_ready` false and does not certify reviewer authority.
-3. Run `pnpm catalog:check-sources`. Any inaccessible URL is a release failure
+5. Run `pnpm catalog:check-sources`. Any inaccessible URL is a release failure
    until a reviewer supplies a corrected, newly versioned source record. The
    command checks only sources referenced by current published candidates,
    validates every redirect, and refuses local or private network targets.
-4. Run `pnpm verify`.
-5. Exercise Foods search plus category, allergen-metadata, familiarity,
+6. Run `pnpm verify`.
+7. Exercise Foods search plus category, allergen-metadata, familiarity,
    caller-specific skill compatibility, preparation-time, and storage filters
    on a representative mobile viewport. Confirm required reviewed visuals,
    alt text, and rights attribution render on detail.
-6. Record rejected records and reasons, reviewer evidence locations, source
+8. Record rejected records and reasons, reviewer evidence locations, source
    report, visual/license evidence, final count, and approval owner in the
    active release issue.
+
+For emergency retirement after release, use the idempotent
+`node scripts/run-operator-action.mjs retire-content` operation described in
+[Incident response](./incident-response.md). Do not edit a reviewed revision
+or publication proof directly.
 
 Visual asset records are append-only and require an asset reference, original
 or licensed rights basis, rights holder, meaningful alt text, and review date.

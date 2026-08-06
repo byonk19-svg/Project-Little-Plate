@@ -499,4 +499,13 @@ Playwright suite (19 tests), whitespace checks, and `git diff --check` all
 passed. The composite `pnpm verify` command was not used as the evidence
 source because its local runner budget is shorter than the combined database,
 integration, and browser stages; each stage was run independently and passed.
-No push or PR creation is authorized here.
+
+Publication amendment evidence: the first GitHub Verify run exposed fixture
+leakage from this suite into feeding-eligibility reads. The test now retires
+all imported synthetic revisions in `afterAll`, preserving historical rows
+without leaving them publicly visible. The migration also grants `service_role`
+schema usage on `private` while retaining the dedicated non-login writer role
+and immutable DML boundary. Clean reset, full integration (12 files, 91 tests),
+129 unit tests, formatting, lint, typecheck, catalog-source checks, production
+build, database lint/advisors, and `git diff --check` pass. GitHub Verify remains
+the publication gate; no Ticket 23D or 23E work has started.

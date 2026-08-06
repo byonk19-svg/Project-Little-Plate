@@ -457,6 +457,7 @@ grant update on table public.catalog_review_cases
   to catalog_publication_writer;
 grant usage, create on schema public to catalog_publication_writer;
 grant usage on schema private to catalog_publication_writer;
+grant usage on schema private to service_role;
 grant execute on function public.lock_operational_control(text)
   to catalog_publication_writer;
 grant execute on function public.get_catalog_review_eligibility(text)

@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { canonicalizeCatalogImport } from "../../src/modules/catalog-import/canonical";
 import {
@@ -13,6 +13,7 @@ import {
 let status: LocalSupabaseStatus;
 let admin: SupabaseClient;
 let anonymous: SupabaseClient;
+const importedRevisionIds = new Set<string>();
 const execFileAsync = promisify(execFile);
 
 async function runDatabaseCommand(sql: string): Promise<void> {
@@ -176,6 +177,7 @@ async function importCandidate(candidate: Candidate) {
     p_envelope: candidate.envelope
   });
   expect(result.error).toBeNull();
+  importedRevisionIds.add(candidate.revisionId);
 }
 
 async function importQualifiedReviews(
@@ -290,6 +292,37 @@ describe("catalog publication gate", () => {
         to service_role;
       notify pgrst, 'reload schema';
     `);
+  });
+
+  afterAll(async () => {
+    if (importedRevisionIds.size === 0) {
+      return;
+    }
+
+    const revisionIds = [...importedRevisionIds];
+    const existing = await admin
+      .from("content_retirements")
+      .select("revision_id")
+      .in("revision_id", revisionIds);
+    expect(existing.error).toBeNull();
+
+    const existingIds = new Set(
+      (existing.data ?? []).map((row) => row.revision_id as string)
+    );
+    const missing = revisionIds
+      .filter((revisionId) => !existingIds.has(revisionId))
+      .map((revisionId) => ({
+        revision_id: revisionId,
+        retired_at: "2026-08-05",
+        reason: "Synthetic publication gate fixture cleanup"
+      }));
+
+    if (missing.length === 0) {
+      return;
+    }
+
+    const cleanup = await admin.from("content_retirements").insert(missing);
+    expect(cleanup.error).toBeNull();
   });
 
   test("publishes one completed eligible candidate through every public catalog read", async () => {

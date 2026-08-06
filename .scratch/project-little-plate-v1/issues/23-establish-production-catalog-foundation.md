@@ -8,9 +8,8 @@ safety-sensitive values.
 
 **Status:** completed
 
-**Current slice:** Ticket 23C publication gate, implemented from fresh
-`origin/main` at `fc1fd1f1751ac171d370b458396daa1643aafdd1`. Ticket 23D-23E
-remain intentionally out of scope.
+**Current slice:** Ticket 23D review-operations documentation, starting from
+merged Ticket 23C on `main`. Ticket 23E remains intentionally out of scope.
 
 **23A merge evidence:** PR #3 was squash-merged into `main` as
 `2369f7a6d968fc6ab3d1e22035d634c6c0f81067`; GitHub Verify passed on the final
@@ -508,4 +507,23 @@ schema usage on `private` while retaining the dedicated non-login writer role
 and immutable DML boundary. Clean reset, full integration (12 files, 91 tests),
 129 unit tests, formatting, lint, typecheck, catalog-source checks, production
 build, database lint/advisors, and `git diff --check` pass. GitHub Verify remains
-the publication gate; no Ticket 23D or 23E work has started.
+the publication gate; no Ticket 23E work has started.
+
+## Comments
+
+### Ticket 23D documentation evidence
+
+Ticket 23D is documentation-only and starts from merged Ticket 23C on `main`.
+The new [catalog review operations](../../../docs/operations/catalog-review-operations.md)
+guide records the existing database contract for reviewer roles, owner
+adjudication, conflicts, re-review, blocked-case clearing, retirement/overdue
+handling, publication handoff, evidence retention, and fail-closed stop
+conditions. It does not add safety guidance, production rows, schema, RPCs,
+UI, reviewer identity data, or Ticket 23E content selection.
+
+The catalog-review packet links to the operations guide, and the release
+runbook now requires the documented lifecycle checks before package release.
+Remaining risk is human owner/qualified-reviewer walkthrough and a separately
+authorized content-scope decision; Ticket 23E remains unstarted. Documentation
+validation passed with `pnpm format:check` and `git diff --check`; no schema,
+production, migration, seed, UI, auth, or email files changed.

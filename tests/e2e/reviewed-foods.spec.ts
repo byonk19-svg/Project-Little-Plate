@@ -3,6 +3,7 @@ import { execSync } from "node:child_process";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 
+import { publishCatalogFixtureForTest } from "../integration/support/catalog-publication";
 const targetSizeFoods = Array.from({ length: 58 }, (_, index) => ({
   id: `food-e2e-scale-${index}`,
   slug: `synthetic-scale-food-${index}`,
@@ -208,11 +209,7 @@ test.beforeAll(async () => {
   const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  const result = await admin.rpc("import_catalog_fixture", {
-    p_fixture: fixture
-  });
-
-  expect(result.error).toBeNull();
+  await publishCatalogFixtureForTest(admin, fixture);
 });
 
 test("Foods exposes only published preparations and reviewed provenance", async ({

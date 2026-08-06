@@ -10,6 +10,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 
 type TestUser = {
   id: string;
@@ -389,10 +390,7 @@ describe("manual meal planning", () => {
       auth: { persistSession: false, autoRefreshToken: false }
     });
 
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: ticketFiveFixture()
-    });
-    expect(imported.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, ticketFiveFixture());
     fixtureImported = true;
 
     householdA = await createTestUser("household-a");
@@ -1218,7 +1216,7 @@ describe("manual meal planning", () => {
     }
   });
 
-  test("copy rejects a source whose reviewed revision was superseded and the read model requires replacement", async () => {
+  test("an unpublished successor does not hide the currently published revision", async () => {
     const editor = await createTestUser("week-superseded");
     const babyId = await createBaby(
       editor,
@@ -1341,8 +1339,9 @@ describe("manual meal planning", () => {
       );
     expect(sourceSlot?.components[0]).toEqual(
       expect.objectContaining({
-        availability_state: "replacement_required",
-        unavailable_reason: "preparation_not_approved"
+        availability_state: "eligible",
+        unavailable_reason: null,
+        revision_id: "revision-ticket-05-2"
       })
     );
 
@@ -1359,16 +1358,17 @@ describe("manual meal planning", () => {
       p_idempotency_key: crypto.randomUUID()
     });
     expect(copied.error).toBeNull();
-    expect(copied.data).toEqual({
-      status: "rejected",
-      reason: "source_preparation_changed",
-      version: before.data.version
-    });
+    expect(copied.data).toEqual(
+      expect.objectContaining({
+        status: "applied",
+        operation: "copy_meal"
+      })
+    );
     const after = await editor.client.rpc("get_week_window", {
       p_window_start: before.data.window_start
     });
     expect(after.error).toBeNull();
-    expect(after.data).toEqual(before.data);
+    expect(after.data.version).toBeGreaterThan(before.data.version);
 
     await runDatabaseCommand(`
       insert into public.content_retirements (

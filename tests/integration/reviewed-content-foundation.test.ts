@@ -367,11 +367,10 @@ describe("reviewed content foundation", () => {
     const publishedSlugs = (published.data as Array<{ slug: string }>).map(
       ({ slug }) => slug
     );
-    expect(publishedSlugs).toEqual(
-      expect.arrayContaining(["synthetic-supported", "synthetic-unsupported"])
-    );
     expect(publishedSlugs).not.toEqual(
       expect.arrayContaining([
+        "synthetic-supported",
+        "synthetic-unsupported",
         "synthetic-draft",
         "synthetic-in-review",
         "synthetic-retired",
@@ -539,36 +538,11 @@ describe("reviewed content foundation", () => {
       p_slug: "synthetic-supported"
     });
     expect(detail.error).toBeNull();
-    expect(detail.data).toEqual(
-      expect.objectContaining({
-        food_name: "Synthetic Test Food",
-        preparation_name: "Synthetic Supported Preparation",
-        method: "TEST FIXTURE METHOD",
-        shape_texture: "TEST FIXTURE TEXTURE",
-        reviewer_role: "synthetic_test_reviewer",
-        source: expect.objectContaining({
-          publisher: "Synthetic fixture publisher"
-        }),
-        tags: expect.arrayContaining([
-          expect.objectContaining({ kind: "skill" }),
-          expect.objectContaining({ kind: "allergen" })
-        ]),
-        storage_rules: expect.arrayContaining([
-          expect.objectContaining({ deadline_kind: "discard_after" }),
-          expect.objectContaining({ deadline_kind: "quality_by" })
-        ])
-      })
-    );
+    expect(detail.data).toBeNull();
 
     const unsupported = await anonymous.rpc("get_published_preparation", {
       p_slug: "synthetic-unsupported"
     });
-    expect(unsupported.data.storage_rules).toEqual([
-      expect.objectContaining({
-        support_status: "unsupported",
-        deadline_kind: null,
-        duration_hours: null
-      })
-    ]);
+    expect(unsupported.data).toBeNull();
   });
 });

@@ -8,6 +8,7 @@ import {
   type Page
 } from "@playwright/test";
 
+import { publishCatalogFixtureForTest } from "../integration/support/catalog-publication";
 import { waitForMagicLink } from "./support/passwordless-auth";
 
 const fixtureRunId = crypto.randomUUID();
@@ -216,13 +217,7 @@ test.beforeAll(async () => {
   admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  expect(
-    (
-      await admin.rpc("import_catalog_fixture", {
-        p_fixture: fixture
-      })
-    ).error
-  ).toBeNull();
+  await publishCatalogFixtureForTest(admin, fixture);
   expect(
     (
       await admin.rpc("import_storage_transition_rules", {

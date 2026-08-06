@@ -8,6 +8,7 @@ import {
   type Page
 } from "@playwright/test";
 
+import { publishCatalogFixtureForTest } from "../integration/support/catalog-publication";
 import { waitForMagicLink } from "./support/passwordless-auth";
 
 const fixture = {
@@ -107,10 +108,7 @@ test.beforeAll(async () => {
   const admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false }
   });
-  const result = await admin.rpc("import_catalog_fixture", {
-    p_fixture: fixture
-  });
-  expect(result.error).toBeNull();
+  await publishCatalogFixtureForTest(admin, fixture);
 });
 
 test("a caregiver configures conservative eligibility and revises it later", async ({

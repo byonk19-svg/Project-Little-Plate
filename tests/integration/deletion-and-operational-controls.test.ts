@@ -9,6 +9,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 import { buildPlannerGenerationAttempt } from "../../src/modules/planner/generation";
 
 type TestUser = {
@@ -413,13 +414,7 @@ describe("deletion and operational controls", () => {
     admin = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    expect(
-      (
-        await admin.rpc("import_catalog_fixture", {
-          p_fixture: contentFixture
-        })
-      ).error
-    ).toBeNull();
+    await publishCatalogFixtureForTest(admin, contentFixture);
     expect(
       (
         await admin.rpc("import_storage_rule_profiles", {

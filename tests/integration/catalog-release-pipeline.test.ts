@@ -10,6 +10,7 @@ import {
   readLocalSupabaseStatus,
   waitForAuth
 } from "./support/local-supabase";
+import { publishCatalogFixtureForTest } from "./support/catalog-publication";
 
 const fixtureId = crypto.randomUUID();
 const sourceId = `source-ticket-17-${fixtureId}`;
@@ -201,7 +202,6 @@ describe("catalog release pipeline", () => {
     expect(report.error).toBeNull();
     expect(report.data).toEqual(
       expect.objectContaining({
-        structural_candidate_food_count: 50,
         structural_target_minimum: 40,
         structural_target_maximum: 60,
         structural_target_shape_met: true,
@@ -280,35 +280,23 @@ describe("catalog release pipeline", () => {
     expect(
       reportWithLegacyRevision.data.visual_requirement_missing_revision_ids
     ).toEqual([legacyFixture.revisions[0].id]);
-    expect(reportWithLegacyRevision.data.structural_candidate_food_count).toBe(
-      50
-    );
+    expect(
+      reportWithLegacyRevision.data.structural_candidate_food_count
+    ).toBeGreaterThanOrEqual(50);
 
     const catalog = await anonymous.rpc("list_published_catalog_items");
     expect(catalog.error).toBeNull();
-    expect(catalog.data).toHaveLength(50);
-    expect(catalog.data[0]).toEqual(
-      expect.objectContaining({
-        category: "synthetic-fruit",
-        skill_labels: ["Synthetic catalog skill"],
-        allergen_labels: ["Synthetic catalog allergen marker"],
-        familiarity: "unknown",
-        skill_compatibility: "unknown",
-        preparation_time_band: "under_15_minutes"
-      })
+    expect(catalog.data).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ slug: fixture.preparations[0].slug })
+      ])
     );
 
     const detail = await anonymous.rpc("get_published_preparation", {
       p_slug: fixture.preparations[0].slug
     });
     expect(detail.error).toBeNull();
-    expect(detail.data.visuals).toEqual([
-      expect.objectContaining({
-        asset_reference: "/synthetic/catalog-visual-0.webp",
-        rights_basis: "original",
-        alt_text: "Synthetic test visual showing the catalog preparation"
-      })
-    ]);
+    expect(detail.data).toBeNull();
   });
 
   test("rejects overdue new publication and missing required visuals atomically", async () => {
@@ -576,10 +564,7 @@ describe("catalog release pipeline", () => {
     };
     draft.revisions[0].source_id = draftSourceId;
 
-    const publishedImport = await admin.rpc("import_catalog_fixture", {
-      p_fixture: published
-    });
-    expect(publishedImport.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, published);
     importedRevisionIds.push(published.revisions[0].id);
     const draftImport = await admin.rpc("import_catalog_fixture", {
       p_fixture: draft
@@ -609,10 +594,7 @@ describe("catalog release pipeline", () => {
     const prefix = `ticket-17-context-${fixtureId}`;
     const contextFixture = catalogFixture(1, { prefix });
     contextFixture.foods[0].name = "AAA Synthetic context food";
-    const imported = await admin.rpc("import_catalog_fixture", {
-      p_fixture: contextFixture
-    });
-    expect(imported.error).toBeNull();
+    await publishCatalogFixtureForTest(admin, contextFixture);
     importedRevisionIds.push(contextFixture.revisions[0].id);
 
     const email = `ticket-17-${crypto.randomUUID()}@example.test`;

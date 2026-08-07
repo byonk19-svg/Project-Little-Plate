@@ -28,3 +28,12 @@ all review evidence needed for later private-pilot testing.
       planner, and manual meal planning.
 - [ ] Validation results and any externally missing qualified evidence are
       recorded in the local issue before handoff.
+
+## Intake packet prepared
+
+- Reviewer packet: `docs/catalog-review/private-pilot-review-packet.md`.
+- The packet pre-fills only the ten PRD candidate identities and the required
+  six-dimension evidence matrix. It contains no safety guidance or approval.
+- Ticket 25 remains blocked until qualified reviewers supply stable candidate
+  identifiers, source-backed values, privacy-safe authority references, and
+  complete decisions/evidence for every applicable dimension.

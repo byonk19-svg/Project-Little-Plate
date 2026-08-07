@@ -32,6 +32,9 @@ all review evidence needed for later private-pilot testing.
 ## Intake packet prepared
 
 - Reviewer packet: `docs/catalog-review/private-pilot-review-packet.md`.
+- Reviewer handoff: `docs/catalog-review/private-pilot-reviewer-request.md`.
+- Evidence map: `docs/research/2026-08-06-private-pilot-evidence-map.md`.
+- Research-only draft: `docs/catalog-review/private-pilot-research-draft.md`.
 - The packet pre-fills only the ten PRD candidate identities and the required
   six-dimension evidence matrix. It contains no safety guidance or approval.
 - Ticket 25 remains blocked until qualified reviewers supply stable candidate

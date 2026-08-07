@@ -70,7 +70,17 @@ Any change to safety semantics requires focused automated tests and review of af
 
 Public release of safety content requires the qualified review described in the product requirements.
 
-An AI model may later assist with non-safety tasks only when constrained to reviewed product data. It may not produce production values for the categories above.
+AI-assisted work is permitted within a bounded, non-safety scope. Agents and
+AI models may research public sources, assemble evidence maps, draft reviewer
+materials, normalize food identities and taxonomy, and prepare accessibility
+or rights metadata when those outputs do not assert safety guidance. They may
+also identify conflicts, missing evidence, and conservative fail-closed cases.
+
+Agents and AI models may not approve, publish, invent, infer, interpolate, or
+rewrite safety-critical production values. Qualified human review remains
+required for developmental suitability, preparation and serving guidance,
+allergen and reaction guidance, nutrition claims, cooking and handling rules,
+storage deadlines, medical copy, and any other safety-critical decision.
 
 Product and design principles
 

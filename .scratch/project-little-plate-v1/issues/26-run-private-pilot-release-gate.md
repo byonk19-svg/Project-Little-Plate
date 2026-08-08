@@ -5,10 +5,19 @@ for the owner and explicitly authorized testers, verify the populated
 parent-facing experience and release evidence, and record an explicit
 expand-or-stop decision without opening external caregiver access.
 
-**Blocked by:** 25 — Import and qualify the reviewed private-pilot package; 18
-— Pass the closed-beta gate
+**Blocked by:** 25 - Import and qualify the reviewed private-pilot package
 
-**Status:** ready-for-agent
+**Status:** needs-triage
+
+This umbrella is split into two ordered slices:
+
+- **26A:** establish the private runtime and explicit tester-access boundary;
+  this can proceed without catalog content.
+- **26B:** operate the populated ten-food private pilot after Ticket 25 and
+  26A are complete.
+
+Ticket 18 remains the authoritative gate for external caregiver beta. It is not
+a prerequisite for the owner/tester private pilot.
 
 - [ ] Only the owner and explicitly authorized testers can see the private
       pilot; anonymous and external caregiver reads remain blocked.

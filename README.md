@@ -128,6 +128,19 @@ fragment are rejected rather than changed. Leave the setting absent in
 environments without a local captured-email inbox; sign-in copy and behavior
 then remain unchanged.
 
+### Private dogfood access
+
+Set the server-only `PRIVATE_PILOT_ALLOWED_EMAILS` variable in a private
+deployment to a comma-separated list of explicitly authorized tester email
+addresses. Matching is case-insensitive and whitespace is ignored. When the
+variable is present, signed-out users and non-allowlisted users are redirected
+to sign-in and cannot bootstrap an application account. An explicitly empty or
+malformed value fails closed for everyone. Leave the variable absent for local
+development only; production also fails closed when the variable is omitted.
+
+Keep the deployment's Supabase Auth redirect allowlist limited to the private
+application URL and keep the deployment credentials out of the repository.
+
 ## Local development
 
 Start or resume the committed local Supabase stack:

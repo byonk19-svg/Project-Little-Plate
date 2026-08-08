@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 
 type LoginPageProps = {
   searchParams: Promise<{
+    access?: string;
     signedOut?: string;
   }>;
 };
@@ -47,6 +48,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="form-message form-message--success" role="status">
           You’re signed out. Your household data is still here for your next
           sign-in.
+        </p>
+      ) : null}
+
+      {params.access === "restricted" ? (
+        <p className="form-message form-message--error" role="alert">
+          This private pilot is limited to explicitly authorized testers.
         </p>
       ) : null}
 

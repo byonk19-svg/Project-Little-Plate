@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { readPublicEnvironment } from "@/config/environment";
+import {
+  canAccessPrivatePilot,
+  readClaimEmail,
+  readPrivatePilotAccess
+} from "@/config/private-pilot-access";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -18,6 +23,15 @@ export async function GET(request: NextRequest) {
 
   if (claimsError || !claimsData?.claims) {
     return NextResponse.redirect(redirectTo("/login?error=callback"));
+  }
+
+  if (
+    !canAccessPrivatePilot(
+      readClaimEmail(claimsData.claims),
+      readPrivatePilotAccess()
+    )
+  ) {
+    return NextResponse.redirect(redirectTo("/login?access=restricted"));
   }
 
   const { error: bootstrapError } = await supabase.rpc("bootstrap_account");

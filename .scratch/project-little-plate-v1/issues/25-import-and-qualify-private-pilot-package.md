@@ -7,7 +7,11 @@ all review evidence needed for later private-pilot testing.
 
 **Blocked by:** 24 — Record the ten-food private-pilot scope
 
-**Status:** ready-for-agent
+**Status:** needs-info
+
+Ticket 25 is blocked on externally supplied qualified review evidence. The
+repository contains the packet, source map, and research-only draft, but no
+agent may manufacture the required safety decisions or authority references.
 
 - [ ] The package contains exactly the ten scoped candidates and stable
       non-test identifiers.
@@ -40,3 +44,10 @@ all review evidence needed for later private-pilot testing.
 - Ticket 25 remains blocked until qualified reviewers supply stable candidate
   identifiers, source-backed values, privacy-safe authority references, and
   complete decisions/evidence for every applicable dimension.
+
+## Current blocker
+
+- **Needs information:** a qualified reviewer must return the completed packet
+  before any candidate can be imported or published.
+- The private runtime can proceed independently through Ticket 26A; the
+  populated pilot remains downstream of this content gate.

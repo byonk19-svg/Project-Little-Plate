@@ -185,6 +185,10 @@ pnpm test:e2e
 git diff --check
 ```
 
+The integration and E2E commands reset the local Supabase database before
+running their fixed-ID fixtures, so either suite can be rerun independently
+without stale fixture rows causing identity conflicts.
+
 The default Playwright configuration intentionally leaves
 `NEXT_PUBLIC_LOCAL_MAIL_URL` unset. Ticket 22's two local-email modes can be
 checked separately:

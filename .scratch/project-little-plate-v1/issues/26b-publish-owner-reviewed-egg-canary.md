@@ -56,8 +56,15 @@ limitation, not replaced with an invented value.
 - [x] Hosted rows confirm one `food-egg` record and one
   `private_dogfood_owner` publication; no seed or anonymous publication was
   created.
-- [ ] Hosted source checks, Foods, Week, Kitchen, Today, and storage lifecycle
-  are verified after publication.
+- [x] Hosted authenticated read-path smoke with a temporary bootstrapped user
+  returned Foods count `1`, Today `{status: unavailable,
+  reason: profile_unavailable}`, Week `{status: unavailable,
+  reason: profile_unavailable}`, Week edit options `[]`, Kitchen `{items: [],
+  status: unavailable}`, and Use Soon `{items: [], status: unavailable}`. The
+  temporary user was deleted after the check.
+- [ ] A real caregiver profile and batch lifecycle still need the user-owned
+  dogfood walkthrough; no temporary profile or batch was retained to simulate
+  that step.
 
 ## Non-goals
 

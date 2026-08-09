@@ -83,3 +83,8 @@ signed-in caregiver's recorded profile. When that profile is unavailable, the
 catalog reports those values as unknown rather than inferring them.
 
 The production seed remains empty until a qualified package is supplied.
+
+The private dogfood owner path is separate from this external-release runbook:
+it uses `private_dogfood_owner` owner approval and controlled private
+publication, remains visible only to authenticated private-pilot reads, and
+must never be counted as qualified external content or used to satisfy Ticket 18.

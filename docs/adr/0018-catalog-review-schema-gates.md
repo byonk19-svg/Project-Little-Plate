@@ -8,7 +8,9 @@
 Candidate catalog revisions need an auditable review boundary before a later
 release operation can publish them. Qualified recommendations, evidence, and
 owner adjudications must remain historical records; a mutable approval flag
-would lose the provenance needed to explain a release decision.
+would lose the provenance needed to explain a release decision. Private owner
+dogfood has a separate, explicitly marked approval record and is not a
+qualified-release substitute.
 
 ## Decision
 
@@ -18,14 +20,17 @@ evidence, and append-only owner adjudications are persisted in Supabase. A
 service-role-only eligibility function derives the effective review per
 dimension from explicit supersession links and returns stable reason codes.
 Case transitions are controlled by a service-role function and never publish a
-revision. Public catalog reads remain unchanged and candidate/fixture content
-is not seeded.
+revision. Public catalog reads remain qualified-only for anonymous callers;
+authenticated private-dogfood reads may consume a separately published owner
+standard. Candidate/fixture content is not seeded.
 
 Owner adjudication records a compatible choice or return/decline decision in an
 append-only supersession chain. Only the chain tip is effective; adjudication
-cannot replace qualified domain review or clear a domain block. Conditional
-visual review uses the existing revision visual metadata, and storage reviews
-must state whether reviewed support is present.
+cannot replace qualified domain review or clear a domain block. A separate
+`private_dogfood_owner` approval records the owner's explicit decision against
+an attributable draft, but cannot make the revision externally qualified.
+Conditional visual review uses the existing revision visual metadata, and
+storage reviews must state whether reviewed support is present.
 
 The `blocked` workflow state is entered only from `in_review` or
 `changes_requested` when a current unsuperseded qualified `Block` exists. It

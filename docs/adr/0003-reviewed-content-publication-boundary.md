@@ -35,9 +35,11 @@ qualified, production-ready food fixture.
 - Keep discard-after safety deadlines, quality guidance, and informational
   storage guidance as distinct rule kinds through the database, query, and UI
   layers.
-- Keep the production seed empty until a qualified reviewer supplies and
-  approves a source-backed fixture. Automated tests use conspicuously synthetic,
-  test-only records.
+- Keep the external-release catalog empty until a qualified reviewer supplies
+  and approves a source-backed fixture. The private dogfood runtime may use a
+  separately marked `private_dogfood_owner` revision after the owner records an
+  explicit approval against its immutable source-backed draft. Automated tests
+  use conspicuously synthetic, test-only records.
 
 ## Consequences
 
@@ -50,8 +52,9 @@ qualified, production-ready food fixture.
 - Retiring content does not destroy the approved historical record, and a later
   replacement requires a new version rather than editing the approved version.
 - Ticket 03 proves the complete publication path but ships zero production
-  preparations. Human content review remains a release dependency, not an
-  implementation shortcut.
+  preparations. Qualified human content review remains an external-release
+  dependency; it is not required for the private owner's explicitly marked
+  dogfood content. Owner approval never satisfies the external-beta gate.
 
 ## Reversal conditions
 

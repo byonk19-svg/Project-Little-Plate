@@ -9,6 +9,10 @@ all review evidence needed for later private-pilot testing.
 
 **Status:** needs-info
 
+Ticket 25 remains the external-release package gate. Private owner dogfood is
+handled by Ticket 25A and does not satisfy this issue's qualified-review
+requirements.
+
 Ticket 25 is blocked on externally supplied qualified review evidence. The
 repository contains the packet, source map, and research-only draft, but no
 agent may manufacture the required safety decisions or authority references.
@@ -44,6 +48,9 @@ agent may manufacture the required safety decisions or authority references.
 - Ticket 25 remains blocked until qualified reviewers supply stable candidate
   identifiers, source-backed values, privacy-safe authority references, and
   complete decisions/evidence for every applicable dimension.
+- Owner-reviewed private dogfood content is intentionally not imported through
+  this qualified package path. See Ticket 25A for the separate private
+  standard and publication boundary.
 
 ## Current blocker
 

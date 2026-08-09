@@ -9,13 +9,17 @@
 The release catalog needs source monitoring, review-date enforcement, visual
 rights and alt-text provenance, and target-size QA before a qualified content
 package exists. Engineering must prove those controls with synthetic records
-without treating them as production guidance.
+without treating them as production guidance. Private dogfood content is a
+distinct owner-approved standard and is excluded from the qualified release
+report.
 
 ## Decision
 
-- Keep the production seed empty until authorized reviewers supply the
+- Keep the external-release catalog empty until authorized reviewers supply the
   version-controlled package and evidence described in the catalog release
-  runbook.
+  runbook. A separate private dogfood standard may publish owner-approved,
+  source-backed revisions for the explicitly authorized private runtime, but
+  those revisions are not external-release evidence.
 - Reject a newly imported approved revision when its next-review date is
   already past. Preserve exact idempotent retries of revisions approved before
   that date; do not rewrite or unpublish historical records silently.

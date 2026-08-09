@@ -58,6 +58,22 @@ references, supersession links, adjudication notes, implementation references,
 and case-event reasons are audit data. Preserve them when a later review or
 release changes the effective outcome.
 
+## Private owner dogfood standard
+
+The private dogfood runtime has one additional, deliberately narrower standard:
+`review_standard = private_dogfood_owner` with `reviewer_role = product_owner`.
+It is available only through the controlled owner-approval and private-
+publication RPCs. The candidate remains a source-backed draft until the owner
+records an opaque approval reference, review date, approval date, next-review
+date, explicit storage/visual metadata, and the required catalog tags.
+
+Private owner approval does not create qualified review submissions, does not
+clear a qualified domain block, and does not satisfy the external-beta gate.
+Anonymous reads stay qualified-only; authenticated private-dogfood reads may
+consume a valid private publication. If the owner cannot support a value from
+the available sources, retain an explicit unsupported state and keep the
+candidate unavailable rather than guessing.
+
 ## Case lifecycle
 
 Use the controlled transition RPC with a non-empty reason. The legal lifecycle

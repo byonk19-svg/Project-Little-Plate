@@ -24,7 +24,7 @@ approvals are not present. Synthetic fixtures cannot satisfy those gates.
 | Manual accessibility        | Keyboard walkthrough beyond the automated shell check, NVDA/TalkBack, 200% zoom, Windows High Contrast, and reduced-motion review                                                                                     | Not recorded                                                                         |
 | Today performance           | PRD target is useful authenticated Today content within 1.5 seconds on a representative mobile connection                                                                                                             | Not measured on a representative deployed profile                                    |
 | Catalog-search behavior     | Synthetic 60-item mobile browser fixture exercises search and structured filters                                                                                                                                      | Engineering evidence only                                                            |
-| Reviewed production catalog | Ticket 17 release report and source checker; clean production seed intentionally contains zero foods                                                                                                                  | Blocked on qualified package and approvals                                           |
+| Reviewed production catalog | Ticket 17 release report and source checker; `private_dogfood_owner` content is explicitly excluded from the qualified external catalog                                                                               | Blocked on qualified package and approvals                                           |
 | Dogfood                     | Ten real-use days across at least two weeks, with de-identified friction classification                                                                                                                               | Not supplied                                                                         |
 | Privacy and legal           | Privacy-safe event schema and deletion behavior are automated; human privacy/legal approval remains separate                                                                                                          | Human approval not supplied                                                          |
 | Operations                  | Account deletion, emergency retirement, generation disable/enable, backup/restore rehearsal, promotion, and incident runbooks                                                                                         | Rehearse on every candidate; production owners and provider settings remain external |
@@ -67,6 +67,10 @@ recovers without database intervention.
 The external-beta decision belongs to the recorded product/release owner after
 all required approvers have signed off. Engineering test results alone cannot
 authorize release.
+
+Owner-reviewed `private_dogfood_owner` content is permitted only for the
+explicitly authorized private dogfood runtime. It does not satisfy qualified
+content, clinical, privacy/legal, accessibility, or external-beta approval.
 
 Stop or roll back the beta when any of these occur:
 

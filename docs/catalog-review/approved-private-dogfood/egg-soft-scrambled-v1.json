@@ -1,0 +1,104 @@
+{
+  "schema_version": "candidate-package/v1",
+  "package_id": "candidate-egg-soft-scrambled-v1",
+  "package_version": "1",
+  "package_created_at": "2026-08-09T12:00:00Z",
+  "classification": "production_candidate",
+  "review_cases": [
+    {
+      "case_id": "case-egg-soft-scrambled-v1",
+      "revision_id": "revision-egg-soft-scrambled-v1"
+    }
+  ],
+  "payload": {
+    "sources": [
+      {
+        "id": "source-cdc-solid-foods-20260414",
+        "publisher": "Centers for Disease Control and Prevention",
+        "title": "When, What, and How to Introduce Solid Foods",
+        "url": "https://www.cdc.gov/infant-toddler-nutrition/foods-and-drinks/when-what-and-how-to-introduce-solid-foods.html",
+        "source_date": "2026-04-14",
+        "accessed_at": "2026-08-09"
+      },
+      {
+        "id": "source-cdc-foods-encourage-20260401",
+        "publisher": "Centers for Disease Control and Prevention",
+        "title": "Foods and Drinks to Encourage",
+        "url": "https://www.cdc.gov/infant-toddler-nutrition/foods-and-drinks/foods-and-drinks-to-encourage.html",
+        "source_date": "2026-04-01",
+        "accessed_at": "2026-08-09"
+      },
+      {
+        "id": "source-usda-fsis-shell-eggs-20241120",
+        "publisher": "U.S. Department of Agriculture Food Safety and Inspection Service",
+        "title": "Shell Eggs from Farm to Table",
+        "url": "https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/eggs/shell-eggs-farm-table",
+        "source_date": "2024-11-20",
+        "accessed_at": "2026-08-09"
+      },
+      {
+        "id": "source-fda-major-allergen-egg",
+        "publisher": "U.S. Food and Drug Administration",
+        "title": "What is a major food allergen?",
+        "url": "https://www.fda.gov/industry/fda-basics-industry/what-major-food-allergen",
+        "source_date": "2026-08-09",
+        "accessed_at": "2026-08-09"
+      }
+    ],
+    "tags": [
+      {
+        "id": "skill-soft-small-pieces",
+        "kind": "skill",
+        "label": "Soft small pieces"
+      },
+      {
+        "id": "allergen-egg",
+        "kind": "allergen",
+        "label": "Egg"
+      }
+    ],
+    "foods": [
+      {
+        "id": "food-egg",
+        "slug": "egg",
+        "name": "Egg",
+        "category": "protein"
+      }
+    ],
+    "preparations": [
+      {
+        "id": "preparation-egg-soft-scrambled",
+        "food_id": "food-egg",
+        "slug": "soft-scrambled-egg",
+        "name": "Soft scrambled egg",
+        "is_active": false
+      }
+    ],
+    "revisions": [
+      {
+        "id": "revision-egg-soft-scrambled-v1",
+        "preparation_id": "preparation-egg-soft-scrambled",
+        "version": 1,
+        "status": "draft",
+        "method": "Cook the egg until the white and yolk are firm and the egg reaches 160°F. Cut into soft, small pieces.",
+        "shape_texture": "Soft, small pieces.",
+        "source_id": "source-cdc-solid-foods-20260414",
+        "tag_ids": ["skill-soft-small-pieces", "allergen-egg"],
+        "storage_rules": [
+          {
+            "id": "storage-rule-egg-soft-scrambled-72h",
+            "support_status": "supported",
+            "deadline_kind": "discard_after",
+            "duration_hours": 72,
+            "guidance": "For an unserved cooked batch, refrigerate within 2 hours at 40°F or below. The source gives a 3-to-4-day refrigerator window; the product applies the conservative 72-hour endpoint. If the storage window is unknown, keep the preparation unavailable."
+          }
+        ],
+        "visual_required": false,
+        "preparation_time_band": "under_15_minutes",
+        "visual_ids": []
+      }
+    ],
+    "visuals": []
+  },
+  "payload_digest": "sha256:216f6b6d8c7f8e1cde855a3c601a93ad01d4924f41ee0f599541cd29fec69c0a"
+}

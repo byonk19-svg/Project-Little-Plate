@@ -22,6 +22,7 @@ Playwright.
 ### Task 1: Add the private recipe data boundary
 
 **Files:**
+
 - Create: `supabase/migrations/20260810100000_personal_recipe_library.sql`
 - Create: `src/modules/recipes/domain.ts`
 - Create: `src/modules/recipes/queries.ts`
@@ -79,6 +80,7 @@ Expected: PASS after a clean local reset.
 - [ ] **Step 8: Commit the data boundary**
 
 Run:
+
 ```bash
 git add supabase/migrations/20260810100000_personal_recipe_library.sql src/modules/recipes tests/integration/personal-recipes.test.ts
 git commit -m "feat: add private personal recipe boundary"
@@ -87,6 +89,7 @@ git commit -m "feat: add private personal recipe boundary"
 ### Task 2: Build the server-side recipe-link extractor
 
 **Files:**
+
 - Create: `src/modules/recipes/extractor.ts`
 - Create: `src/modules/recipes/extractor.test.ts`
 - Create: `src/modules/recipes/import-actions.ts`
@@ -131,6 +134,7 @@ writes.
 - [ ] **Step 7: Commit the extractor**
 
 Run:
+
 ```bash
 git add src/modules/recipes/extractor.ts src/modules/recipes/extractor.test.ts src/modules/recipes/import-actions.ts src/modules/recipes/import-form-state.ts
 git commit -m "feat: extract public recipe links safely"
@@ -139,6 +143,7 @@ git commit -m "feat: extract public recipe links safely"
 ### Task 3: Add recipe library and editable import UI
 
 **Files:**
+
 - Create: `src/app/recipes/page.tsx`
 - Create: `src/app/recipes/new/page.tsx`
 - Create: `src/app/recipes/import/page.tsx`
@@ -176,6 +181,7 @@ Expected: PASS.
 ### Task 4: Add any-day weekly planning for personal items
 
 **Files:**
+
 - Create: `src/modules/recipes/planning-actions.ts`
 - Create: `src/modules/recipes/planning-queries.ts`
 - Create: `src/app/recipes/[id]/planning-form.tsx`
@@ -207,17 +213,20 @@ to `plan_preparation_for_tomorrow` or any serving/storage action.
 - [ ] **Step 4: Run focused tests**
 
 Run:
+
 ```bash
 pnpm exec vitest run src/modules/recipes/planning-queries.test.ts
 pnpm test:integration -- tests/integration/personal-recipes.test.ts
 pnpm test:e2e -- tests/e2e/personal-recipes.spec.ts
 ```
+
 Expected: PASS, with personal items visible in Week and absent from Today and
 Kitchen.
 
 - [ ] **Step 5: Commit the planning slice**
 
 Run:
+
 ```bash
 git add src/modules/recipes src/app/recipes src/app/week/page.tsx src/modules/meals/queries.ts src/app/globals.css tests
 git commit -m "feat: plan personal recipes across the week"

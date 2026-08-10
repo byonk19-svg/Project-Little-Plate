@@ -10,6 +10,7 @@ import {
   type WeekEditOption
 } from "@/modules/meals/queries";
 import { getPlannerGenerationMetadata } from "@/modules/planner/generation-queries";
+import { getPersonalPlanningItems } from "@/modules/recipes/queries";
 
 export const metadata: Metadata = {
   title: "Week"
@@ -90,6 +91,10 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getWeekEditOptions(),
     getPlannerGenerationMetadata()
   ]);
+  const personalItems =
+    week.status === "ready"
+      ? await getPersonalPlanningItems(week.plan.windowStart)
+      : { status: "unavailable" as const, items: [] };
   const successMessage = params.edited
     ? editMessages[params.edited]
     : params.planned === "1"
@@ -217,6 +222,17 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
               </p>
             </section>
           ) : null}
+          {personalItems.status === "unavailable" ? (
+            <section className="foundation-card">
+              <p className="foundation-card__status">
+                Personal recipes unavailable
+              </p>
+              <p>
+                The reviewed week remains visible, but household recipe items
+                could not be loaded. No personal item is guessed.
+              </p>
+            </section>
+          ) : null}
 
           <div className="week-days">
             {week.plan.days.map((day, dayIndex) => (
@@ -241,6 +257,14 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                 </header>
                 <div className="week-slots">
                   {day.slots.map((slot) => {
+                    const personalItemsForSlot =
+                      personalItems.status === "ready"
+                        ? personalItems.items.filter(
+                            (item) =>
+                              item.localDate === day.localDate &&
+                              item.mealSlot === slot.mealSlot
+                          )
+                        : [];
                     const canEdit =
                       editOptions.status === "ready" &&
                       !slot.isLocked &&
@@ -272,7 +296,8 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                           ) : null}
                         </header>
 
-                        {slot.components.length === 0 ? (
+                        {slot.components.length === 0 &&
+                        personalItemsForSlot.length === 0 ? (
                           <p className="week-slot__empty">
                             Nothing planned yet.
                           </p>
@@ -375,6 +400,32 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                             ))}
                           </ol>
                         )}
+
+                        {personalItemsForSlot.length > 0 ? (
+                          <section
+                            aria-label="Personal recipes"
+                            className="week-personal-items"
+                          >
+                            {personalItemsForSlot.map((item) => (
+                              <article
+                                className="week-personal-item"
+                                key={item.id}
+                              >
+                                <span className="foundation-card__status">
+                                  {item.label}
+                                </span>
+                                <strong>{item.title}</strong>
+                                <p>
+                                  This household recipe is for planning only. It
+                                  is not included in Today or Kitchen.
+                                </p>
+                                <Link href={`/recipes/${item.recipeId}`}>
+                                  Open recipe
+                                </Link>
+                              </article>
+                            ))}
+                          </section>
+                        ) : null}
 
                         {canEdit && slot.components.length < 3 ? (
                           <details className="week-edit-panel">

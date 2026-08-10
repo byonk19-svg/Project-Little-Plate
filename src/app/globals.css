@@ -291,9 +291,111 @@ a {
 .feeding-setup-page,
 .feeding-form,
 .manual-meal-form,
-.week-page {
+.week-page,
+.recipes-page,
+.recipe-editor-page,
+.recipe-detail-page,
+.recipe-form,
+.recipe-import-form,
+.personal-planning-form {
   display: grid;
   gap: 1.25rem;
+}
+
+.recipes-page__actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.recipe-list {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.recipe-list__item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--ink);
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem;
+  text-decoration: none;
+}
+
+.recipe-list__item h2,
+.recipe-list__item p {
+  margin: 0;
+}
+
+.recipe-list__item p,
+.recipe-body {
+  color: var(--ink-muted);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.recipe-form textarea,
+.recipe-form input,
+.recipe-import-form input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.8rem;
+  color: var(--ink);
+  font: inherit;
+  padding: 0.7rem 0.8rem;
+  width: 100%;
+}
+
+.recipe-form textarea {
+  resize: vertical;
+}
+
+.form-help {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.recipe-delete-form {
+  margin-top: 0.25rem;
+}
+
+.text-action {
+  background: transparent;
+  border: 0;
+  color: var(--focus);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 0;
+}
+
+.week-personal-items {
+  border-top: 1px dashed var(--border);
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+}
+
+.week-personal-item {
+  background: var(--accent-soft);
+  border-radius: 0.7rem;
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.8rem;
+}
+
+.week-personal-item strong,
+.week-personal-item p {
+  margin: 0;
+}
+
+.week-personal-item p {
+  color: var(--ink-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .manual-meal-form {

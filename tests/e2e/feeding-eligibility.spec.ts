@@ -11,10 +11,12 @@ import {
 import { publishCatalogFixtureForTest } from "../integration/support/catalog-publication";
 import { waitForMagicLink } from "./support/passwordless-auth";
 
+const fixtureRunId = crypto.randomUUID();
+
 const fixture = {
   sources: [
     {
-      id: "source-e2e-ticket-04",
+      id: `source-e2e-ticket-04-${fixtureRunId}`,
       publisher: "Synthetic eligibility browser publisher",
       title: "Synthetic eligibility browser source",
       url: "https://example.test/eligibility-browser",
@@ -24,19 +26,19 @@ const fixture = {
   ],
   tags: [
     {
-      id: "skill-e2e-ticket-04",
+      id: `skill-e2e-ticket-04-${fixtureRunId}`,
       kind: "skill",
       label: "Synthetic browser eligibility ability"
     },
     {
-      id: "allergen-e2e-ticket-04",
+      id: `allergen-e2e-ticket-04-${fixtureRunId}`,
       kind: "allergen",
       label: "Synthetic browser eligibility allergen"
     }
   ],
   foods: [
     {
-      id: "food-e2e-ticket-04",
+      id: `food-e2e-ticket-04-${fixtureRunId}`,
       slug: "aaa-eligibility-browser-food",
       name: "AAA Eligibility Browser Food",
       category: "synthetic-test-fixture"
@@ -44,8 +46,8 @@ const fixture = {
   ],
   preparations: [
     {
-      id: "prep-e2e-ticket-04",
-      food_id: "food-e2e-ticket-04",
+      id: `prep-e2e-ticket-04-${fixtureRunId}`,
+      food_id: `food-e2e-ticket-04-${fixtureRunId}`,
       slug: "aaa-eligibility-browser-preparation",
       name: "AAA Eligibility Browser Preparation",
       is_active: true
@@ -53,24 +55,27 @@ const fixture = {
   ],
   revisions: [
     {
-      id: "revision-e2e-ticket-04",
-      preparation_id: "prep-e2e-ticket-04",
+      id: `revision-e2e-ticket-04-${fixtureRunId}`,
+      preparation_id: `prep-e2e-ticket-04-${fixtureRunId}`,
       version: 1,
       status: "approved",
       method: "SYNTHETIC ELIGIBILITY BROWSER METHOD",
       shape_texture: "SYNTHETIC ELIGIBILITY BROWSER TEXTURE",
-      source_id: "source-e2e-ticket-04",
+      source_id: `source-e2e-ticket-04-${fixtureRunId}`,
       reviewer_role: "synthetic_browser_reviewer",
       reviewed_at: "2026-07-27",
       approved_at: "2026-07-27",
       next_review_at: "2027-07-27",
-      tag_ids: ["skill-e2e-ticket-04", "allergen-e2e-ticket-04"],
+      tag_ids: [
+        `skill-e2e-ticket-04-${fixtureRunId}`,
+        `allergen-e2e-ticket-04-${fixtureRunId}`
+      ],
       visual_required: false,
       visual_ids: [],
       preparation_time_band: "under_15_minutes",
       storage_rules: [
         {
-          id: "rule-e2e-ticket-04",
+          id: `rule-e2e-ticket-04-${fixtureRunId}`,
           support_status: "unsupported",
           deadline_kind: null,
           duration_hours: null,

@@ -47,83 +47,19 @@ export async function publishCatalogFixtureForTest(
   fixture: CatalogFixture
 ) {
   const suffix = crypto.randomUUID();
-  const scopedId = (value: unknown) => `${String(value)}-${suffix}`;
-  const sourceIds = new Map(
-    fixture.sources.map((source) => [String(source.id), scopedId(source.id)])
-  );
-  const tagIds = new Map(
-    fixture.tags.map((tag) => [String(tag.id), scopedId(tag.id)])
-  );
-  const foodIds = new Map(
-    fixture.foods.map((food) => [String(food.id), scopedId(food.id)])
-  );
-  const preparationIds = new Map(
-    fixture.preparations.map((preparation) => [
-      String(preparation.id),
-      scopedId(preparation.id)
-    ])
-  );
-  const revisionIds = new Map(
-    fixture.revisions.map((revision) => [
-      String(revision.id),
-      scopedId(revision.id)
-    ])
-  );
-  const visualIds = new Map(
-    (fixture.visuals ?? []).map((visual) => [
-      String(visual.id),
-      scopedId(visual.id)
-    ])
-  );
-  const sources = fixture.sources.map((source) => ({
-    ...source,
-    id: sourceIds.get(String(source.id))
-  }));
-  const tags = fixture.tags.map((tag) => ({
-    ...tag,
-    id: tagIds.get(String(tag.id))
-  }));
-  const foods = fixture.foods.map((food) => ({
-    ...food,
-    id: foodIds.get(String(food.id))
-  }));
-  const preparations = fixture.preparations.map((preparation) => ({
-    ...preparation,
-    id: preparationIds.get(String(preparation.id)),
-    food_id: foodIds.get(String(preparation.food_id)),
-    is_active: false
-  }));
-  const revisionRecords = fixture.revisions.map((revision) => ({
-    metadata: revision,
-    record: {
-      id: revisionIds.get(String(revision.id)),
-      preparation_id: preparationIds.get(String(revision.preparation_id)),
-      version: revision.version,
-      status: "draft",
-      method: revision.method,
-      shape_texture: revision.shape_texture,
-      source_id: sourceIds.get(String(revision.source_id)),
-      tag_ids: Array.isArray(revision.tag_ids)
-        ? revision.tag_ids.map((tagId) => tagIds.get(String(tagId)))
-        : [],
-      visual_required: revision.visual_required === true,
-      visual_ids: Array.isArray(revision.visual_ids)
-        ? revision.visual_ids.map((visualId) => visualIds.get(String(visualId)))
-        : [],
-      preparation_time_band:
-        revision.preparation_time_band ?? "under_15_minutes",
-      storage_rules: Array.isArray(revision.storage_rules)
-        ? revision.storage_rules.map((rule) => ({
-            ...rule,
-            id: scopedId(rule.id)
-          }))
-        : []
-    }
-  }));
-  const revisions = revisionRecords.map(({ record }) => record);
-  const visuals = (fixture.visuals ?? []).map((visual) => ({
-    ...visual,
-    id: visualIds.get(String(visual.id))
+  const revisions = fixture.revisions.map((revision) => ({
+    id: revision.id,
+    preparation_id: revision.preparation_id,
+    version: revision.version,
+    status: "draft",
+    method: revision.method,
+    shape_texture: revision.shape_texture,
+    source_id: revision.source_id,
+    tag_ids: revision.tag_ids,
+    visual_required: revision.visual_required === true,
+    visual_ids: Array.isArray(revision.visual_ids) ? revision.visual_ids : [],
+    preparation_time_band: revision.preparation_time_band ?? "under_15_minutes",
+    storage_rules: revision.storage_rules ?? []
   }));
   const cases = revisions.map((revision) => ({
     case_id: safeId("case", revision.id),
@@ -137,12 +73,15 @@ export async function publishCatalogFixtureForTest(
     classification: "production_candidate",
     review_cases: cases,
     payload: {
-      sources,
-      tags,
-      foods,
-      preparations,
+      sources: fixture.sources,
+      tags: fixture.tags,
+      foods: fixture.foods,
+      preparations: fixture.preparations.map((preparation) => ({
+        ...preparation,
+        is_active: false
+      })),
       revisions,
-      visuals
+      visuals: fixture.visuals ?? []
     }
   };
   candidateEnvelope.payload_digest =
@@ -160,7 +99,7 @@ export async function publishCatalogFixtureForTest(
   const authority = `authority-fixture-${suffix}`;
   const retiredRevisionIds = new Set(
     (fixture.retirements ?? []).map((retirement) =>
-      revisionIds.get(String(retirement.revision_id))
+      String(retirement.revision_id)
     )
   );
   requireSuccess(
@@ -180,8 +119,8 @@ export async function publishCatalogFixtureForTest(
     "authority registration"
   );
 
-  for (const { metadata, record: revision } of revisionRecords) {
-    if (metadata.status !== "approved") continue;
+  for (const revision of fixture.revisions) {
+    if (revision.status !== "approved") continue;
     const visualIds = Array.isArray(revision.visual_ids)
       ? revision.visual_ids
       : [];
@@ -200,11 +139,11 @@ export async function publishCatalogFixtureForTest(
       dimension,
       decision: "Accept",
       reviewer_role:
-        typeof metadata.reviewer_role === "string" && metadata.reviewer_role
-          ? metadata.reviewer_role
+        typeof revision.reviewer_role === "string" && revision.reviewer_role
+          ? revision.reviewer_role
           : "synthetic test-only qualified reviewer",
       reviewer_authority_reference: authority,
-      reviewed_at: asDate(metadata.reviewed_at) ?? "2026-08-04",
+      reviewed_at: asDate(revision.reviewed_at) ?? "2026-08-04",
       approval_reference_id: safeId(
         `approval-${suffix}`,
         `${revision.id}-${dimension}`
@@ -214,8 +153,8 @@ export async function publishCatalogFixtureForTest(
       ...(dimension === "storage_handling"
         ? {
             storage_support_state:
-              Array.isArray(metadata.storage_rules) &&
-              metadata.storage_rules.some(
+              Array.isArray(revision.storage_rules) &&
+              revision.storage_rules.some(
                 (rule) => rule.support_status === "supported"
               )
                 ? "supported"
@@ -260,8 +199,8 @@ export async function publishCatalogFixtureForTest(
       }),
       `review completion ${revision.id}`
     );
-    const nextReviewAt = asDate(metadata.next_review_at);
-    const approvedAt = asDate(metadata.approved_at) ?? "2026-08-04";
+    const nextReviewAt = asDate(revision.next_review_at);
+    const approvedAt = asDate(revision.approved_at) ?? "2026-08-04";
     if (
       retiredRevisionIds.has(String(revision.id)) ||
       !nextReviewAt ||
@@ -303,8 +242,7 @@ export async function publishCatalogFixtureForTest(
     requireSuccess(
       await admin.from("content_retirements").insert(
         fixture.retirements.map((retirement) => ({
-          ...retirement,
-          revision_id: revisionIds.get(String(retirement.revision_id))
+          ...retirement
         }))
       ),
       "fixture retirement"

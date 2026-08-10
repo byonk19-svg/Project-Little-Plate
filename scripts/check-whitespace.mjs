@@ -12,10 +12,7 @@ if (process.env.CI) {
     const parent = spawnSync("git", ["rev-parse", "--verify", "HEAD^"], {
       stdio: "ignore"
     });
-    diffArguments.push(
-      parent.status === 0 ? "HEAD^...HEAD" : emptyTree,
-      "HEAD"
-    );
+    diffArguments.push(parent.status === 0 ? "HEAD^...HEAD" : emptyTree);
   }
 
   const result = spawnSync("git", diffArguments, {

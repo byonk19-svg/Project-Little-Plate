@@ -240,7 +240,11 @@ export async function publishCatalogFixtureForTest(
 
   if (fixture.retirements && fixture.retirements.length > 0) {
     requireSuccess(
-      await admin.from("content_retirements").insert(fixture.retirements),
+      await admin.from("content_retirements").insert(
+        fixture.retirements.map((retirement) => ({
+          ...retirement
+        }))
+      ),
       "fixture retirement"
     );
   }

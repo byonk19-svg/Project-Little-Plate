@@ -52,3 +52,16 @@ review, populated accessibility and representative performance evidence, and a
 named go/no-go owner with rollback authority.
 _Avoid_: public beta by schedule, synthetic evidence as a substitute, anonymous
 go/no-go ownership
+
+**Personal recipe**:
+A household-owned food or recipe record supplied by a caregiver or imported
+from a public recipe URL. It is planning content, not reviewed Little Plate
+catalog content, and never makes a safety, storage, or feeding-eligibility
+claim.
+_Avoid_: reviewed preparation, approved food, public catalog item.
+
+**Personal planning item**:
+A personal recipe placed on a household baby's weekly day and meal slot. It is
+visible to household caregivers in Week, carries a not-reviewed label, and is
+excluded from Today, Kitchen, serving, storage, and eligibility decisions.
+_Avoid_: meal component, eligible preparation, recommendation.

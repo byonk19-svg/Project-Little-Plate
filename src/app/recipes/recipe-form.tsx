@@ -1,10 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { savePersonalRecipe } from "@/modules/recipes/actions";
 import {
   initialRecipeFormState,
+  type RecipeFormDraft,
   type RecipeFormState
 } from "@/modules/recipes/form-state";
 import type { PersonalRecipe } from "@/modules/recipes/queries";
@@ -32,54 +33,105 @@ export function RecipeForm({
   sourceType = recipe?.sourceType ?? "manual",
   idempotencyKey
 }: RecipeFormProps) {
+  const initialDraft: RecipeFormDraft = {
+    title,
+    ingredients,
+    instructions,
+    notes,
+    sourceUrl,
+    sourceType,
+    extractionMethod
+  };
+  const [draft, setDraft] = useState<RecipeFormDraft>(initialDraft);
+  const [hasEditedAfterError, setHasEditedAfterError] = useState(false);
   const [state, formAction, pending] = useActionState<
     RecipeFormState,
     FormData
   >(savePersonalRecipe, initialRecipeFormState);
 
+  const visibleDraft =
+    state.status === "error" && state.draft && !hasEditedAfterError
+      ? state.draft
+      : draft;
+
+  function updateDraft(next: Partial<RecipeFormDraft>) {
+    setHasEditedAfterError(true);
+    setDraft((current) => ({ ...current, ...next }));
+  }
+
   return (
-    <form action={formAction} className="recipe-form">
+    <form
+      action={(formData) => {
+        setHasEditedAfterError(false);
+        return formAction(formData);
+      }}
+      className="recipe-form"
+    >
       {recipe ? (
         <input name="recipeId" type="hidden" value={recipe.id} />
       ) : null}
       {!recipe && idempotencyKey ? (
         <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
       ) : null}
-      <input name="sourceType" type="hidden" value={sourceType} />
-      <input name="extractionMethod" type="hidden" value={extractionMethod} />
+      <input name="sourceType" type="hidden" value={visibleDraft.sourceType} />
+      <input
+        name="extractionMethod"
+        type="hidden"
+        value={visibleDraft.extractionMethod}
+      />
       <label className="field">
         Food or recipe name
-        <input defaultValue={title} name="title" required />
+        <input
+          name="title"
+          onChange={(event) => updateDraft({ title: event.target.value })}
+          required
+          value={visibleDraft.title}
+        />
       </label>
       <label className="field">
         Ingredients or food description
         <textarea
-          defaultValue={ingredients}
           name="ingredients"
+          onChange={(event) => updateDraft({ ingredients: event.target.value })}
           required
           rows={6}
+          value={visibleDraft.ingredients}
         />
       </label>
       <label className="field">
         Instructions or preparation notes
         <textarea
-          defaultValue={instructions}
           name="instructions"
+          onChange={(event) =>
+            updateDraft({ instructions: event.target.value })
+          }
           required
           rows={8}
+          value={visibleDraft.instructions}
         />
       </label>
       <label className="field">
         Your notes (optional)
-        <textarea defaultValue={notes} name="notes" rows={4} />
+        <textarea
+          name="notes"
+          onChange={(event) => updateDraft({ notes: event.target.value })}
+          rows={4}
+          value={visibleDraft.notes}
+        />
       </label>
       <label className="field">
         Source URL (optional)
         <input
-          defaultValue={sourceUrl}
           name="sourceUrl"
+          onChange={(event) =>
+            updateDraft({
+              sourceUrl: event.target.value,
+              sourceType: event.target.value.trim() ? "recipe_url" : "manual"
+            })
+          }
           placeholder="https://..."
           type="url"
+          value={visibleDraft.sourceUrl}
         />
       </label>
       <p className="form-help">

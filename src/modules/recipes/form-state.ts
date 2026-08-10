@@ -1,6 +1,11 @@
+import type { PersonalRecipeDraft } from "@/modules/recipes/domain";
+
+export type RecipeFormDraft = PersonalRecipeDraft;
+
 export type RecipeFormState = {
   status: "idle" | "error";
   message: string;
+  draft?: RecipeFormDraft;
 };
 
 export const initialRecipeFormState: RecipeFormState = {

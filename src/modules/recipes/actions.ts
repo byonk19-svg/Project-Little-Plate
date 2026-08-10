@@ -4,28 +4,28 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  normalizePersonalRecipeDraft,
-  type PersonalRecipeDraft
-} from "@/modules/recipes/domain";
+import { normalizePersonalRecipeDraft } from "@/modules/recipes/domain";
 import type {
   PersonalPlanningFormState,
+  RecipeFormDraft,
   RecipeFormState
 } from "@/modules/recipes/form-state";
 import { isJsonRecord } from "@/modules/meals/transport";
 
-function formDraft(formData: FormData): PersonalRecipeDraft {
+function formDraft(formData: FormData): RecipeFormDraft {
   const sourceType = String(formData.get("sourceType") ?? "manual");
   const extractionMethod = String(formData.get("extractionMethod") ?? "manual");
+  const sourceUrl = String(formData.get("sourceUrl") ?? "");
   return {
     title: String(formData.get("title") ?? ""),
     ingredients: String(formData.get("ingredients") ?? ""),
     instructions: String(formData.get("instructions") ?? ""),
     notes: String(formData.get("notes") ?? ""),
-    sourceUrl: String(formData.get("sourceUrl") ?? ""),
-    sourceType: sourceType as PersonalRecipeDraft["sourceType"],
-    extractionMethod:
-      extractionMethod as PersonalRecipeDraft["extractionMethod"]
+    sourceUrl,
+    sourceType: (sourceUrl.trim()
+      ? "recipe_url"
+      : sourceType) as RecipeFormDraft["sourceType"],
+    extractionMethod: extractionMethod as RecipeFormDraft["extractionMethod"]
   };
 }
 
@@ -39,7 +39,8 @@ export async function savePersonalRecipe(
     return {
       status: "error",
       message:
-        Object.values(normalized.errors)[0] ?? "Review the recipe fields."
+        Object.values(normalized.errors)[0] ?? "Review the recipe fields.",
+      draft
     };
   }
 
@@ -79,7 +80,9 @@ export async function savePersonalRecipe(
   if (error || !savedId) {
     return {
       status: "error",
-      message: "The recipe could not be saved. Review the fields and try again."
+      message:
+        "The recipe could not be saved. Your entries are still here; review the fields and try again.",
+      draft
     };
   }
 

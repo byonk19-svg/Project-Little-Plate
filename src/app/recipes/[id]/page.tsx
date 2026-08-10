@@ -83,6 +83,7 @@ export default async function PersonalRecipePage({
           <PlanningForm
             babyId={week.plan.babyId}
             days={week.plan.days}
+            idempotencyKey={crypto.randomUUID()}
             recipeId={recipe.id}
           />
         </section>

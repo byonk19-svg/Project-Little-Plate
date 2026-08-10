@@ -117,44 +117,61 @@ export async function fetchRecipePreview(
       clearTimeout(timeout);
       return errorResult("fetch_failed");
     }
-    clearTimeout(timeout);
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location || redirectCount === MAX_REDIRECTS) {
-        return errorResult("redirect_limit");
-      }
-      const next = validatePublicRecipeUrl(
-        new URL(location, currentUrl).toString()
-      );
-      if (!next.valid) return errorResult(next.reason);
-      currentUrl = new URL(next.url);
-      continue;
-    }
-
-    if (!response.ok) return errorResult("fetch_failed");
-    const contentType =
-      response.headers.get("content-type")?.toLowerCase() ?? "";
-    if (contentType && !contentType.includes("text/html")) {
-      return errorResult("not_html");
-    }
-    const contentLength = Number(response.headers.get("content-length") ?? "0");
-    if (Number.isFinite(contentLength) && contentLength > MAX_RESPONSE_BYTES) {
-      return errorResult("response_too_large");
-    }
-    let body: ArrayBuffer;
     try {
-      body = await response.arrayBuffer();
-    } catch {
-      return errorResult("fetch_failed");
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location || redirectCount === MAX_REDIRECTS) {
+          return errorResult("redirect_limit");
+        }
+        const next = validatePublicRecipeUrl(
+          new URL(location, currentUrl).toString()
+        );
+        if (!next.valid) return errorResult(next.reason);
+        currentUrl = new URL(next.url);
+        continue;
+      }
+
+      if (!response.ok) return errorResult("fetch_failed");
+      const contentType =
+        response.headers.get("content-type")?.toLowerCase() ?? "";
+      if (contentType && !contentType.includes("text/html")) {
+        return errorResult("not_html");
+      }
+      const contentLength = Number(
+        response.headers.get("content-length") ?? "0"
+      );
+      if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_RESPONSE_BYTES
+      ) {
+        return errorResult("response_too_large");
+      }
+      const reader = response.body?.getReader();
+      if (!reader) return errorResult("fetch_failed");
+      const decoder = new TextDecoder();
+      let bytesRead = 0;
+      let html = "";
+      try {
+        while (true) {
+          const chunk = await reader.read();
+          if (chunk.done) {
+            html += decoder.decode();
+            break;
+          }
+          bytesRead += chunk.value.byteLength;
+          if (bytesRead > MAX_RESPONSE_BYTES) {
+            await reader.cancel();
+            return errorResult("response_too_large");
+          }
+          html += decoder.decode(chunk.value, { stream: true });
+        }
+      } catch {
+        return errorResult("fetch_failed");
+      }
+      return extractRecipeFromHtml(html, currentUrl.toString());
+    } finally {
+      clearTimeout(timeout);
     }
-    if (body.byteLength > MAX_RESPONSE_BYTES) {
-      return errorResult("response_too_large");
-    }
-    return extractRecipeFromHtml(
-      new TextDecoder().decode(body),
-      currentUrl.toString()
-    );
   }
 
   return errorResult("redirect_limit");

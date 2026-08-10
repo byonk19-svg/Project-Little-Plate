@@ -65,7 +65,7 @@ test("a household can save a personal recipe and place it anywhere in the curren
   await createProfile(page, request);
 
   await page.goto("/recipes/new");
-  await page.getByLabel("Recipe title").fill("Banana oats");
+  await page.getByLabel("Food or recipe name").fill("Banana oats");
   await page.getByLabel("Ingredients or food description").fill("Banana\nOats");
   await page
     .getByLabel("Instructions or preparation notes")

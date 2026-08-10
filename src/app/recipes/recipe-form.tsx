@@ -18,6 +18,7 @@ type RecipeFormProps = {
   instructions?: string;
   notes?: string;
   sourceType?: PersonalRecipe["sourceType"];
+  idempotencyKey?: string;
 };
 
 export function RecipeForm({
@@ -28,7 +29,8 @@ export function RecipeForm({
   ingredients = recipe?.ingredients ?? "",
   instructions = recipe?.instructions ?? "",
   notes = recipe?.notes ?? "",
-  sourceType = recipe?.sourceType ?? "manual"
+  sourceType = recipe?.sourceType ?? "manual",
+  idempotencyKey
 }: RecipeFormProps) {
   const [state, formAction, pending] = useActionState<
     RecipeFormState,
@@ -39,6 +41,9 @@ export function RecipeForm({
     <form action={formAction} className="recipe-form">
       {recipe ? (
         <input name="recipeId" type="hidden" value={recipe.id} />
+      ) : null}
+      {!recipe && idempotencyKey ? (
+        <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
       ) : null}
       <input name="sourceType" type="hidden" value={sourceType} />
       <input name="extractionMethod" type="hidden" value={extractionMethod} />

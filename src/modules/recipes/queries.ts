@@ -163,11 +163,13 @@ export async function getPersonalRecipe(
 }
 
 export async function getPersonalPlanningItems(
-  windowStart?: string
+  windowStart: string | undefined,
+  babyId: string
 ): Promise<PersonalPlanningItemsResult> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("list_personal_planning_items", {
-    p_window_start: windowStart ?? null
+    p_window_start: windowStart ?? null,
+    p_baby_id: babyId
   });
   const values = error ? null : parseArray(data);
   if (!values) {

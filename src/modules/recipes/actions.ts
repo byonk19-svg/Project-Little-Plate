@@ -64,6 +64,7 @@ export async function savePersonalRecipe(
         p_extraction_method: normalized.recipe.extractionMethod
       }
     : {
+        p_idempotency_key: String(formData.get("idempotencyKey") ?? ""),
         p_title: normalized.recipe.title,
         p_ingredients: normalized.recipe.ingredients,
         p_instructions: normalized.recipe.instructions,
@@ -116,6 +117,7 @@ export async function planPersonalRecipe(
     redirect("/login");
   }
   const { data, error } = await supabase.rpc("plan_personal_recipe", {
+    p_idempotency_key: String(formData.get("idempotencyKey") ?? ""),
     p_baby_id: String(formData.get("babyId") ?? ""),
     p_recipe_id: String(formData.get("recipeId") ?? ""),
     p_local_date: String(formData.get("localDate") ?? ""),

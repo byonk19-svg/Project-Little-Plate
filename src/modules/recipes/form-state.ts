@@ -13,6 +13,7 @@ export type RecipeImportState =
   | {
       status: "ready" | "incomplete";
       message: string;
+      idempotencyKey: string;
       sourceUrl: string;
       title: string;
       ingredients: string;

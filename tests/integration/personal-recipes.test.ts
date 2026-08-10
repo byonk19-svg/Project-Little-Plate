@@ -79,7 +79,9 @@ describe("personal recipes", () => {
   });
 
   test("saves a private recipe and keeps it out of anonymous reads", async () => {
+    const idempotencyKey = crypto.randomUUID();
     const created = await householdA.client.rpc("create_personal_recipe", {
+      p_idempotency_key: idempotencyKey,
       p_title: "Banana oats",
       p_ingredients: "Banana\nOats",
       p_instructions: "Mix together.",
@@ -98,6 +100,66 @@ describe("personal recipes", () => {
       []
     );
     expect((await anonymous.rpc("list_personal_recipes")).error).not.toBeNull();
+
+    const replay = await householdA.client.rpc("create_personal_recipe", {
+      p_idempotency_key: idempotencyKey,
+      p_title: "Banana oats",
+      p_ingredients: "Banana\nOats",
+      p_instructions: "Mix together.",
+      p_notes: "Family note",
+      p_source_url: "https://example.com/banana-oats",
+      p_source_type: "recipe_url",
+      p_extraction_method: "json_ld"
+    });
+    expect(replay.error).toBeNull();
+    expect(replay.data.id).toBe(created.data.id);
+
+    const mismatch = await householdA.client.rpc("create_personal_recipe", {
+      p_idempotency_key: idempotencyKey,
+      p_title: "Different title",
+      p_ingredients: "Banana",
+      p_instructions: "Mash.",
+      p_notes: "",
+      p_source_url: null,
+      p_source_type: "manual",
+      p_extraction_method: "manual"
+    });
+    expect(mismatch.error).not.toBeNull();
+  });
+
+  test("rejects unsafe recipe URLs at the persistence boundary", async () => {
+    const recipes = await householdA.client.rpc("list_personal_recipes");
+    const recipeId = recipes.data[0].id as string;
+    for (const sourceUrl of [
+      "https://localhost/recipe",
+      "https://owner:secret@example.com/recipe",
+      "https://example.com:8443/recipe",
+      "https://192.168.1.4/recipe"
+    ]) {
+      const result = await householdA.client.rpc("create_personal_recipe", {
+        p_idempotency_key: crypto.randomUUID(),
+        p_title: "Unsafe source",
+        p_ingredients: "Ingredient",
+        p_instructions: "Prepare.",
+        p_notes: "",
+        p_source_url: sourceUrl,
+        p_source_type: "recipe_url",
+        p_extraction_method: "manual"
+      });
+      expect(result.error).not.toBeNull();
+
+      const update = await householdA.client.rpc("update_personal_recipe", {
+        p_recipe_id: recipeId,
+        p_title: "Banana oats",
+        p_ingredients: "Banana\nOats",
+        p_instructions: "Mix together.",
+        p_notes: "Family note",
+        p_source_url: sourceUrl,
+        p_source_type: "recipe_url",
+        p_extraction_method: "json_ld"
+      });
+      expect(update.error).not.toBeNull();
+    }
   });
 
   test("plans a personal recipe on a configured week day and is idempotent", async () => {
@@ -107,7 +169,9 @@ describe("personal recipes", () => {
     expect(week.error).toBeNull();
     const windowStart = week.data.window_start as string;
 
+    const planKey = crypto.randomUUID();
     const planned = await householdA.client.rpc("plan_personal_recipe", {
+      p_idempotency_key: planKey,
       p_baby_id: babyAId,
       p_recipe_id: recipeId,
       p_local_date: windowStart,
@@ -117,16 +181,26 @@ describe("personal recipes", () => {
     expect(planned.data.status).toBe("planned");
 
     const replay = await householdA.client.rpc("plan_personal_recipe", {
+      p_idempotency_key: planKey,
       p_baby_id: babyAId,
       p_recipe_id: recipeId,
       p_local_date: windowStart,
       p_meal_slot: "breakfast"
     });
     expect(replay.error).toBeNull();
+    const mismatch = await householdA.client.rpc("plan_personal_recipe", {
+      p_idempotency_key: planKey,
+      p_baby_id: babyAId,
+      p_recipe_id: recipeId,
+      p_local_date: windowStart,
+      p_meal_slot: "dinner"
+    });
+    expect(mismatch.error).not.toBeNull();
     expect(
       (
         await householdA.client.rpc("list_personal_planning_items", {
-          p_window_start: windowStart
+          p_window_start: windowStart,
+          p_baby_id: babyAId
         })
       ).data
     ).toHaveLength(1);
@@ -141,6 +215,7 @@ describe("personal recipes", () => {
     const recipes = await householdA.client.rpc("list_personal_recipes");
     const recipeId = recipes.data[0].id as string;
     const result = await householdB.client.rpc("plan_personal_recipe", {
+      p_idempotency_key: crypto.randomUUID(),
       p_baby_id: babyAId,
       p_recipe_id: recipeId,
       p_local_date: "2026-08-10",

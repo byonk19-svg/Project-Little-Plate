@@ -18,7 +18,7 @@ export default function NewRecipePage() {
           Save a food or recipe you want to consider for the week.
         </p>
       </header>
-      <RecipeForm />
+      <RecipeForm idempotencyKey={crypto.randomUUID()} />
     </article>
   );
 }

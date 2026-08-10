@@ -21,6 +21,7 @@ export async function importRecipeFromUrl(
       result.status === "ready"
         ? "Recipe details extracted. Review them before saving."
         : "Some recipe fields are missing. Complete them before saving.",
+    idempotencyKey: crypto.randomUUID(),
     sourceUrl: result.preview.sourceUrl,
     title: result.preview.title,
     ingredients: result.preview.ingredients,

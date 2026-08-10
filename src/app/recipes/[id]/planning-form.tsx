@@ -13,6 +13,7 @@ import { mealSlotLabels } from "@/modules/meals/presentation";
 type PlanningFormProps = {
   babyId: string;
   recipeId: string;
+  idempotencyKey: string;
   days: Array<{ localDate: string; slots: Array<{ mealSlot: MealSlot }> }>;
 };
 
@@ -25,7 +26,12 @@ function formatDate(value: string): string {
   }).format(new Date(`${value}T00:00:00Z`));
 }
 
-export function PlanningForm({ babyId, recipeId, days }: PlanningFormProps) {
+export function PlanningForm({
+  babyId,
+  recipeId,
+  idempotencyKey,
+  days
+}: PlanningFormProps) {
   const [state, formAction, pending] = useActionState<
     PersonalPlanningFormState,
     FormData
@@ -36,6 +42,7 @@ export function PlanningForm({ babyId, recipeId, days }: PlanningFormProps) {
     <form action={formAction} className="personal-planning-form">
       <input name="babyId" type="hidden" value={babyId} />
       <input name="recipeId" type="hidden" value={recipeId} />
+      <input name="idempotencyKey" type="hidden" value={idempotencyKey} />
       <label className="field">
         Week day
         <select defaultValue={days[0]?.localDate} name="localDate">

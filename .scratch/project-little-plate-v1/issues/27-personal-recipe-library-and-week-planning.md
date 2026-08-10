@@ -37,25 +37,40 @@ enter reviewed safety or serving workflows.
 
 - `pnpm exec vitest run src/modules/recipes/domain.test.ts`: 8 passed.
 - `pnpm exec vitest run src/modules/recipes/extractor.test.ts`: 5 passed.
-- `pnpm exec vitest run src/modules/recipes/import-actions.test.ts`: 4 passed.
+- `pnpm exec vitest run src/modules/recipes/import-actions.test.ts`: 5 passed.
 - `pnpm exec vitest run src/modules/recipes/planning-queries.test.ts`: 2 passed.
-- `pnpm test:integration -- tests/integration/personal-recipes.test.ts`:
-  repository integration runner completed 14 files / 95 tests passed,
+- `pnpm exec vitest run --config vitest.integration.config.ts tests/integration/personal-recipes.test.ts`:
+  focused real-Supabase integration completed 1 file / 4 tests passed,
+  including baby-ID scoping, URL persistence rejection, and idempotency.
+- `pnpm test:integration`:
+  repository integration runner completed 14 files / 96 tests passed,
   including personal recipe isolation, planning, and idempotency.
-- `pnpm test:e2e -- tests/e2e/personal-recipes.spec.ts`: repository E2E runner
-  completed 20 mobile Chromium tests passed, including personal recipe save,
+- `pnpm exec playwright test tests/e2e/personal-recipes.spec.ts --grep "household can save"`:
+  focused browser test passed with the corrected field label.
+- `pnpm test:e2e`: repository E2E runner completed 20 mobile Chromium tests
+  passed, including personal recipe save,
   Week placement, and absence from Today/Kitchen.
 - `pnpm typecheck`: passed.
 - `pnpm lint`: passed.
+- `pnpm test`: 22 files / 157 tests passed.
+- `pnpm test:catalog-sources`: 6 checks passed.
 - `pnpm build`: passed; recipe routes compiled.
 - `pnpm supabase:reset`: passed with the new migration.
+- `pnpm exec supabase db lint --local --fail-on warning`: passed with no schema
+  errors.
+- `pnpm format:check`: passed.
+- `node scripts/check-whitespace.mjs`: passed.
 - `git diff --check`: passed.
+- `pnpm verify`: not claimed as composite evidence because the local composite
+  runner exited nonzero while the constituent stages were being rerun; the
+  formatting, lint, typecheck, unit, catalog-source, build, database reset,
+  database lint, integration, and E2E stages are recorded independently above.
 
 ## Remaining risks
 
 - The link importer relies on public pages exposing structured recipe markup;
   blocked or unstructured sites fall back to editable manual fields.
-- Hosted Supabase/Vercel promotion is intentionally not performed in this
-  local implementation slice.
 - Personal items are planning-only and do not yet derive inventory, storage,
   or serving work by design.
+- Hosted Supabase/Vercel promotion remains intentionally out of scope for this
+  local implementation slice.

@@ -55,6 +55,23 @@ describe("recipe link import", () => {
     ).resolves.toMatchObject({ status: "error", code: "not_html" });
   });
 
+  test("caps chunked HTML while it is still streaming", async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array(1_000_001));
+            controller.close();
+          }
+        }),
+        { status: 200, headers: { "content-type": "text/html" } }
+      )
+    );
+    await expect(
+      fetchRecipePreview("https://example.com/recipe", fetcher)
+    ).resolves.toMatchObject({ status: "error", code: "response_too_large" });
+  });
+
   test("returns an editable extraction preview without persisting", async () => {
     const fetcher = vi
       .fn()

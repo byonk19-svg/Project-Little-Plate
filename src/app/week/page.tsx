@@ -93,7 +93,7 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
   ]);
   const personalItems =
     week.status === "ready"
-      ? await getPersonalPlanningItems(week.plan.windowStart)
+      ? await getPersonalPlanningItems(week.plan.windowStart, week.plan.babyId)
       : { status: "unavailable" as const, items: [] };
   const successMessage = params.edited
     ? editMessages[params.edited]

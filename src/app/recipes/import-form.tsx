@@ -53,6 +53,7 @@ export function RecipeImportForm() {
           ) : null}
           <RecipeForm
             extractionMethod={state.extractionMethod}
+            idempotencyKey={state.idempotencyKey}
             ingredients={state.ingredients}
             instructions={state.instructions}
             notes={state.notes}

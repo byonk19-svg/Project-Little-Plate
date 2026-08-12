@@ -3,22 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 
 const validMealSlots = new Set(["breakfast", "lunch", "dinner"]);
 const validStatuses = new Set(["planned", "skipped", "completed"]);
 
 async function householdContext() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims) redirect("/login");
-  const profile = await supabase
-    .from("user_profiles")
-    .select("household_id")
-    .single();
-  return profile.error || !profile.data?.household_id
-    ? null
-    : { supabase, householdId: profile.data.household_id as string };
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out") redirect("/login");
+  return context.status === "authenticated" ? context : null;
 }
 
 function readDate(value: FormDataEntryValue | null): string | null {

@@ -3,9 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 import { findRecipeImportMatches } from "@/modules/recipe-import/duplicates";
 import type { RecipeImportFormState } from "@/modules/recipe-import/form-state";
 import { fetchRecipePage } from "@/modules/recipe-import/parser";
+import { buildImportPreview } from "@/modules/recipe-import/workflow";
 
 async function existingRecipeMatches(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
@@ -31,11 +33,15 @@ export async function importRecipeFromUrl(
   _previousState: RecipeImportFormState,
   formData: FormData
 ): Promise<RecipeImportFormState> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims) {
-    redirect("/login");
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out") redirect("/login");
+  if (context.status !== "authenticated") {
+    return {
+      status: "error",
+      message: "Finish account setup before importing."
+    };
   }
+  const { supabase } = context;
 
   const url = String(formData.get("url") ?? "").trim();
   if (!url) {
@@ -57,7 +63,7 @@ export async function importRecipeFromUrl(
     if ("drafts" in result) {
       const drafts = await Promise.all(
         result.drafts.map(async (draft) => ({
-          ...draft,
+          ...buildImportPreview(draft),
           existingMatches: await existingRecipeMatches(
             supabase,
             draft.sourceUrl
@@ -77,7 +83,7 @@ export async function importRecipeFromUrl(
     return {
       status: "success",
       message: "Review the imported details before saving.",
-      draft: { ...result.draft, existingMatches }
+      draft: { ...buildImportPreview(result.draft), existingMatches }
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Import failed.";

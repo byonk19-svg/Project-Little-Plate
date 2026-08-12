@@ -24,6 +24,21 @@ single-recipe pages and articles with multiple clearly structured recipe
 sections. The caregiver chooses, edits, and confirms the extracted fields
 before recipes are saved.
 
+**Import preview**:
+A non-destructive result containing normalized recipe drafts, duplicate matches,
+and optional image suggestions. It never exposes raw source markup to the
+caregiver review flow and never saves a partial recipe.
+
+**Reviewed import save**:
+An explicit save of the caregiver-selected and edited import drafts. Duplicate
+matches remain open-existing choices unless the caregiver explicitly requests a
+separate copy.
+
+**Import failure**:
+A recoverable result when a complete recipe cannot be extracted. It explains
+that the page could not be imported and directs the caregiver to manual recipe
+entry without creating an incomplete record.
+
 **Duplicate import**:
 An import whose normalized source URL already belongs to a recipe in the same
 private household. The default outcome is to show the existing recipe, while
@@ -70,9 +85,44 @@ When a confirmed external image cannot load, the recipe remains usable and
 falls back to the text-only card layout. The caregiver can replace or remove
 the image from recipe details.
 
+**Recipe write preservation**:
+Every recipe write path preserves caregiver-edited fields and confirmed image
+choices by default. Re-importing, replacing a duplicate, or deleting a recipe
+requires an explicit caregiver action; no write path silently overwrites or
+removes the existing record.
+
 **Private household**:
 Recipes, plans, preparation notes, and image metadata are isolated by the
 existing authenticated household relationship and account deletion boundary.
+
+**Household session context**:
+The authenticated access context for household-owned work. It has three
+outcomes: an authenticated household, a signed-out session, or an unavailable
+household profile. Callers must preserve those distinctions when presenting
+recovery states.
+
+**Active recipe platform**:
+The current caregiver-facing product surface: Recipes, recipe import, recipe
+images, Week, Today, Kitchen, and household privacy. Its modules and tests are
+the default implementation and verification path.
+
+**Legacy implementation history**:
+Former catalog, eligibility, planner, storage, reaction, and derived-work
+modules, routes, tests, and migrations retained for historical or operational
+reasons. They are not part of the active recipe platform and should be checked
+only through an explicit legacy verification path.
+
+**Recipe import module**:
+The module that owns the preview-then-confirm workflow. Its interface returns
+normalized drafts, duplicate matches, image suggestions, and recoverable
+failure states; fetching, parsing, matching, and persistence remain behind its
+internal seams.
+
+**Recipe write module**:
+The module that owns shared recipe write policy across manual creation,
+reviewed import save, and editing. Its policy includes normalization,
+preservation, explicit duplicate replacement, image handling, persistence, and
+revalidation.
 
 ## Legacy boundary
 

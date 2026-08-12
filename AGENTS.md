@@ -67,6 +67,14 @@ pnpm test:e2e
 git diff --check
 ```
 
+The default gate covers the active personal recipe platform. The former
+safety/planner implementation remains available through the explicit legacy
+gate:
+
+```powershell
+pnpm verify:legacy
+```
+
 Use the pinned CLI (`pnpm exec supabase`), not a stale global Supabase binary.
 Changed domain rules require focused tests. Changed database behavior requires
 local reset/integration coverage. Changed user flows require mobile browser

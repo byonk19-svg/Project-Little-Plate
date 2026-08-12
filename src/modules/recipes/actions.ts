@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 import { normalizeExternalImageUrl } from "@/modules/recipe-images/domain";
 import { findRecipeImportMatches } from "@/modules/recipe-import/duplicates";
 import {
@@ -12,6 +13,8 @@ import {
 } from "@/modules/recipes/domain";
 import type { RecipeFormState } from "@/modules/recipes/form-state";
 import type { RecipeImportSaveFormState } from "@/modules/recipe-import/form-state";
+import { selectReviewedImportDrafts } from "@/modules/recipe-import/workflow";
+import { buildRecipeRecord } from "@/modules/recipes/write-policy";
 
 function readRecipeInput(formData: FormData, prefix = ""): RecipeInput {
   const value = (name: string) =>
@@ -33,21 +36,9 @@ function readRecipeInput(formData: FormData, prefix = ""): RecipeInput {
 }
 
 async function getHouseholdClient() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  if (error || !data?.claims) {
-    redirect("/login");
-  }
-
-  const profile = await supabase
-    .from("user_profiles")
-    .select("household_id")
-    .single();
-  if (profile.error || !profile.data?.household_id) {
-    return null;
-  }
-
-  return { supabase, householdId: profile.data.household_id as string };
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out") redirect("/login");
+  return context.status === "authenticated" ? context : null;
 }
 
 function databaseErrorState(message: string): RecipeFormState {
@@ -164,23 +155,7 @@ export async function createRecipe(
 
   const { data, error } = await context.supabase
     .from("recipes")
-    .insert({
-      household_id: context.householdId,
-      title: normalized.value.title,
-      description: normalized.value.description,
-      ingredients: normalized.value.ingredients,
-      instructions: normalized.value.instructions,
-      prep_minutes: normalized.value.prepMinutes,
-      cook_minutes: normalized.value.cookMinutes,
-      servings: normalized.value.servings,
-      notes: normalized.value.notes,
-      source_url: normalized.value.sourceUrl,
-      source_title: normalized.value.sourceTitle,
-      source_type: normalized.value.sourceUrl ? "imported" : "manual",
-      import_status: "confirmed",
-      tags: normalized.value.tags,
-      is_favorite: normalized.value.favorite
-    })
+    .insert(buildRecipeRecord(normalized.value, context.householdId))
     .select("id")
     .single();
 
@@ -218,11 +193,25 @@ export async function saveImportedRecipes(
     .getAll("selected")
     .map((value) => Number(value))
     .filter((value) => Number.isInteger(value) && value >= 0);
-  if (selected.length === 0) {
+  const reviewedSelection = selectReviewedImportDrafts(
+    selected.map((index) => ({
+      index,
+      knownDuplicate: formData.get(`recipe_${index}_knownDuplicate`) === "1",
+      allowDuplicate: true
+    }))
+  );
+  if (reviewedSelection.duplicateIndexes.length > 0) {
+    return {
+      status: "error",
+      message: "Choose Import as a separate copy for an existing recipe."
+    };
+  }
+  const selectedIndexes = reviewedSelection.selectedIndexes;
+  if (selectedIndexes.length === 0) {
     return { status: "error", message: "Choose at least one recipe to save." };
   }
 
-  const normalized = selected.map((index) => ({
+  const normalized = selectedIndexes.map((index) => ({
     index,
     result: normalizeRecipeInput(readRecipeInput(formData, `recipe_${index}_`))
   }));
@@ -291,23 +280,7 @@ export async function saveImportedRecipes(
   for (const entry of validRecipes) {
     const { data, error } = await context.supabase
       .from("recipes")
-      .insert({
-        household_id: context.householdId,
-        title: entry.value.title,
-        description: entry.value.description,
-        ingredients: entry.value.ingredients,
-        instructions: entry.value.instructions,
-        prep_minutes: entry.value.prepMinutes,
-        cook_minutes: entry.value.cookMinutes,
-        servings: entry.value.servings,
-        notes: entry.value.notes,
-        source_url: entry.value.sourceUrl,
-        source_title: entry.value.sourceTitle,
-        source_type: "imported",
-        import_status: "confirmed",
-        tags: entry.value.tags,
-        is_favorite: entry.value.favorite
-      })
+      .insert(buildRecipeRecord(entry.value, context.householdId))
       .select("id")
       .single();
     if (error || !data?.id) {
@@ -350,7 +323,7 @@ export async function saveImportedRecipes(
   revalidatePath("/week");
   revalidatePath("/today");
   revalidatePath("/kitchen");
-  redirect(`/recipes?imported=${selected.length}`);
+  redirect(`/recipes?imported=${selectedIndexes.length}`);
 }
 
 export async function updateRecipe(

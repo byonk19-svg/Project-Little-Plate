@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 import {
   getCurrentIsoDate,
   getWeekDates,
@@ -38,12 +38,6 @@ const recipeSelect =
 
 function validDate(value: string | undefined): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-async function authenticatedClient() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  return error || !data?.claims ? null : supabase;
 }
 
 function mapSlot(value: unknown): RecipeWeekSlot | null {
@@ -94,8 +88,12 @@ export async function getRecipeWeek(
   | { status: "signed_out"; week: null }
   | { status: "unavailable"; week: null }
 > {
-  const supabase = await authenticatedClient();
-  if (!supabase) return { status: "signed_out", week: null };
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out")
+    return { status: "signed_out", week: null };
+  if (context.status !== "authenticated")
+    return { status: "unavailable", week: null };
+  const { supabase } = context;
 
   const start = validDate(windowStart) ? windowStart : getCurrentIsoDate();
   const dates = getWeekDates(start);
@@ -138,8 +136,12 @@ export async function getNextPlannedRecipe(): Promise<
   | { status: "ready"; slot: RecipeWeekSlot }
   | { status: "signed_out" | "empty" | "unavailable"; slot: null }
 > {
-  const supabase = await authenticatedClient();
-  if (!supabase) return { status: "signed_out", slot: null };
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out")
+    return { status: "signed_out", slot: null };
+  if (context.status !== "authenticated")
+    return { status: "unavailable", slot: null };
+  const { supabase } = context;
 
   const result = await supabase
     .from("recipe_week_slots")

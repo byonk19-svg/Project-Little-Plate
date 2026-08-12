@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 
 export type RecipeImage = {
   id: string;
@@ -15,10 +15,10 @@ export type RecipeImage = {
 export async function getRecipeImage(
   recipeId: string
 ): Promise<RecipeImage | null> {
-  const supabase = await createSupabaseServerClient();
-  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
-  if (claimsError || !claims?.claims || !/^[0-9a-f-]{36}$/i.test(recipeId))
+  const context = await getHouseholdContext();
+  if (context.status !== "authenticated" || !/^[0-9a-f-]{36}$/i.test(recipeId))
     return null;
+  const { supabase } = context;
 
   const result = await supabase
     .from("recipe_images")

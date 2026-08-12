@@ -14,6 +14,16 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.test.{ts,tsx}"],
+    exclude: [
+      "src/modules/catalog/**",
+      "src/modules/catalog-import/**",
+      "src/modules/derived/**",
+      "src/modules/eligibility/**",
+      "src/modules/planner/**",
+      "src/modules/reactions/**",
+      "src/modules/storage/**",
+      "src/modules/meals/queries.test.ts"
+    ],
     coverage: {
       reporter: ["text", "html"]
     }

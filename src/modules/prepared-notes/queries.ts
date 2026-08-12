@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 
 export type PreparedNote = {
   id: string;
@@ -14,10 +14,12 @@ export async function getPreparedNotes(): Promise<
   | { status: "ready"; notes: PreparedNote[] }
   | { status: "signed_out" | "unavailable"; notes: [] }
 > {
-  const supabase = await createSupabaseServerClient();
-  const { data: claims, error: claimsError } = await supabase.auth.getClaims();
-  if (claimsError || !claims?.claims)
+  const context = await getHouseholdContext();
+  if (context.status === "signed_out")
     return { status: "signed_out", notes: [] };
+  if (context.status !== "authenticated")
+    return { status: "unavailable", notes: [] };
+  const { supabase } = context;
 
   const result = await supabase
     .from("prepared_notes")

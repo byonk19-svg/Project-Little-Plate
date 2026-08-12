@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHouseholdContext } from "@/modules/household/server";
 import { recipeMatchesSearch } from "@/modules/recipes/domain";
 
 export type Recipe = {
@@ -81,9 +82,8 @@ function mapRecipe(row: RecipeRow): Recipe {
 }
 
 async function getAuthenticatedClient() {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  return error || !data?.claims ? null : supabase;
+  const context = await getHouseholdContext();
+  return context.status === "authenticated" ? context.supabase : null;
 }
 
 async function getRecipeListImages(

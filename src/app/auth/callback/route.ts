@@ -40,17 +40,5 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(redirectTo("/login?error=account-setup"));
   }
 
-  const { data: babies, error: babyError } = await supabase
-    .from("babies")
-    .select("id")
-    .eq("is_active", true)
-    .limit(1);
-
-  if (babyError) {
-    return NextResponse.redirect(redirectTo("/login?error=account-setup"));
-  }
-
-  return NextResponse.redirect(
-    redirectTo(babies.length > 0 ? "/today" : "/profile-setup")
-  );
+  return NextResponse.redirect(redirectTo("/today"));
 }

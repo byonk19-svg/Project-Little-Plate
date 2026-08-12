@@ -1,139 +1,228 @@
-export type RecipeSourceType = "manual" | "recipe_url";
-export type RecipeExtractionMethod =
-  "json_ld" | "itemprop" | "metadata_preview" | "manual";
-
-export type PersonalRecipeDraft = {
+export type RecipeInput = {
   title: string;
+  description: string;
   ingredients: string;
   instructions: string;
+  prepMinutes: string;
+  cookMinutes: string;
+  servings: string;
   notes: string;
   sourceUrl: string;
-  sourceType: RecipeSourceType;
-  extractionMethod: RecipeExtractionMethod;
+  sourceTitle: string;
+  tags: string;
+  favorite: boolean;
 };
 
-export type NormalizedPersonalRecipe = Omit<
-  PersonalRecipeDraft,
-  "sourceUrl"
-> & { sourceUrl: string | null };
+export type NormalizedRecipe = {
+  title: string;
+  description: string | null;
+  ingredients: string;
+  instructions: string;
+  prepMinutes: number | null;
+  cookMinutes: number | null;
+  servings: number | null;
+  notes: string | null;
+  sourceUrl: string | null;
+  sourceTitle: string | null;
+  tags: string[];
+  favorite: boolean;
+};
 
-type ValidationResult =
-  | { status: "valid"; recipe: NormalizedPersonalRecipe }
-  | {
-      status: "invalid";
-      errors: Partial<
-        Record<"title" | "ingredients" | "instructions" | "sourceUrl", string>
-      >;
-    };
+type RecipeErrors = Partial<Record<keyof RecipeInput, string>>;
 
-type RecipeErrors = Partial<
-  Record<"title" | "ingredients" | "instructions" | "sourceUrl", string>
->;
+export type RecipeNormalization =
+  { ok: true; value: NormalizedRecipe } | { ok: false; errors: RecipeErrors };
 
-type UrlValidation =
-  | { valid: true; url: string }
-  | {
-      valid: false;
-      reason:
-        "https_only" | "invalid_url" | "private_host" | "port_not_allowed";
-    };
+const maxFieldLengths = {
+  title: 160,
+  description: 2000,
+  ingredients: 12000,
+  instructions: 20000,
+  notes: 4000,
+  sourceTitle: 240
+} as const;
 
-function normalizeText(value: string): string {
-  return value.replace(/\r\n?/g, "\n").trim();
+function clean(value: string): string {
+  return value.trim();
 }
 
-function isPrivateIpv4(hostname: string): boolean {
-  const octets = hostname.split(".").map(Number);
-  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet))) {
-    return false;
+const trackingParameterNames = new Set([
+  "fbclid",
+  "gclid",
+  "mc_cid",
+  "mc_eid",
+  "_ga",
+  "_hsenc",
+  "_hsmi"
+]);
+
+export function normalizeRecipeSourceUrl(value: string): string {
+  const url = new URL(value.trim());
+  url.protocol = "https:";
+  url.hostname = url.hostname.toLowerCase();
+  url.hash = "";
+
+  for (const key of [...url.searchParams.keys()]) {
+    if (
+      key.toLowerCase().startsWith("utm_") ||
+      trackingParameterNames.has(key.toLowerCase())
+    ) {
+      url.searchParams.delete(key);
+    }
   }
-  const [first, second] = octets;
-  return (
-    first === 0 ||
-    first === 10 ||
-    first === 127 ||
-    (first === 169 && second === 254) ||
-    (first === 172 && second >= 16 && second <= 31) ||
-    (first === 192 && second === 168)
-  );
+  url.searchParams.sort();
+  if (url.pathname.length > 1) {
+    url.pathname = url.pathname.replace(/\/+$/, "");
+  }
+  return url.toString();
 }
 
-function isPrivateHost(hostname: string): boolean {
-  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  return (
-    normalized === "localhost" ||
-    normalized.endsWith(".localhost") ||
-    normalized.endsWith(".local") ||
-    normalized === "::1" ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("fe80:") ||
-    isPrivateIpv4(normalized)
-  );
+function parseOptionalWholeNumber(
+  value: string,
+  field: "prepMinutes" | "cookMinutes" | "servings",
+  errors: RecipeErrors
+): number | null {
+  const normalized = clean(value);
+  if (!normalized) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(normalized)) {
+    errors[field] =
+      field === "servings"
+        ? "Use a whole number greater than zero."
+        : "Use a whole number of minutes.";
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || (field === "servings" && parsed < 1)) {
+    errors[field] =
+      field === "servings"
+        ? "Use a whole number greater than zero."
+        : "Use a whole number of minutes.";
+    return null;
+  }
+
+  return parsed;
 }
 
-export function validatePublicRecipeUrl(value: string): UrlValidation {
-  const trimmed = value.trim();
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    return { valid: false, reason: "invalid_url" };
+function validateLength(
+  value: string,
+  field: keyof typeof maxFieldLengths,
+  errors: RecipeErrors
+): string {
+  const normalized = clean(value);
+  if (normalized.length > maxFieldLengths[field]) {
+    errors[field] = `Keep this under ${maxFieldLengths[field]} characters.`;
   }
-
-  if (parsed.protocol !== "https:") {
-    return { valid: false, reason: "https_only" };
-  }
-  if (!parsed.hostname || isPrivateHost(parsed.hostname)) {
-    return { valid: false, reason: "private_host" };
-  }
-  if (parsed.username || parsed.password || parsed.port) {
-    return { valid: false, reason: "port_not_allowed" };
-  }
-
-  return { valid: true, url: parsed.toString() };
+  return normalized;
 }
 
-export function normalizePersonalRecipeDraft(
-  draft: PersonalRecipeDraft
-): ValidationResult {
-  const title = normalizeText(draft.title);
-  const ingredients = normalizeText(draft.ingredients);
-  const instructions = normalizeText(draft.instructions);
-  const notes = normalizeText(draft.notes);
-  const sourceUrl = normalizeText(draft.sourceUrl);
+export function parseRecipeTags(value: string): string[] {
+  const unique = new Set<string>();
+  for (const rawTag of value.split(",")) {
+    const tag = rawTag
+      .trim()
+      .replace(/^['"]|['"]$/g, "")
+      .trim()
+      .toLowerCase();
+    if (tag && tag.length <= 40) {
+      unique.add(tag);
+    }
+    if (unique.size === 12) {
+      break;
+    }
+  }
+  return [...unique];
+}
+
+export function normalizeRecipeInput(input: RecipeInput): RecipeNormalization {
   const errors: RecipeErrors = {};
+  const title = validateLength(input.title, "title", errors);
+  const description = validateLength(input.description, "description", errors);
+  const ingredients = validateLength(input.ingredients, "ingredients", errors);
+  const instructions = validateLength(
+    input.instructions,
+    "instructions",
+    errors
+  );
+  const notes = validateLength(input.notes, "notes", errors);
+  const sourceTitle = validateLength(input.sourceTitle, "sourceTitle", errors);
 
   if (!title) {
-    errors.title = "Enter a recipe title.";
+    errors.title = "Add a recipe title.";
   }
   if (!ingredients) {
-    errors.ingredients = "Enter ingredients or a food description.";
+    errors.ingredients = "Add the recipe ingredients.";
   }
   if (!instructions) {
-    errors.instructions = "Enter recipe instructions or preparation notes.";
+    errors.instructions = "Add the recipe instructions.";
   }
+
+  const sourceUrl = clean(input.sourceUrl);
   if (sourceUrl) {
-    const sourceValidation = validatePublicRecipeUrl(sourceUrl);
-    if (!sourceValidation.valid) {
-      errors.sourceUrl = "Use a public HTTPS recipe URL without credentials.";
+    try {
+      const parsed = new URL(sourceUrl);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error("unsupported protocol");
+      }
+    } catch {
+      errors.sourceUrl = "Use a valid http:// or https:// recipe link.";
     }
   }
 
+  const prepMinutes = parseOptionalWholeNumber(
+    input.prepMinutes,
+    "prepMinutes",
+    errors
+  );
+  const cookMinutes = parseOptionalWholeNumber(
+    input.cookMinutes,
+    "cookMinutes",
+    errors
+  );
+  const servings = parseOptionalWholeNumber(input.servings, "servings", errors);
+
   if (Object.keys(errors).length > 0) {
-    return { status: "invalid", errors };
+    return { ok: false, errors };
   }
 
   return {
-    status: "valid",
-    recipe: {
+    ok: true,
+    value: {
       title,
+      description: description || null,
       ingredients,
       instructions,
-      notes,
+      prepMinutes,
+      cookMinutes,
+      servings,
+      notes: notes || null,
       sourceUrl: sourceUrl || null,
-      sourceType: draft.sourceType,
-      extractionMethod: draft.extractionMethod
+      sourceTitle: sourceTitle || null,
+      tags: parseRecipeTags(input.tags),
+      favorite: input.favorite
     }
   };
+}
+
+export function recipeMatchesSearch(
+  recipe:
+    | Pick<NormalizedRecipe, "title" | "ingredients" | "tags">
+    | {
+        title: string;
+        ingredients: string;
+        tags: string[];
+      },
+  query: string
+): boolean {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return [recipe.title, recipe.ingredients, ...recipe.tags].some((value) =>
+    value.toLowerCase().includes(normalizedQuery)
+  );
 }

@@ -11,13 +11,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 describe("PrimaryNavigation", () => {
-  it("exposes all destinations and identifies the current one in text and semantics", () => {
+  it("exposes all four destinations and identifies the current one in text and semantics", () => {
     render(<PrimaryNavigation />);
 
     expect(
       screen.getByRole("navigation", { name: "Primary navigation" })
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link")).toHaveLength(5);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
 
     const currentLink = screen.getByRole("link", { name: /Week.*Current/ });
     expect(currentLink).toHaveAttribute("href", "/week");
@@ -31,13 +31,7 @@ describe("PrimaryNavigation", () => {
     const user = userEvent.setup();
     render(<PrimaryNavigation />);
 
-    for (const name of [
-      "Today",
-      /Week.*Current/,
-      "Kitchen",
-      "Foods",
-      "Recipes"
-    ]) {
+    for (const name of ["Today", /Week.*Current/, "Recipes", "Kitchen"]) {
       await user.tab();
       expect(screen.getByRole("link", { name })).toHaveFocus();
     }

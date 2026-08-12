@@ -3,26 +3,39 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { RecipeForm } from "@/app/recipes/recipe-form";
-import { getPersonalRecipe } from "@/modules/recipes/queries";
+import { updateRecipe } from "@/modules/recipes/actions";
+import { getRecipe } from "@/modules/recipes/queries";
 
-type EditRecipePageProps = { params: Promise<{ id: string }> };
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Edit recipe" };
 
-export default async function EditRecipePage({ params }: EditRecipePageProps) {
+export default async function EditRecipePage({
+  params
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  const result = await getPersonalRecipe(id);
-  if (result.status !== "ready") notFound();
+  const recipe = await getRecipe(id);
+  if (!recipe) notFound();
+
   return (
     <article className="recipe-editor-page">
       <header>
-        <Link className="catalog-back-link" href={`/recipes/${id}`}>
-          ← Recipe
-        </Link>
-        <p className="destination-page__eyebrow">Household library</p>
-        <h1>Edit recipe</h1>
+        <p className="destination-page__eyebrow">Recipes</p>
+        <h1>Edit {recipe.title}</h1>
+        <p className="destination-page__lede">
+          Imported and personal recipe content stays editable.
+        </p>
       </header>
-      <RecipeForm recipe={result.recipe} />
+      <RecipeForm
+        action={updateRecipe.bind(null, recipe.id)}
+        defaults={recipe}
+        submitLabel="Save changes"
+      />
+      <p>
+        <Link href={`/recipes/${recipe.id}`}>Cancel</Link>
+      </p>
     </article>
   );
 }

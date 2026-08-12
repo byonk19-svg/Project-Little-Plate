@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -14,11 +13,11 @@ export const metadata: Metadata = {
 };
 
 type AccountPageProps = {
-  searchParams: Promise<{ profileUpdated?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 };
 
 export default async function AccountPage({ searchParams }: AccountPageProps) {
-  const params = await searchParams;
+  await searchParams;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getClaims();
   if (error || !data?.claims) {
@@ -35,24 +34,6 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
         </p>
       </div>
 
-      {params.profileUpdated === "1" ? (
-        <p className="form-message form-message--success" role="status">
-          Baby profile updated.
-        </p>
-      ) : null}
-
-      <section
-        className="account-deletion-card"
-        aria-labelledby="profile-title"
-      >
-        <h2 id="profile-title">Baby profile</h2>
-        <p>
-          Correct the nickname, birth date, time zone, feeding style, or daily
-          meal slots used by Little Plate.
-        </p>
-        <Link href="/profile-setup?mode=edit">Edit baby profile</Link>
-      </section>
-
       <section
         className="account-deletion-card"
         aria-labelledby="session-title"
@@ -68,10 +49,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
       <section className="account-deletion-card" aria-labelledby="scope-title">
         <h2 id="scope-title">What deletion includes</h2>
         <p data-testid="deletion-scope">
-          Your sign-in identity and Little Plate household records are removed
-          together, including the baby profile, plans, inventory, and history.
-          Reviewed catalog content is shared product content and is not part of
-          your household record.
+          Your sign-in identity and private recipe household records are removed
+          together, including recipes, plans, preparation notes, and images.
         </p>
         <h3>Operational retention</h3>
         <p data-testid="deletion-retention">

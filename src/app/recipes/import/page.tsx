@@ -1,25 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { RecipeImportForm } from "@/app/recipes/import-form";
+import { ImportRecipeForm } from "@/app/recipes/import/import-form";
 
-export const metadata: Metadata = { title: "Import a recipe" };
+export const metadata: Metadata = { title: "Import recipe" };
 
 export default function ImportRecipePage() {
   return (
     <article className="recipe-editor-page">
       <header>
-        <Link className="catalog-back-link" href="/recipes">
-          ← Recipes
-        </Link>
-        <p className="destination-page__eyebrow">Household library</p>
-        <h1>Paste a recipe link</h1>
+        <p className="destination-page__eyebrow">Recipes</p>
+        <h1>Save from a website</h1>
         <p className="destination-page__lede">
-          We&apos;ll extract the details, then you&apos;ll review them before
-          saving.
+          Paste a public recipe link. You will review and edit everything before
+          it is saved to your private recipe box.
         </p>
       </header>
-      <RecipeImportForm />
+      <ImportRecipeForm />
+      <p>
+        <Link href="/recipes">Back to Recipes</Link>
+      </p>
     </article>
   );
 }

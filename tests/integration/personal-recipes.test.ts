@@ -3,57 +3,46 @@ import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import {
   authenticatedClient,
-  type LocalSupabaseStatus,
   readLocalSupabaseStatus,
-  waitForAuth
+  waitForAuth,
+  type LocalSupabaseStatus
 } from "./support/local-supabase";
 
 type TestUser = { id: string; client: SupabaseClient };
 
-describe("personal recipes", () => {
+const createdUserIds: string[] = [];
+
+describe("personal recipe persistence", () => {
   let status: LocalSupabaseStatus;
   let admin: SupabaseClient;
   let anonymous: SupabaseClient;
   let householdA: TestUser;
   let householdB: TestUser;
-  let babyAId: string;
-  const createdUserIds: string[] = [];
 
-  async function createUser(label: string): Promise<TestUser> {
-    const email = `personal-recipe-${label}-${crypto.randomUUID()}@example.test`;
-    const password = `PersonalRecipe-${crypto.randomUUID()}`;
+  async function createTestUser(label: string): Promise<TestUser> {
+    const email = `recipe-${label}-${crypto.randomUUID()}@example.test`;
+    const password = `Recipe-${crypto.randomUUID()}`;
     const created = await admin.auth.admin.createUser({
       email,
       password,
       email_confirm: true
     });
     expect(created.error).toBeNull();
-    createdUserIds.push(created.data.user!.id);
+    const userId = created.data.user!.id;
+    createdUserIds.push(userId);
+
     const authClient = createClient(status.API_URL, status.ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    const signedIn = await authClient.auth.signInWithPassword({
+    const session = await authClient.auth.signInWithPassword({
       email,
       password
     });
-    expect(signedIn.error).toBeNull();
+    expect(session.error).toBeNull();
     return {
-      id: created.data.user!.id,
-      client: authenticatedClient(status, signedIn.data.session!.access_token)
+      id: userId,
+      client: authenticatedClient(status, session.data.session!.access_token)
     };
-  }
-
-  async function createBaby(user: TestUser): Promise<string> {
-    expect((await user.client.rpc("bootstrap_account")).error).toBeNull();
-    const result = await user.client.rpc("complete_baby_profile", {
-      p_nickname: "Recipe baby",
-      p_birth_date: "2025-10-15",
-      p_time_zone: "America/Chicago",
-      p_feeding_style: "mixed",
-      p_meal_slots: ["breakfast", "lunch", "dinner"]
-    });
-    expect(result.error).toBeNull();
-    return result.data as string;
   }
 
   beforeAll(async () => {
@@ -65,162 +54,211 @@ describe("personal recipes", () => {
     anonymous = createClient(status.API_URL, status.ANON_KEY, {
       auth: { persistSession: false, autoRefreshToken: false }
     });
-    householdA = await createUser("a");
-    householdB = await createUser("b");
-    babyAId = await createBaby(householdA);
-    await createBaby(householdB);
+    householdA = await createTestUser("a");
+    householdB = await createTestUser("b");
+    await Promise.all([
+      householdA.client.rpc("bootstrap_account"),
+      householdB.client.rpc("bootstrap_account")
+    ]);
   });
 
   afterAll(async () => {
-    if (!admin) return;
-    for (const userId of createdUserIds) {
-      expect((await admin.auth.admin.deleteUser(userId)).error).toBeNull();
-    }
-  });
-
-  test("saves a private recipe and keeps it out of anonymous reads", async () => {
-    const idempotencyKey = crypto.randomUUID();
-    const created = await householdA.client.rpc("create_personal_recipe", {
-      p_idempotency_key: idempotencyKey,
-      p_title: "Banana oats",
-      p_ingredients: "Banana\nOats",
-      p_instructions: "Mix together.",
-      p_notes: "Family note",
-      p_source_url: "https://example.com/banana-oats",
-      p_source_type: "recipe_url",
-      p_extraction_method: "json_ld"
-    });
-    expect(created.error).toBeNull();
-    expect(created.data.title).toBe("Banana oats");
-
-    const list = await householdA.client.rpc("list_personal_recipes");
-    expect(list.error).toBeNull();
-    expect(list.data).toHaveLength(1);
-    expect((await householdB.client.rpc("list_personal_recipes")).data).toEqual(
-      []
+    await Promise.all(
+      createdUserIds.map((userId) => admin.auth.admin.deleteUser(userId))
     );
-    expect((await anonymous.rpc("list_personal_recipes")).error).not.toBeNull();
-
-    const replay = await householdA.client.rpc("create_personal_recipe", {
-      p_idempotency_key: idempotencyKey,
-      p_title: "Banana oats",
-      p_ingredients: "Banana\nOats",
-      p_instructions: "Mix together.",
-      p_notes: "Family note",
-      p_source_url: "https://example.com/banana-oats",
-      p_source_type: "recipe_url",
-      p_extraction_method: "json_ld"
-    });
-    expect(replay.error).toBeNull();
-    expect(replay.data.id).toBe(created.data.id);
-
-    const mismatch = await householdA.client.rpc("create_personal_recipe", {
-      p_idempotency_key: idempotencyKey,
-      p_title: "Different title",
-      p_ingredients: "Banana",
-      p_instructions: "Mash.",
-      p_notes: "",
-      p_source_url: null,
-      p_source_type: "manual",
-      p_extraction_method: "manual"
-    });
-    expect(mismatch.error).not.toBeNull();
   });
 
-  test("rejects unsafe recipe URLs at the persistence boundary", async () => {
-    const recipes = await householdA.client.rpc("list_personal_recipes");
-    const recipeId = recipes.data[0].id as string;
-    for (const sourceUrl of [
-      "https://localhost/recipe",
-      "https://owner:secret@example.com/recipe",
-      "https://example.com:8443/recipe",
-      "https://192.168.1.4/recipe"
-    ]) {
-      const result = await householdA.client.rpc("create_personal_recipe", {
-        p_idempotency_key: crypto.randomUUID(),
-        p_title: "Unsafe source",
-        p_ingredients: "Ingredient",
-        p_instructions: "Prepare.",
-        p_notes: "",
-        p_source_url: sourceUrl,
-        p_source_type: "recipe_url",
-        p_extraction_method: "manual"
+  test("stores editable recipes and isolates them by household", async () => {
+    const inserted = await householdA.client
+      .from("recipes")
+      .insert({
+        household_id: (
+          await householdA.client
+            .from("user_profiles")
+            .select("household_id")
+            .single()
+        ).data!.household_id,
+        title: "Tomato Pasta",
+        ingredients: "Tomatoes\nPasta",
+        instructions: "Boil and stir.",
+        source_type: "imported",
+        source_url: "https://example.com/tomato-pasta",
+        source_title: "Example Kitchen",
+        import_status: "confirmed",
+        tags: ["quick", "family"]
+      })
+      .select("id, title, source_type, import_status, tags")
+      .single();
+
+    expect(inserted.error).toBeNull();
+    expect(inserted.data).toEqual(
+      expect.objectContaining({
+        title: "Tomato Pasta",
+        source_type: "imported",
+        import_status: "confirmed",
+        tags: ["quick", "family"]
+      })
+    );
+
+    const recipeId = inserted.data!.id;
+    const otherHouseholdRead = await householdB.client
+      .from("recipes")
+      .select("id")
+      .eq("id", recipeId);
+    expect(otherHouseholdRead.error).toBeNull();
+    expect(otherHouseholdRead.data).toEqual([]);
+
+    const anonymousRead = await anonymous.from("recipes").select("id");
+    expect(anonymousRead.error?.code).toBe("42501");
+
+    const crossHouseholdUpdate = await householdB.client
+      .from("recipes")
+      .update({ title: "Not mine" })
+      .eq("id", recipeId)
+      .select("id");
+    expect(crossHouseholdUpdate.error).toBeNull();
+    expect(crossHouseholdUpdate.data).toEqual([]);
+
+    const ownUpdate = await householdA.client
+      .from("recipes")
+      .update({ is_favorite: true, tags: ["quick"] })
+      .eq("id", recipeId)
+      .select("is_favorite, tags")
+      .single();
+    expect(ownUpdate.error).toBeNull();
+    expect(ownUpdate.data).toEqual({ is_favorite: true, tags: ["quick"] });
+  });
+
+  test("stores one recipe per date and meal slot with private prepared notes", async () => {
+    const profile = await householdA.client
+      .from("user_profiles")
+      .select("household_id")
+      .single();
+    const recipe = await householdA.client
+      .from("recipes")
+      .insert({
+        household_id: profile.data!.household_id,
+        title: "Oatmeal",
+        ingredients: "Oats",
+        instructions: "Cook oats.",
+        source_type: "manual"
+      })
+      .select("id")
+      .single();
+    expect(recipe.error).toBeNull();
+
+    const slot = await householdA.client
+      .from("recipe_week_slots")
+      .insert({
+        household_id: profile.data!.household_id,
+        recipe_id: recipe.data!.id,
+        local_date: "2026-08-12",
+        meal_slot: "breakfast",
+        note: "Try this tomorrow"
+      })
+      .select("id, status")
+      .single();
+    expect(slot.error).toBeNull();
+    expect(slot.data?.status).toBe("planned");
+
+    const duplicateSlot = await householdA.client
+      .from("recipe_week_slots")
+      .insert({
+        household_id: profile.data!.household_id,
+        recipe_id: recipe.data!.id,
+        local_date: "2026-08-12",
+        meal_slot: "breakfast"
       });
-      expect(result.error).not.toBeNull();
+    expect(duplicateSlot.error?.code).toBe("23505");
 
-      const update = await householdA.client.rpc("update_personal_recipe", {
-        p_recipe_id: recipeId,
-        p_title: "Banana oats",
-        p_ingredients: "Banana\nOats",
-        p_instructions: "Mix together.",
-        p_notes: "Family note",
-        p_source_url: sourceUrl,
-        p_source_type: "recipe_url",
-        p_extraction_method: "json_ld"
+    const note = await householdA.client
+      .from("prepared_notes")
+      .insert({
+        household_id: profile.data!.household_id,
+        recipe_id: recipe.data!.id,
+        week_slot_id: slot.data!.id,
+        status: "prepared",
+        portion_count: 3,
+        notes: "Made ahead."
+      })
+      .select("status, portion_count, notes")
+      .single();
+    expect(note.error).toBeNull();
+    expect(note.data).toEqual({
+      status: "prepared",
+      portion_count: 3,
+      notes: "Made ahead."
+    });
+  });
+
+  test("ownership triggers protect cross-household planning and image metadata", async () => {
+    const profileA = await householdA.client
+      .from("user_profiles")
+      .select("household_id")
+      .single();
+    const profileB = await householdB.client
+      .from("user_profiles")
+      .select("household_id")
+      .single();
+    const recipeA = await householdA.client
+      .from("recipes")
+      .select("id")
+      .limit(1)
+      .single();
+    expect(recipeA.error).toBeNull();
+
+    const recipeAWithoutImage = await householdA.client
+      .from("recipes")
+      .insert({
+        household_id: profileA.data!.household_id,
+        title: "Image ownership fixture",
+        ingredients: "Ingredient",
+        instructions: "Instruction",
+        source_type: "manual"
+      })
+      .select("id")
+      .single();
+    expect(recipeAWithoutImage.error).toBeNull();
+
+    const crossHouseholdSlot = await householdB.client
+      .from("recipe_week_slots")
+      .insert({
+        household_id: profileB.data!.household_id,
+        recipe_id: recipeAWithoutImage.data!.id,
+        local_date: "2026-08-14",
+        meal_slot: "lunch"
       });
-      expect(update.error).not.toBeNull();
-    }
-  });
+    expect(crossHouseholdSlot.error?.code).toMatch(/23503|42501/);
 
-  test("plans a personal recipe on a configured week day and is idempotent", async () => {
-    const recipes = await householdA.client.rpc("list_personal_recipes");
-    const recipeId = recipes.data[0].id as string;
-    const week = await householdA.client.rpc("get_week_window");
-    expect(week.error).toBeNull();
-    const windowStart = week.data.window_start as string;
+    const ownImage = await householdA.client
+      .from("recipe_images")
+      .insert({
+        household_id: profileA.data!.household_id,
+        recipe_id: recipeA.data!.id,
+        source_type: "external",
+        external_url: "https://example.com/recipe.webp",
+        alt_text: "A recipe image"
+      })
+      .select("id, source_type, external_url")
+      .single();
+    expect(ownImage.error).toBeNull();
 
-    const planKey = crypto.randomUUID();
-    const planned = await householdA.client.rpc("plan_personal_recipe", {
-      p_idempotency_key: planKey,
-      p_baby_id: babyAId,
-      p_recipe_id: recipeId,
-      p_local_date: windowStart,
-      p_meal_slot: "breakfast"
-    });
-    expect(planned.error).toBeNull();
-    expect(planned.data.status).toBe("planned");
+    const crossHouseholdImage = await householdB.client
+      .from("recipe_images")
+      .insert({
+        household_id: profileB.data!.household_id,
+        recipe_id: recipeAWithoutImage.data!.id,
+        source_type: "external",
+        external_url: "https://example.com/not-mine.webp",
+        alt_text: "Not mine"
+      });
+    expect(crossHouseholdImage.error?.code).toMatch(/23503|42501/);
 
-    const replay = await householdA.client.rpc("plan_personal_recipe", {
-      p_idempotency_key: planKey,
-      p_baby_id: babyAId,
-      p_recipe_id: recipeId,
-      p_local_date: windowStart,
-      p_meal_slot: "breakfast"
-    });
-    expect(replay.error).toBeNull();
-    const mismatch = await householdA.client.rpc("plan_personal_recipe", {
-      p_idempotency_key: planKey,
-      p_baby_id: babyAId,
-      p_recipe_id: recipeId,
-      p_local_date: windowStart,
-      p_meal_slot: "dinner"
-    });
-    expect(mismatch.error).not.toBeNull();
-    expect(
-      (
-        await householdA.client.rpc("list_personal_planning_items", {
-          p_window_start: windowStart,
-          p_baby_id: babyAId
-        })
-      ).data
-    ).toHaveLength(1);
-
-    const today = await householdA.client.rpc("get_today_meal");
-    const kitchen = await householdA.client.rpc("get_kitchen_inventory");
-    expect(JSON.stringify(today.data)).not.toContain("Banana oats");
-    expect(JSON.stringify(kitchen.data)).not.toContain("Banana oats");
-  });
-
-  test("rejects cross-household planning and invalid slots", async () => {
-    const recipes = await householdA.client.rpc("list_personal_recipes");
-    const recipeId = recipes.data[0].id as string;
-    const result = await householdB.client.rpc("plan_personal_recipe", {
-      p_idempotency_key: crypto.randomUUID(),
-      p_baby_id: babyAId,
-      p_recipe_id: recipeId,
-      p_local_date: "2026-08-10",
-      p_meal_slot: "breakfast"
-    });
-    expect(result.error).not.toBeNull();
+    const hiddenImage = await householdB.client
+      .from("recipe_images")
+      .select("id")
+      .eq("id", ownImage.data!.id);
+    expect(hiddenImage.error).toBeNull();
+    expect(hiddenImage.data).toEqual([]);
   });
 });

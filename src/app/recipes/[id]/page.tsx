@@ -2,110 +2,129 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { deletePersonalRecipeAction } from "@/modules/recipes/actions";
-import { PlanningForm } from "@/app/recipes/[id]/planning-form";
-import { getCurrentWeek } from "@/modules/meals/queries";
-import { getPersonalRecipe } from "@/modules/recipes/queries";
+import { deleteRecipe, toggleRecipeFavorite } from "@/modules/recipes/actions";
+import { getRecipe, recipeSourceLabel } from "@/modules/recipes/queries";
+import { getRecipeImage } from "@/modules/recipe-images/queries";
 
-type RecipeDetailPageProps = { params: Promise<{ id: string }> };
+import { RecipeImagePanel } from "./recipe-image-panel";
 
-export const metadata: Metadata = { title: "Personal recipe" };
+export const dynamic = "force-dynamic";
 
-export default async function PersonalRecipePage({
-  params
-}: RecipeDetailPageProps) {
+export const metadata: Metadata = { title: "Recipe" };
+
+function RecipeText({ value }: { value: string }) {
+  return <p className="recipe-text">{value}</p>;
+}
+
+export default async function RecipeDetailPage({
+  params,
+  searchParams
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string; updated?: string }>;
+}) {
   const { id } = await params;
-  const [recipeResult, week] = await Promise.all([
-    getPersonalRecipe(id),
-    getCurrentWeek()
+  const query = await searchParams;
+  const [recipe, image] = await Promise.all([
+    getRecipe(id),
+    getRecipeImage(id)
   ]);
-  if (recipeResult.status !== "ready") notFound();
-  const recipe = recipeResult.recipe;
+  if (!recipe) notFound();
 
   return (
     <article className="recipe-detail-page">
+      {query.created === "1" || query.updated === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          {query.created === "1" ? "Recipe saved." : "Recipe updated."}
+        </p>
+      ) : null}
       <header>
-        <Link className="catalog-back-link" href="/recipes">
-          ← Recipes
-        </Link>
-        <p className="foundation-card__status">
-          Personal recipe — not reviewed
-        </p>
+        <p className="destination-page__eyebrow">{recipeSourceLabel(recipe)}</p>
         <h1>{recipe.title}</h1>
-        <p className="destination-page__lede">
-          This recipe is private to your household and has not been assessed by
-          Little Plate.
-        </p>
+        {recipe.description ? (
+          <p className="destination-page__lede">{recipe.description}</p>
+        ) : null}
+        <div className="page-actions">
+          <Link
+            className="primary-action primary-action--link"
+            href={`/week?recipeId=${recipe.id}`}
+          >
+            Plan this recipe
+          </Link>
+          <Link
+            className="secondary-action"
+            href={`/recipes/${recipe.id}/edit`}
+          >
+            Edit
+          </Link>
+          <form action={toggleRecipeFavorite.bind(null, recipe.id)}>
+            <button className="secondary-action" type="submit">
+              {recipe.isFavorite ? "Unfavorite" : "Favorite"}
+            </button>
+          </form>
+          <form action={deleteRecipe.bind(null, recipe.id)}>
+            <button className="danger-action" type="submit">
+              Delete
+            </button>
+          </form>
+        </div>
       </header>
 
-      <section className="foundation-card" aria-labelledby="ingredients-title">
-        <h2 id="ingredients-title">Ingredients or food description</h2>
-        <p className="recipe-body">{recipe.ingredients}</p>
-      </section>
+      <div className="recipe-facts">
+        {recipe.prepMinutes !== null ? (
+          <span>Prep: {recipe.prepMinutes} min</span>
+        ) : null}
+        {recipe.cookMinutes !== null ? (
+          <span>Cook: {recipe.cookMinutes} min</span>
+        ) : null}
+        {recipe.servings !== null ? (
+          <span>Serves: {recipe.servings}</span>
+        ) : null}
+      </div>
 
-      <section className="foundation-card" aria-labelledby="instructions-title">
-        <h2 id="instructions-title">Instructions or preparation notes</h2>
-        <p className="recipe-body">{recipe.instructions}</p>
+      <section className="recipe-detail-grid">
+        <div className="foundation-card">
+          <h2>Ingredients</h2>
+          <RecipeText value={recipe.ingredients} />
+        </div>
+        <div className="foundation-card">
+          <h2>Instructions</h2>
+          <RecipeText value={recipe.instructions} />
+        </div>
       </section>
 
       {recipe.notes ? (
-        <section className="foundation-card" aria-labelledby="notes-title">
-          <h2 id="notes-title">Your notes</h2>
-          <p className="recipe-body">{recipe.notes}</p>
+        <section className="foundation-card">
+          <h2>Personal notes</h2>
+          <RecipeText value={recipe.notes} />
         </section>
       ) : null}
 
-      <section
-        className="foundation-card"
-        aria-labelledby="recipe-source-title"
-      >
-        <h2 id="recipe-source-title">Source</h2>
-        {recipe.sourceUrl ? (
+      {recipe.tags.length > 0 ? (
+        <section aria-label="Recipe tags">
+          <h2>Tags</h2>
+          <ul className="tag-list">
+            {recipe.tags.map((tag) => (
+              <li key={tag}>{tag}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {recipe.sourceUrl ? (
+        <p className="recipe-source">
+          Source:{" "}
           <a href={recipe.sourceUrl} rel="noreferrer" target="_blank">
-            {recipe.sourceUrl}
+            {recipe.sourceTitle ?? recipe.sourceUrl}
           </a>
-        ) : (
-          <p>Added directly by your household.</p>
-        )}
-        <p className="form-help">
-          Little Plate does not verify this recipe&apos;s safety, allergens,
-          storage, or developmental suitability.
         </p>
-      </section>
+      ) : null}
 
-      {week.status === "ready" ? (
-        <section
-          className="foundation-card"
-          aria-labelledby="personal-plan-title"
-        >
-          <p className="foundation-card__status">Plan ahead</p>
-          <h2 id="personal-plan-title">Add to this week</h2>
-          <PlanningForm
-            babyId={week.plan.babyId}
-            days={week.plan.days}
-            idempotencyKey={crypto.randomUUID()}
-            recipeId={recipe.id}
-          />
-        </section>
-      ) : (
-        <section className="foundation-card" role="alert">
-          <h2>Weekly planning is unavailable</h2>
-          <p>Complete the baby profile before placing a recipe on the week.</p>
-        </section>
-      )}
-
-      <Link
-        className="secondary-action secondary-action--link"
-        href={`/recipes/${recipe.id}/edit`}
-      >
-        Edit recipe
-      </Link>
-      <form action={deletePersonalRecipeAction} className="recipe-delete-form">
-        <input name="recipeId" type="hidden" value={recipe.id} />
-        <button className="text-action" type="submit">
-          Delete recipe
-        </button>
-      </form>
+      <RecipeImagePanel
+        image={image}
+        recipeId={recipe.id}
+        sourceUrl={recipe.sourceUrl}
+      />
     </article>
   );
 }

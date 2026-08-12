@@ -4,17 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { WorkflowFeedbackForm } from "@/components/analytics/workflow-feedback-form";
 import { PrimaryNavigation } from "@/components/navigation/primary-navigation";
 import { NetworkStatus } from "@/components/network/network-status";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isFocusedFlow =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/auth") ||
-    pathname.startsWith("/profile-setup") ||
-    pathname.startsWith("/feeding-setup");
+    pathname.startsWith("/login") || pathname.startsWith("/auth");
 
   return (
     <div className={`app-shell${isFocusedFlow ? " app-shell--focused" : ""}`}>
@@ -23,9 +19,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </a>
       <header className="app-header">
         <div>
-          <p className="app-header__eyebrow">Project Little Plate</p>
+          <p className="app-header__eyebrow">Little Plate Recipes</p>
           <p className="app-header__promise">
-            Know what to feed next, using what you already have.
+            Keep your recipes, plan your week, and remember what you prepared.
           </p>
         </div>
         {isFocusedFlow ? null : (
@@ -42,7 +38,6 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main className="app-shell__content" id="main-content" tabIndex={-1}>
         <NetworkStatus />
         {children}
-        {isFocusedFlow ? null : <WorkflowFeedbackForm />}
       </main>
     </div>
   );

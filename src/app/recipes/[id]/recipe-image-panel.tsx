@@ -1,0 +1,108 @@
+import {
+  addExternalRecipeImage,
+  deleteRecipeImage,
+  uploadRecipeImage
+} from "@/modules/recipe-images/actions";
+import type { RecipeImage } from "@/modules/recipe-images/queries";
+
+export function RecipeImagePanel({
+  recipeId,
+  image,
+  sourceUrl
+}: {
+  recipeId: string;
+  image: RecipeImage | null;
+  sourceUrl: string | null;
+}) {
+  return (
+    <section
+      className="recipe-image-panel foundation-card"
+      aria-labelledby="recipe-image-title"
+    >
+      <p className="foundation-card__status">Optional cover image</p>
+      <h2 id="recipe-image-title">Make it easier to recognize</h2>
+      {image ? (
+        <>
+          {image.signedUrl || image.externalUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={image.altText}
+              className="recipe-cover-image"
+              src={image.signedUrl ?? image.externalUrl ?? undefined}
+            />
+          ) : (
+            <p role="status">
+              This image could not be displayed. You can replace it below.
+            </p>
+          )}
+          <p>
+            {image.sourceType === "upload"
+              ? "Uploaded privately"
+              : "External image link"}
+          </p>
+          {image.rightsNote ? (
+            <p>Rights note: {image.rightsNote}</p>
+          ) : (
+            <p>Rights note not provided.</p>
+          )}
+          <form action={deleteRecipeImage.bind(null, recipeId, image.id)}>
+            <button className="danger-action" type="submit">
+              Remove image
+            </button>
+          </form>
+        </>
+      ) : (
+        <>
+          <form action={uploadRecipeImage} className="recipe-image-form">
+            <input name="recipeId" type="hidden" value={recipeId} />
+            <input name="sourceUrl" type="hidden" value={sourceUrl ?? ""} />
+            <label className="field">
+              <span>Upload a JPG, PNG, or WebP</span>
+              <input
+                accept="image/jpeg,image/png,image/webp"
+                name="file"
+                required
+                type="file"
+              />
+            </label>
+            <label className="field">
+              <span>Alternative text</span>
+              <input maxLength={240} name="altText" required type="text" />
+            </label>
+            <label className="field">
+              <span>Rights note (optional)</span>
+              <input maxLength={1000} name="rightsNote" type="text" />
+            </label>
+            <button className="secondary-action" type="submit">
+              Upload image
+            </button>
+          </form>
+          <form action={addExternalRecipeImage} className="recipe-image-form">
+            <input name="recipeId" type="hidden" value={recipeId} />
+            <input name="sourceUrl" type="hidden" value={sourceUrl ?? ""} />
+            <label className="field">
+              <span>Or use an approved image URL</span>
+              <input
+                name="externalUrl"
+                placeholder="https://"
+                required
+                type="url"
+              />
+            </label>
+            <label className="field">
+              <span>Alternative text</span>
+              <input maxLength={240} name="altText" required type="text" />
+            </label>
+            <label className="field">
+              <span>Rights note (optional)</span>
+              <input maxLength={1000} name="rightsNote" type="text" />
+            </label>
+            <button className="secondary-action" type="submit">
+              Save image URL
+            </button>
+          </form>
+        </>
+      )}
+    </section>
+  );
+}

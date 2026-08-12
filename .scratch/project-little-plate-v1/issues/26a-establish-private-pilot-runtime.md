@@ -35,8 +35,7 @@ changing safety semantics, or weakening catalog publication isolation.
 - `src/app/login/page.tsx`
 - `.env.example` and the private deployment section of `README.md`
 
-This slice is complete in source and unit-test terms, but deployment evidence
-requires a hosting/Supabase environment and authorized tester configuration.
+This slice is complete in source terms; hosted evidence is tracked below.
 
 ## Validation evidence
 
@@ -57,6 +56,53 @@ requires a hosting/Supabase environment and authorized tester configuration.
 - The authenticated browser paths relevant to 26A passed within that full run,
   including passwordless sign-in, profile bootstrap, sign-out, deletion,
   feeding setup, and Foods.
-- No deployed browser evidence exists yet.
-- Hosted Supabase is linked, but its remote migration history contains only the
-  baseline migration. No remote schema push or Vercel deployment was performed.
+- Hosted private-dogfood schema promotion completed against Supabase project
+  `ioqukpdpnsqcrsqswjcl` using the repository-pinned CLI (`2.109.1`). The
+  remote Postgres version is `17.6`, compatible with the committed Postgres 17
+  configuration.
+- The pre-promotion dry run contained exactly the 22 committed forward
+  migrations; after promotion, `supabase migration list` shows every local
+  migration recorded remotely and a second dry run reports the database is up
+  to date.
+- The organization is on the Supabase Free plan, so managed daily backups are
+  not included. A manual schema/data logical dump was created outside the
+  repository before promotion; no backup artifact or secret is committed.
+- Post-promotion smoke checks found zero foods, preparations, import receipts,
+  or public catalog items. Anonymous direct table reads and anonymous
+  `bootstrap_account` calls were denied; the anonymous public catalog RPC
+  returned an empty array.
+- Supabase advisors were reviewed after promotion. Existing INFO/WARN notices
+  (including intentionally callable SECURITY DEFINER RPCs, RLS-without-policy
+  service tables, and unused/unindexed structures) were recorded for later
+  review; no migration failure or ERROR-level finding blocked this staging
+  promotion.
+- Real-mobile evidence has not been captured yet.
+
+## Hosted private-dogfood evidence
+
+- Vercel project `project-little-plate` is deployed at
+  `https://project-little-plate.vercel.app` from `main` commit
+  `6ccb0d9e2212c7a1a476521cca9357cd03476662`.
+- Production runtime variables are configured in Vercel; the private allowlist
+  remains server-only and is not recorded in this repository.
+- Supabase Auth Site URL and the exact hosted callback
+  `https://project-little-plate.vercel.app/auth/callback` are configured.
+- Hosted browser evidence: authorized passwordless sign-in, household/profile
+  bootstrap, empty Foods, empty Today, empty Week, empty Kitchen, empty
+  feeding setup, sign-out, and sign-back-in all passed. Today remained empty
+  rather than inventing a meal, and Foods showed `Awaiting review`.
+- Account deletion passed. Post-deletion database counts for the authorized
+  account, households, profiles, and babies were all zero, with no orphaned
+  household rows.
+- Direct anonymous `/today` access redirected to the restricted login screen.
+- Remaining verification blocker: the immediate deleted-user retry returned
+  Supabase Auth HTTP 429 email throttling, including after a quiet cooldown.
+  No account or household was recreated. Retry must be repeated after the
+  provider throttle clears before 26A can be marked complete.
+- A separate non-allowlisted callback email was not exercised in the hosted
+  browser because the controlled non-allowlisted request returned the same
+  Supabase Auth HTTP 429 throttle before a link could be issued. The
+  hosted database still reports zero Auth users, households, profiles, and
+  babies, so no bootstrap occurred. The deployed anonymous route gate and the
+  pre-bootstrap rejection unit coverage remain the available evidence for the
+  rejection boundary until the provider throttle clears.

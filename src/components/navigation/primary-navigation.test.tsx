@@ -31,7 +31,7 @@ describe("PrimaryNavigation", () => {
     const user = userEvent.setup();
     render(<PrimaryNavigation />);
 
-    for (const name of ["Today", /Week.*Current/, "Kitchen", "Foods"]) {
+    for (const name of ["Today", /Week.*Current/, "Recipes", "Kitchen"]) {
       await user.tab();
       expect(screen.getByRole("link", { name })).toHaveFocus();
     }

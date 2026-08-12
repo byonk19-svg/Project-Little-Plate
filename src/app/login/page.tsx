@@ -34,7 +34,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   return (
     <article className="auth-page">
       <div>
-        <p className="destination-page__eyebrow">Caregiver account</p>
+        <p className="destination-page__eyebrow">Private recipe box</p>
         <h1>Sign in to Little Plate</h1>
         <p className="destination-page__lede">
           Enter your email and we’ll send a one-time sign-in link. No password
@@ -64,7 +64,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       ) : null}
 
       <p className="privacy-note">
-        Your household and baby profile stay private to your account.
+        Your recipe box stays private to your account.
       </p>
     </article>
   );

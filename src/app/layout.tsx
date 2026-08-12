@@ -7,11 +7,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Project Little Plate",
-    template: "%s | Project Little Plate"
+    default: "Little Plate Recipes",
+    template: "%s | Little Plate Recipes"
   },
-  description:
-    "A mobile-first baby meal operations tool for planning, preparing, storing, and serving reviewed foods."
+  description: "A private recipe box and manual meal planner for caregivers."
 };
 
 export const viewport: Viewport = {

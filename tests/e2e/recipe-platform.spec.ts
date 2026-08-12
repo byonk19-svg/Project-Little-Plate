@@ -39,6 +39,9 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     page.getByRole("heading", { name: "Weeknight Oatmeal", level: 1 })
   ).toBeVisible();
 
+  const recipeId = page.url().match(/\/recipes\/([0-9a-f-]+)/)?.[1];
+  expect(recipeId).toBeTruthy();
+
   await page.getByRole("button", { name: "Favorite" }).click();
   await expect(page.getByRole("button", { name: "Unfavorite" })).toBeVisible();
 
@@ -55,6 +58,11 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await firstBreakfast.getByRole("button", { name: "Plan recipe" }).click();
   await expect(page).toHaveURL(/\/week\?.*saved=1/);
   await expect(firstBreakfast).toContainText("Weeknight Oatmeal");
+
+  await page.goto(`/week?recipeId=${recipeId}`);
+  await expect(
+    page.locator(`select[name="recipeId"] option:checked[value="${recipeId}"]`)
+  ).toHaveCount(1);
 
   await page.goto("/today");
   await expect(

@@ -10,7 +10,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:3000",
+    baseURL: "http://localhost:3000",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure"
@@ -32,7 +32,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
         "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
     },
-    url: "http://127.0.0.1:3000/today",
+    url: "http://localhost:3000/today",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
   },

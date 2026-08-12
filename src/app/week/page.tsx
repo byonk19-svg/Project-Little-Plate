@@ -25,6 +25,10 @@ type WeekPageProps = {
   }>;
 };
 
+function slotKey(localDate: string, mealSlot: string): string {
+  return `${localDate}:${mealSlot}`;
+}
+
 function addLocalDays(localDate: string, amount: number): string {
   const date = new Date(`${localDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + amount);
@@ -154,6 +158,18 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
     getRecipePlanningOptions()
   ]);
 
+  const firstOpenSlotKey =
+    weekResult.status === "ready" && params.recipeId
+      ? weekResult.week.days
+          .flatMap((day) =>
+            day.slots.map(({ mealSlot, slot }) => ({
+              key: slotKey(day.localDate, mealSlot),
+              slot
+            }))
+          )
+          .find(({ slot }) => !slot)?.key
+      : undefined;
+
   return (
     <div className="week-page">
       <header>
@@ -254,7 +270,12 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
                           localDate={day.localDate}
                           mealSlot={mealSlot}
                           recipes={recipes}
-                          selectedRecipeId={params.recipeId}
+                          selectedRecipeId={
+                            firstOpenSlotKey ===
+                            slotKey(day.localDate, mealSlot)
+                              ? params.recipeId
+                              : undefined
+                          }
                           windowStart={weekResult.week.windowStart}
                         />
                       )}

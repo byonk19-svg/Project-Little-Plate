@@ -1,6 +1,8 @@
 # Personal recipe platform pivot implementation plan
 
-Status: executed on `codex/personal-recipe-platform`.
+Status: shipped on `main` at the personal recipe platform merge. Remaining
+follow-through is tracked in
+`docs/superpowers/plans/recipe-platform-follow-through-plan.md`.
 
 ## Product contract
 
@@ -40,8 +42,8 @@ Week ordering, prepared notes, and image validation. Supabase reset and recipe
 RLS integration coverage are required before handoff. Run the full repository
 gate from `AGENTS.md` before merging the branch.
 
-## Remaining cleanup
+## Historical cleanup note
 
-The legacy migration history can remain for rollback, but old caregiver routes,
-old E2E fixtures, and unused legacy module imports should be removed or isolated
-after the new mobile browser suite is green.
+The legacy migration history remains for rollback and is not part of the active
+product. Compatibility routes and legacy modules are handled through the
+follow-through plan's isolation checks rather than broad deletion.

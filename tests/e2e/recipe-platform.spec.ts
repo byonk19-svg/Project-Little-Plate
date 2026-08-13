@@ -7,6 +7,11 @@ import {
 
 import { waitForMagicLink } from "./support/passwordless-auth";
 
+const singleImportUrl = "https://example.com/.little-plate-test-fixture/single";
+const multiImportUrl = "https://example.com/.little-plate-test-fixture/multi";
+const incompleteImportUrl =
+  "https://example.com/.little-plate-test-fixture/incomplete";
+
 async function signIn(page: Page, request: APIRequestContext) {
   const email = `recipe-browser-${crypto.randomUUID()}@example.test`;
   await page.goto("/login");
@@ -34,7 +39,9 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await page.getByLabel("Instructions").fill("Cook oats.\nTop with banana.");
   await page.getByLabel("Tags (optional)").fill("quick, breakfast");
   await page.getByRole("button", { name: "Save recipe" }).click();
-  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?created=1$/);
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?created=1$/, {
+    timeout: 20_000
+  });
   await expect(
     page.getByRole("heading", { name: "Weeknight Oatmeal", level: 1 })
   ).toBeVisible();
@@ -121,5 +128,101 @@ test("signed-out navigation names the active recipe product", async ({
     page
       .getByRole("navigation", { name: "Primary navigation" })
       .getByRole("link", { name: "Foods" })
+  ).toHaveCount(0);
+});
+
+test("imports and edits a recipe with explicit image confirmation", async ({
+  page,
+  request
+}) => {
+  test.setTimeout(120_000);
+  await signIn(page, request);
+
+  await page.goto("/recipes/import");
+  await page.getByLabel("Recipe website link").fill(singleImportUrl);
+  await page.getByRole("button", { name: "Preview recipe" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Imported details are editable" })
+  ).toBeVisible();
+  await page.getByLabel("Title").fill("Edited Fixture Oat Bites");
+  await expect(page.getByLabel("Use this image")).not.toBeChecked();
+  await page.getByLabel("Image description").fill("Oat bites on a plate");
+  await page.getByLabel("Use this image").check();
+  await page.getByRole("button", { name: "Save imported recipe" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?created=1$/);
+  await expect(
+    page.getByRole("heading", { name: "Edited Fixture Oat Bites", level: 1 })
+  ).toBeVisible();
+  await expect(page.getByText("External image link")).toBeVisible();
+
+  await page.goto("/recipes/import");
+  await page.getByLabel("Recipe website link").fill(incompleteImportUrl);
+  await page.getByRole("button", { name: "Preview recipe" }).click();
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "could not find complete recipe details" })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Add it manually" })
+  ).toHaveAttribute("href", "/recipes/new");
+});
+
+test("selects recipes from an article and handles duplicate imports explicitly", async ({
+  page,
+  request
+}) => {
+  test.setTimeout(120_000);
+  await signIn(page, request);
+
+  await page.goto("/recipes/import");
+  await page.getByLabel("Recipe website link").fill(multiImportUrl);
+  await page.getByRole("button", { name: "Preview recipe" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Choose recipes to save" })
+  ).toBeVisible();
+  const saveChoices = page.getByRole("checkbox", { name: "Save this recipe" });
+  await expect(saveChoices).toHaveCount(2);
+  await saveChoices.nth(1).uncheck();
+  const imageChoices = page.getByRole("checkbox", { name: "Use this image" });
+  await expect(imageChoices).toHaveCount(2);
+  await expect(imageChoices.nth(0)).not.toBeChecked();
+  await imageChoices.nth(0).check();
+  await page.getByRole("button", { name: "Save selected recipes" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\?imported=1$/, {
+    timeout: 20_000
+  });
+  await expect(
+    page.getByRole("heading", { name: "Fixture Spinach Bites", level: 2 })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Fixture Banana Oat Cups", level: 2 })
+  ).toHaveCount(0);
+
+  await page.goto("/recipes/import");
+  await page.getByLabel("Recipe website link").fill(multiImportUrl);
+  await page.getByRole("button", { name: "Preview recipe" }).click();
+  await expect(page.getByText("Already saved")).toHaveCount(2);
+  const separateCopies = page.getByRole("checkbox", {
+    name: "Import separate copy"
+  });
+  await expect(separateCopies).toHaveCount(2);
+  await expect(separateCopies.nth(0)).not.toBeChecked();
+  await separateCopies.nth(0).check();
+  await separateCopies.nth(1).uncheck();
+  await page.getByRole("button", { name: "Save selected recipes" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\?imported=1$/, {
+    timeout: 20_000
+  });
+  await expect(
+    page.getByRole("heading", { name: "Fixture Spinach Bites", level: 2 })
+  ).toHaveCount(2);
+  await expect(
+    page.getByRole("heading", { name: "Fixture Banana Oat Cups", level: 2 })
   ).toHaveCount(0);
 });

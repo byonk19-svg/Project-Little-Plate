@@ -82,9 +82,12 @@ export function ImportRecipeForm() {
         {isPending ? "Reading page…" : "Preview recipe"}
       </button>
       {state.status === "error" ? (
-        <p className="form-message form-message--error" role="alert">
-          {state.message}
-        </p>
+        <div className="form-message form-message--error" role="alert">
+          <p>{state.message}</p>
+          <Link className="secondary-action" href="/recipes/new">
+            Add it manually
+          </Link>
+        </div>
       ) : null}
     </form>
   );

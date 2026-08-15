@@ -130,3 +130,8 @@ The former catalog, feeding eligibility, reactions, storage deadlines,
 expiration, grocery, automatic planner, and reviewed-content release terms are
 legacy implementation history. They must not reappear in the caregiver UI or be
 used as the source of new recipe decisions.
+
+The compatibility routes `/foods`, `/foods/[slug]`, and `/feeding-setup`
+redirect into the active Recipes surface. Retained legacy modules and tests are
+checked only through the explicit `pnpm verify:legacy` command; they are not
+part of the active product verification gate.

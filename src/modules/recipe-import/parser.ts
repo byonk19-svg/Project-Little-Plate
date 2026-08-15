@@ -2,6 +2,7 @@ import dns from "node:dns/promises";
 import net from "node:net";
 
 import type { RecipeImportMatch } from "@/modules/recipe-import/duplicates";
+import { loadRecipeImportFixture } from "@/modules/recipe-import/fixtures";
 
 export type AddressResolver = (hostname: string) => Promise<string[]>;
 
@@ -365,6 +366,9 @@ export async function fetchRecipePage(
   sourceUrl: string
 ): Promise<RecipeParseResult> {
   let currentUrl = await normalizeRecipeImportUrl(sourceUrl);
+
+  const fixture = await loadRecipeImportFixture(currentUrl);
+  if (fixture !== null) return parseRecipePage(fixture, currentUrl);
 
   for (
     let redirectCount = 0;

@@ -1,4 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "node:path";
+
+const recipeImportFixtureDirectory = path.resolve(
+  "tests/fixtures/recipe-import"
+);
+const port = process.env.PLAYWRIGHT_PORT ?? "3000";
+const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -10,7 +17,7 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure"
@@ -27,12 +34,15 @@ export default defineConfig({
   webServer: {
     command: "pnpm dev",
     env: {
-      NEXT_PUBLIC_APP_URL: "http://127.0.0.1:3000",
+      NEXT_PUBLIC_APP_URL: baseURL,
       NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:56321",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
-        "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH"
+        "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
+      RECIPE_IMPORT_TEST_FIXTURES: "1",
+      RECIPE_IMPORT_TEST_FIXTURE_DIR: recipeImportFixtureDirectory,
+      PORT: port
     },
-    url: "http://localhost:3000/today",
+    url: `${baseURL}/today`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
   },

@@ -1,35 +1,38 @@
 # Personal Recipe Library and Weekly Planning Design
 
-**Status:** approved direction for implementation
+**Status:** Superseded implementation design
+
+This document records the pre-shipment planning model. The active contract is
+defined by `AGENTS.md`, `CONTEXT.md`, `README.md`, and ADR 0019/0020. Do not
+implement from the old `personal_recipes` or `personal_planning_items` names.
 
 ## Goal
 
-Give a household a private place to save foods and recipes, import a recipe
-from a public HTTPS URL, review the extracted fields, and place personal items
-on any day and configured meal slot in the current Week view.
+Give a household a private place to save recipes, import a recipe from a public
+HTTPS URL, review the extracted fields, and place recipes on any day and
+configured meal slot in the current Week view.
 
-## Safety boundary
+## Product boundary
 
-Personal recipes are never reviewed Little Plate catalog content. The product
-stores caregiver-supplied or source-extracted text without rewriting it into
-safety guidance. Personal items are excluded from feeding eligibility, Today,
-Kitchen, storage deadlines, serving, and any public catalog read. The UI labels
-them `Personal recipe — not reviewed` and explains that Little Plate has not
-assessed them.
+Personal recipes are never reviewed Little Plate catalog content. The active
+product stores caregiver-supplied or source-extracted text without rewriting it
+into safety guidance. Personal recipes can be manually assigned in Week, shown
+as the next planned recipe in Today, and used for lightweight Kitchen notes.
+The product makes no safety, allergen, medical, developmental, serving,
+storage, expiration, nutrition, or feeding-eligibility judgments.
 
 ## Data model
 
-Add household-owned `personal_recipes` records with title, ingredients,
-instructions, notes, optional public HTTPS source URL, source type (`manual`
-or `recipe_url`), extraction method/status, and timestamps.
+The shipped model uses household-owned `recipes` records with title,
+ingredients, instructions, notes, optional public HTTPS source URL, source type
+(`manual` or `imported`), import status, tags, favorite state, and timestamps.
 
-Add `personal_planning_items` records linking a recipe to the active baby,
-local date, and configured meal slot. These rows are a separate read/write
-boundary from reviewed `meal_components`, so existing Today/Kitchen/serving
-queries cannot accidentally consume them.
+`recipe_week_slots` records link a recipe to a local date and configured meal
+slot. `prepared_notes` records store preparation status, optional portions, and
+personal notes. These are separate from the retired reviewed-food lifecycle.
 
-Both tables are household-private through authenticated RLS and controlled
-RPCs. Household deletion cascades to both records.
+All active recipe tables are household-private through authenticated RLS and
+the existing account-deletion boundary.
 
 ## Recipe-link import
 
@@ -41,37 +44,36 @@ the short timeout. It does not send cookies or credentials.
 Extraction uses this order:
 
 1. Recipe JSON-LD, including `@graph` and array forms;
-2. standard recipe itemprop markup;
-3. title/description metadata as a preview only.
+2. clearly structured article recipe sections;
+3. a recoverable failure when complete recipe fields cannot be extracted.
 
 The result is an editable review payload. Nothing is persisted until the
 caregiver confirms the fields. A blocked or malformed page returns a clear
-error while preserving a manual save path for the URL and notes.
+error and a direct manual recipe-entry path.
 
 ## User flows
 
-- `/recipes` lists household personal recipes and gives actions to import a
-  URL or create one manually.
+- `/recipes` lists household recipes and gives actions to import a URL or create
+  one manually.
 - `/recipes/import` accepts a URL, shows extracted fields, and lets the
   caregiver edit before saving.
 - `/recipes/new` creates a manual recipe.
-- A recipe detail page displays its source and not-reviewed label and offers a
-  Week placement form for any day in the current seven-day window and any
-  configured meal slot.
-- Week renders personal planning items alongside reviewed meals with a clear
-  label. Personal items do not participate in automatic generation, variety
-  scoring, Today, Kitchen, storage, or serving actions.
+- A recipe detail page displays its source and offers a Week placement form for
+  any day in the current seven-day window and any configured meal slot.
+- Week renders manually planned recipes, Today shows the next planned recipe,
+  and Kitchen records preparation notes. None of these flows performs safety
+  review, automatic planning, inventory, storage, or serving calculations.
 
 ## Failure and lifecycle rules
 
 - Extracted text is never silently treated as complete; missing title,
   ingredients, or instructions remains editable and visibly incomplete.
-- Repeating the same save or planning request with an idempotency key is safe.
-- A personal recipe can be edited or deleted by household caregivers. Deleting
-  a recipe removes its personal planning items but does not touch reviewed
-  catalog records or household meal components.
-- Personal items remain private and cannot be returned by anonymous catalog or
-  external eligibility RPCs.
+- A recipe can be edited or deleted by household caregivers. Deleting a recipe
+  must not modify another household's records or reintroduce the retired
+  reviewed-food lifecycle.
+- Recipes, plans, notes, and image metadata remain private to the household.
+- A source image detected during import is only a suggestion. It is saved only
+  after explicit caregiver confirmation with alternative text.
 
 ## Non-goals
 
@@ -79,5 +81,5 @@ error while preserving a manual save path for the URL and notes.
   medical guidance.
 - No copying or republishing of third-party recipe pages beyond the fields the
   caregiver chooses to save; the original URL remains the source reference.
-- No inventory deduction, refrigerated-batch creation, Today serving, or
-  Kitchen work generation for personal items.
+- No inventory deduction, refrigerated-batch creation, serving workflow,
+  automatic planning, notifications, social features, or public sharing.

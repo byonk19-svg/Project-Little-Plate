@@ -24,24 +24,41 @@ export function authenticatedClient(
   });
 }
 
-export async function waitForAuth(status: LocalSupabaseStatus): Promise<void> {
+async function waitForEndpoint(
+  url: string,
+  headers: Record<string, string>,
+  description: string
+): Promise<void> {
   const deadline = Date.now() + 30_000;
 
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${status.API_URL}/auth/v1/health`, {
-        headers: { apikey: status.ANON_KEY }
-      });
+      const response = await fetch(url, { headers });
 
       if (response.ok) {
         return;
       }
     } catch {
-      // A reset can return just before Auth accepts connections.
+      // A reset can return just before the service accepts connections.
     }
 
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 
-  throw new Error("Local Supabase Auth did not become ready");
+  throw new Error(`${description} did not become ready`);
+}
+
+export async function waitForAuth(status: LocalSupabaseStatus): Promise<void> {
+  const headers = { apikey: status.ANON_KEY };
+
+  await waitForEndpoint(
+    `${status.API_URL}/auth/v1/health`,
+    headers,
+    "Local Supabase Auth"
+  );
+  await waitForEndpoint(
+    `${status.API_URL}/rest/v1/`,
+    headers,
+    "Local Supabase PostgREST"
+  );
 }

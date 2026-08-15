@@ -56,10 +56,13 @@ describe("personal recipe persistence", () => {
     });
     householdA = await createTestUser("a");
     householdB = await createTestUser("b");
-    await Promise.all([
+    const bootstrapResults = await Promise.all([
       householdA.client.rpc("bootstrap_account"),
       householdB.client.rpc("bootstrap_account")
     ]);
+    for (const result of bootstrapResults) {
+      expect(result.error).toBeNull();
+    }
   });
 
   afterAll(async () => {

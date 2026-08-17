@@ -3,8 +3,12 @@
 **Status:** Superseded implementation design
 
 This document records the pre-shipment planning model. The active contract is
-defined by `AGENTS.md`, `CONTEXT.md`, `README.md`, and ADR 0019/0020. Do not
-implement from the old `personal_recipes` or `personal_planning_items` names.
+defined by [`AGENTS.md`](../../../AGENTS.md), [`CONTEXT.md`](../../../CONTEXT.md),
+[`README.md`](../../../README.md), [ADR 0019](../../adr/0019-personal-recipe-platform-boundary.md),
+and [ADR 0020](../../adr/0020-recipe-platform-module-seams.md).
+Do not implement from the old `personal_recipes` or
+`personal_planning_items` names when this historical record differs from the
+shipped product.
 
 ## Goal
 

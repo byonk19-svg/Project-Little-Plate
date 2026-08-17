@@ -26,10 +26,20 @@ sharing.
 - [Active context](CONTEXT.md)
 - [Repository guidance](AGENTS.md)
 - [Personal recipe pivot ADR](docs/adr/0019-personal-recipe-platform-boundary.md)
+- [Recipe platform module seams ADR](docs/adr/0020-recipe-platform-module-seams.md)
 - [Implementation plan](docs/superpowers/plans/personal-recipe-platform-pivot-plan.md)
 
 The earlier reviewed-food ADRs and product issues remain migration history. They
 are not active caregiver product requirements.
+
+## Active and legacy boundaries
+
+Recipes, Week, Today, and Kitchen are the active caregiver-facing product.
+The former `/foods`, `/foods/[slug]`, and `/feeding-setup` URLs remain only as
+compatibility redirects for older bookmarks; they are not separate active
+workflows. The default verification path covers the active recipe platform.
+Use `pnpm verify:legacy` only when intentionally checking retained historical
+catalog, eligibility, planner, storage, or reaction implementation.
 
 ## Local setup
 

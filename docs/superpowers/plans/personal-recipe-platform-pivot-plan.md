@@ -1,8 +1,8 @@
 # Personal recipe platform pivot implementation plan
 
-Status: shipped on `main` at the personal recipe platform merge. Remaining
-follow-through is tracked in
-`docs/superpowers/plans/recipe-platform-follow-through-plan.md`.
+Status: shipped on `origin/main` at `6a2c24d`. This implementation plan is
+complete; the active contract is maintained in `README.md`, `CONTEXT.md`, and
+ADRs 0019/0020.
 
 ## Product contract
 
@@ -45,5 +45,6 @@ gate from `AGENTS.md` before merging the branch.
 ## Historical cleanup note
 
 The legacy migration history remains for rollback and is not part of the active
-product. Compatibility routes and legacy modules are handled through the
-follow-through plan's isolation checks rather than broad deletion.
+product. Compatibility routes are retained for older bookmarks, and legacy
+modules are checked only through the explicit `pnpm verify:legacy` path. Do not
+delete historical migrations or perform broad cleanup from this completed plan.

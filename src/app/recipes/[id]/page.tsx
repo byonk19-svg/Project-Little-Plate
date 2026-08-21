@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { deleteRecipe, toggleRecipeFavorite } from "@/modules/recipes/actions";
-import { getRecipe, recipeSourceLabel } from "@/modules/recipes/queries";
+import {
+  getRecipePageResult,
+  recipeSourceLabel
+} from "@/modules/recipes/queries";
 import { getRecipeImage } from "@/modules/recipe-images/queries";
 
 import { RecipeImagePanel } from "./recipe-image-panel";
+import { RecipePageUnavailable } from "../recipe-page-state";
 
 export const dynamic = "force-dynamic";
 
@@ -25,11 +29,16 @@ export default async function RecipeDetailPage({
 }) {
   const { id } = await params;
   const query = await searchParams;
-  const [recipe, image] = await Promise.all([
-    getRecipe(id),
-    getRecipeImage(id)
-  ]);
-  if (!recipe) notFound();
+  const recipeResult = await getRecipePageResult(id);
+  if (recipeResult.status !== "ready") {
+    if (recipeResult.status === "signed_out") redirect("/login");
+    if (recipeResult.status === "unavailable") {
+      return <RecipePageUnavailable />;
+    }
+    notFound();
+  }
+  const recipe = recipeResult.recipe;
+  const image = await getRecipeImage(id);
 
   return (
     <article className="recipe-detail-page">

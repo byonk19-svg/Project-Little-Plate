@@ -2,6 +2,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getHouseholdContext } from "@/modules/household/server";
 import { recipeMatchesSearch } from "@/modules/recipes/domain";
 
+import { classifyRecipePageState, type RecipePageState } from "./page-state";
+
 export type Recipe = {
   id: string;
   title: string;
@@ -30,6 +32,10 @@ export type RecipeListResult =
   | { status: "ready"; recipes: Recipe[]; tags: string[] }
   | { status: "signed_out"; recipes: []; tags: [] }
   | { status: "unavailable"; recipes: []; tags: [] };
+
+export type RecipePageResult =
+  | { status: "ready"; recipe: Recipe }
+  | { status: Exclude<RecipePageState, "ready"> };
 
 type RecipeRow = {
   id: string;
@@ -164,13 +170,19 @@ export async function getRecipes(
   return { status: "ready", recipes, tags };
 }
 
-export async function getRecipe(recipeId: string): Promise<Recipe | null> {
-  const supabase = await getAuthenticatedClient();
-  if (!supabase || !/^[0-9a-f-]{36}$/i.test(recipeId)) {
-    return null;
+export async function getRecipePageResult(
+  recipeId: string
+): Promise<RecipePageResult> {
+  const context = await getHouseholdContext();
+  const sessionStatus = context.status;
+  if (sessionStatus !== "authenticated") {
+    return { status: sessionStatus };
+  }
+  if (!/^[0-9a-f-]{36}$/i.test(recipeId)) {
+    return { status: "not_found" };
   }
 
-  const result = await supabase
+  const result = await context.supabase
     .from("recipes")
     .select(
       "id, title, description, ingredients, instructions, prep_minutes, cook_minutes, servings, notes, source_url, source_title, source_type, import_status, tags, is_favorite, created_at, updated_at"
@@ -178,10 +190,15 @@ export async function getRecipe(recipeId: string): Promise<Recipe | null> {
     .eq("id", recipeId)
     .eq("import_status", "confirmed")
     .maybeSingle();
+  const status = classifyRecipePageState({
+    sessionStatus,
+    queryError: Boolean(result.error),
+    recordFound: Boolean(result.data)
+  });
 
-  return result.error || !result.data
-    ? null
-    : mapRecipe(result.data as RecipeRow);
+  return status === "ready"
+    ? { status, recipe: mapRecipe(result.data as RecipeRow) }
+    : { status };
 }
 
 export function recipeSourceLabel(

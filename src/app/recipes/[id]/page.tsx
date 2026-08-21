@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import { deleteRecipe, toggleRecipeFavorite } from "@/modules/recipes/actions";
 import {
   getRecipePageResult,
@@ -72,9 +73,12 @@ export default async function RecipeDetailPage({
             </button>
           </form>
           <form action={deleteRecipe.bind(null, recipe.id)}>
-            <button className="danger-action" type="submit">
+            <ConfirmSubmitButton
+              className="danger-action"
+              confirmation={`Delete “${recipe.title}”? Its Week placements and preparation notes will also be removed.`}
+            >
               Delete
-            </button>
+            </ConfirmSubmitButton>
           </form>
         </div>
       </header>

@@ -3,6 +3,7 @@ import {
   deleteRecipeImage,
   uploadRecipeImage
 } from "@/modules/recipe-images/actions";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import type { RecipeImage } from "@/modules/recipe-images/queries";
 
 import { RecipeDetailImage } from "../recipe-detail-image";
@@ -45,9 +46,12 @@ export function RecipeImagePanel({
             <p>Rights note not provided.</p>
           )}
           <form action={deleteRecipeImage.bind(null, recipeId, image.id)}>
-            <button className="danger-action" type="submit">
+            <ConfirmSubmitButton
+              className="danger-action"
+              confirmation="Remove this cover image? The recipe will stay saved."
+            >
               Remove image
-            </button>
+            </ConfirmSubmitButton>
           </form>
         </>
       ) : (

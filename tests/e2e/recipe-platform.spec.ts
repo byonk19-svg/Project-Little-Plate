@@ -87,6 +87,14 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await expect(page).toHaveURL(/\/kitchen\?saved=1$/);
   await expect(page.getByText("Made before the busy morning.")).toBeVisible();
 
+  await page.goto("/recipes?q=does-not-exist");
+  await expect(
+    page.getByRole("heading", { name: "No matching recipes", level: 2 })
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Clear filters" })
+  ).toHaveAttribute("href", "/recipes");
+
   await page.goto("/recipes");
   await expect(
     page.getByRole("heading", { name: "Weeknight Oatmeal", level: 2 })
@@ -105,6 +113,18 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     page.getByRole("status", { name: "Recipe image unavailable" })
   ).toBeVisible();
 
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Remove image" }).click();
+  await expect(
+    page.getByRole("status", { name: "Recipe image unavailable" })
+  ).toBeVisible();
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Remove image" }).click();
+  await expect(
+    page.getByRole("button", { name: "Save image URL" })
+  ).toBeVisible();
+
   await page.goto("/recipes");
   await expect(
     page
@@ -118,6 +138,18 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
       () => document.documentElement.scrollWidth > window.innerWidth
     )
   ).toBe(false);
+
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.goto(`/recipes/${recipeId}`);
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+$/);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(/\/recipes\?deleted=1$/);
+  await expect(
+    page.getByRole("heading", { name: "Weeknight Oatmeal", level: 2 })
+  ).toHaveCount(0);
 });
 
 test("signed-out navigation names the active recipe product", async ({

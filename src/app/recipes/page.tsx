@@ -70,6 +70,9 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
     favoriteOnly: params.favorite === "1",
     tag: params.tag
   });
+  const hasActiveFilters = Boolean(
+    params.q?.trim() || params.favorite === "1" || params.tag
+  );
 
   return (
     <div className="recipes-page">
@@ -153,20 +156,31 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
           </form>
 
           {result.recipes.length === 0 ? (
-            <section className="foundation-card">
-              <p className="foundation-card__status">No recipes yet</p>
-              <h2>Start with one you already make</h2>
-              <p>
-                Add it yourself or paste a recipe website link and check the
-                imported details before saving.
-              </p>
-              <Link
-                className="primary-action primary-action--link"
-                href="/recipes/new"
-              >
-                Add your first recipe
-              </Link>
-            </section>
+            hasActiveFilters ? (
+              <section className="foundation-card">
+                <p className="foundation-card__status">No matches</p>
+                <h2>No matching recipes</h2>
+                <p>Try a different search or clear the filters.</p>
+                <Link className="secondary-action" href="/recipes">
+                  Clear filters
+                </Link>
+              </section>
+            ) : (
+              <section className="foundation-card">
+                <p className="foundation-card__status">No recipes yet</p>
+                <h2>Start with one you already make</h2>
+                <p>
+                  Add it yourself or paste a recipe website link and check the
+                  imported details before saving.
+                </p>
+                <Link
+                  className="primary-action primary-action--link"
+                  href="/recipes/new"
+                >
+                  Add your first recipe
+                </Link>
+              </section>
+            )
           ) : (
             <div className="recipe-list">
               {result.recipes.map((recipe) => (

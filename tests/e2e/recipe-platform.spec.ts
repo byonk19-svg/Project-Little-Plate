@@ -102,8 +102,16 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await page.getByRole("button", { name: "Save image URL" }).click();
   await expect(page).toHaveURL(/imageSaved=1/);
   await expect(
-    page.getByAltText("A bowl of oatmeal with banana")
+    page.getByRole("status", { name: "Recipe image unavailable" })
   ).toBeVisible();
+
+  await page.goto("/recipes");
+  await expect(
+    page
+      .getByRole("article")
+      .filter({ hasText: "Weeknight Oatmeal" })
+      .locator("img")
+  ).toHaveCount(0);
 
   expect(
     await page.evaluate(
@@ -129,6 +137,31 @@ test("signed-out navigation names the active recipe product", async ({
       .getByRole("navigation", { name: "Primary navigation" })
       .getByRole("link", { name: "Foods" })
   ).toHaveCount(0);
+});
+
+test("edits a saved recipe from its detail page", async ({ page, request }) => {
+  test.setTimeout(120_000);
+  await signIn(page, request);
+
+  await page.goto("/recipes/new");
+  await page.getByLabel("Title").fill("Editable Dogfood Recipe");
+  await page.getByLabel("Ingredients").fill("Ingredient one");
+  await page.getByLabel("Instructions").fill("Do the thing.");
+  await page.getByRole("button", { name: "Save recipe" }).click();
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?created=1$/);
+
+  await page.getByRole("link", { name: "Edit" }).click();
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\/edit$/);
+  await expect(
+    page.getByRole("heading", { name: "Edit Editable Dogfood Recipe" })
+  ).toBeVisible();
+  await page
+    .getByLabel("Short description (optional)")
+    .fill("Updated during the edit flow.");
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?updated=1$/);
+  await expect(page.getByText("Updated during the edit flow.")).toBeVisible();
 });
 
 test("imports and edits a recipe with explicit image confirmation", async ({

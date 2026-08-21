@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { RecipeImagePreview } from "@/app/recipes/recipe-image-preview";
 import {
   initialRecipeFormState,
   type RecipeFormState
@@ -198,10 +199,10 @@ export function RecipeForm({ action, defaults, submitLabel }: RecipeFormProps) {
       {defaults?.suggestedImageUrl ? (
         <fieldset className="recipe-image-suggestion">
           <legend>Image suggestion</legend>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <RecipeImagePreview
             alt=""
-            className="recipe-cover-image"
+            fallbackLabel="Image preview unavailable"
+            fallbackMessage="The image preview is unavailable, but you can still choose whether to use it."
             src={defaults.suggestedImageUrl}
           />
           <p>

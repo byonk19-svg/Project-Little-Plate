@@ -137,6 +137,9 @@ test("signed-out navigation names the active recipe product", async ({
       .getByRole("navigation", { name: "Primary navigation" })
       .getByRole("link", { name: "Foods" })
   ).toHaveCount(0);
+
+  await page.goto("/recipes/00000000-0000-0000-0000-000000000000/edit");
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test("edits a saved recipe from its detail page", async ({ page, request }) => {
@@ -188,6 +191,10 @@ test("imports and edits a recipe with explicit image confirmation", async ({
   await expect(
     page.getByRole("heading", { name: "Edited Fixture Oat Bites", level: 1 })
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "example.com" })).toHaveAttribute(
+    "href",
+    singleImportUrl
+  );
   await expect(page.getByText("External image link")).toBeVisible();
 
   await page.goto("/recipes/import");

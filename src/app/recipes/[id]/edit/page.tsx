@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { RecipeForm } from "@/app/recipes/recipe-form";
+import { RecipePageUnavailable } from "@/app/recipes/recipe-page-state";
 import { updateRecipe } from "@/modules/recipes/actions";
-import { getRecipe } from "@/modules/recipes/queries";
+import { getRecipePageResult } from "@/modules/recipes/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,15 @@ export default async function EditRecipePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const recipe = await getRecipe(id);
-  if (!recipe) notFound();
+  const recipeResult = await getRecipePageResult(id);
+  if (recipeResult.status !== "ready") {
+    if (recipeResult.status === "signed_out") redirect("/login");
+    if (recipeResult.status === "unavailable") {
+      return <RecipePageUnavailable />;
+    }
+    notFound();
+  }
+  const recipe = recipeResult.recipe;
 
   return (
     <article className="recipe-editor-page">

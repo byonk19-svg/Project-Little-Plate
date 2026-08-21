@@ -5,6 +5,8 @@ import {
 } from "@/modules/recipe-images/actions";
 import type { RecipeImage } from "@/modules/recipe-images/queries";
 
+import { RecipeDetailImage } from "../recipe-detail-image";
+
 export function RecipeImagePanel({
   recipeId,
   image,
@@ -14,6 +16,8 @@ export function RecipeImagePanel({
   image: RecipeImage | null;
   sourceUrl: string | null;
 }) {
+  const imageSrc = image?.signedUrl ?? image?.externalUrl;
+
   return (
     <section
       className="recipe-image-panel foundation-card"
@@ -23,13 +27,8 @@ export function RecipeImagePanel({
       <h2 id="recipe-image-title">Make it easier to recognize</h2>
       {image ? (
         <>
-          {image.signedUrl || image.externalUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt={image.altText}
-              className="recipe-cover-image"
-              src={image.signedUrl ?? image.externalUrl ?? undefined}
-            />
+          {imageSrc ? (
+            <RecipeDetailImage alt={image.altText} src={imageSrc} />
           ) : (
             <p role="status">
               This image could not be displayed. You can replace it below.

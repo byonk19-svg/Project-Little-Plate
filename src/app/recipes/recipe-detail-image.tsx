@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function RecipeCardImage({ src, alt }: { src: string; alt: string }) {
+export function RecipeDetailImage({ src, alt }: { src: string; alt: string }) {
   const imageRef = useRef<HTMLImageElement>(null);
   const [failed, setFailed] = useState(false);
 
@@ -13,15 +13,20 @@ export function RecipeCardImage({ src, alt }: { src: string; alt: string }) {
     }
   }, [src]);
 
-  if (failed) return null;
+  if (failed) {
+    return (
+      <p aria-label="Recipe image unavailable" role="status">
+        This image could not be displayed. You can replace it below.
+      </p>
+    );
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       ref={imageRef}
       alt={alt}
-      className="recipe-card__image"
-      loading="lazy"
+      className="recipe-cover-image"
       onError={() => setFailed(true)}
       src={src}
     />

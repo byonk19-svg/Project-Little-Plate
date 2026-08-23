@@ -43,7 +43,7 @@ function ReadyRecipe({
         <p className="recipe-source">
           Source:{" "}
           <a href={slot.recipe.sourceUrl} rel="noreferrer" target="_blank">
-            {slot.recipe.sourceUrl}
+            {slot.recipe.sourceTitle ?? slot.recipe.sourceUrl}
           </a>
         </p>
       ) : null}

@@ -64,8 +64,9 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     .getByRole("combobox")
     .selectOption({ label: "Weeknight Oatmeal" });
   await firstBreakfast.getByRole("button", { name: "Plan recipe" }).click();
-  await expect(page).toHaveURL(/\/week\?.*saved=1/);
+  await expect(page).toHaveURL(/\/week\?.*feedback=planned/);
   await expect(firstBreakfast).toContainText("Weeknight Oatmeal");
+  await expect(page.getByText("Recipe planned for this slot.")).toBeVisible();
 
   await page.goto(`/week?recipeId=${recipeId}`);
   await expect(
@@ -77,6 +78,18 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     page.getByRole("heading", { name: "Weeknight Oatmeal", level: 2 })
   ).toBeVisible();
   await expect(page.getByText("Open recipe")).toBeVisible();
+
+  await page.goto("/week");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByTestId("week-day")
+    .first()
+    .getByTestId("week-slot")
+    .filter({ hasText: "Breakfast" })
+    .getByRole("button", { name: "Remove" })
+    .click();
+  await expect(page).toHaveURL(/\/week\?.*feedback=removed/);
+  await expect(page.getByText("Recipe removed from this slot.")).toBeVisible();
 
   await page.goto("/kitchen");
   await page.getByLabel("Recipe").selectOption({ label: "Weeknight Oatmeal" });

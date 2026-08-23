@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getHouseholdContext } from "@/modules/household/server";
+import {
+  weekActionQueryKey,
+  type RecipeWeekAction
+} from "@/modules/meals/recipe-week-feedback";
 
 const validMealSlots = new Set(["breakfast", "lunch", "dinner"]);
 const validStatuses = new Set(["planned", "skipped", "completed"]);
@@ -55,7 +59,7 @@ export async function saveRecipeWeekSlot(formData: FormData): Promise<void> {
   revalidatePath("/today");
   const query = new URLSearchParams();
   if (windowStart) query.set("start", windowStart);
-  query.set(result.error ? "error" : "saved", "1");
+  query.set("feedback", weekActionQueryKey("plan", Boolean(result.error)));
   redirect(`/week?${query.toString()}`);
 }
 
@@ -67,14 +71,20 @@ export async function updateRecipeWeekSlotStatus(
   if (!/^[0-9a-f-]{36}$/i.test(slotId) || !validStatuses.has(status)) return;
   const context = await householdContext();
   if (!context) return;
-  await context.supabase
+  const result = await context.supabase
     .from("recipe_week_slots")
     .update({ status })
     .eq("id", slotId);
   revalidatePath("/week");
   revalidatePath("/today");
+  const action: RecipeWeekAction =
+    status === "completed"
+      ? "complete"
+      : status === "skipped"
+        ? "skip"
+        : "replan";
   redirect(
-    `/week${windowStart ? `?start=${windowStart}&saved=1` : "?saved=1"}`
+    `/week${windowStart ? `?start=${windowStart}&` : "?"}feedback=${weekActionQueryKey(action, Boolean(result.error))}`
   );
 }
 
@@ -85,11 +95,14 @@ export async function removeRecipeWeekSlot(
   if (!/^[0-9a-f-]{36}$/i.test(slotId)) return;
   const context = await householdContext();
   if (!context) return;
-  await context.supabase.from("recipe_week_slots").delete().eq("id", slotId);
+  const result = await context.supabase
+    .from("recipe_week_slots")
+    .delete()
+    .eq("id", slotId);
   revalidatePath("/week");
   revalidatePath("/today");
   revalidatePath("/kitchen");
   redirect(
-    `/week${windowStart ? `?start=${windowStart}&saved=1` : "?saved=1"}`
+    `/week${windowStart ? `?start=${windowStart}&` : "?"}feedback=${weekActionQueryKey("remove", Boolean(result.error))}`
   );
 }

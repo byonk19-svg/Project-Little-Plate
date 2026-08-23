@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 import {
   removeRecipeWeekSlot,
   saveRecipeWeekSlot,
@@ -11,6 +12,7 @@ import {
   getRecipeWeek
 } from "@/modules/meals/recipe-week";
 import type { Recipe } from "@/modules/recipes/queries";
+import type { RecipeWeekActionQueryKey } from "@/modules/meals/recipe-week-feedback";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,7 @@ export const metadata: Metadata = { title: "Week" };
 type WeekPageProps = {
   searchParams: Promise<{
     error?: string;
+    feedback?: RecipeWeekActionQueryKey;
     recipeId?: string;
     saved?: string;
     start?: string;
@@ -43,6 +46,15 @@ function formatLocalDate(localDate: string): string {
     timeZone: "UTC"
   }).format(new Date(`${localDate}T00:00:00Z`));
 }
+
+const weekFeedbackMessages: Record<RecipeWeekActionQueryKey, string> = {
+  planned: "Recipe planned for this slot.",
+  completed: "Meal marked complete.",
+  skipped: "Meal skipped.",
+  replanned: "Meal marked planned again.",
+  removed: "Recipe removed from this slot.",
+  error: "That week change could not be saved. Refresh and try again."
+};
 
 function RecipeSlotPicker({
   localDate,
@@ -143,9 +155,12 @@ function SlotStatusActions({
         </form>
       ) : null}
       <form action={removeRecipeWeekSlot.bind(null, slotId, windowStart)}>
-        <button className="danger-action" type="submit">
+        <ConfirmSubmitButton
+          className="danger-action"
+          confirmation="Remove this recipe from the Week slot? The recipe itself will stay saved."
+        >
           Remove
-        </button>
+        </ConfirmSubmitButton>
       </form>
     </div>
   );
@@ -181,9 +196,9 @@ export default async function WeekPage({ searchParams }: WeekPageProps) {
         </p>
       </header>
 
-      {params.saved === "1" ? (
+      {params.feedback ? (
         <p className="form-message form-message--success" role="status">
-          Week updated.
+          {weekFeedbackMessages[params.feedback]}
         </p>
       ) : null}
       {params.error ? (

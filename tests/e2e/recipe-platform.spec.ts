@@ -56,6 +56,7 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
 
   await page.getByRole("button", { name: "Favorite" }).click();
   await expect(page.getByRole("button", { name: "Unfavorite" })).toBeVisible();
+  await expect(page.getByText("Recipe added to favorites.")).toBeVisible();
 
   await page.goto("/week");
   await expect(page.getByTestId("week-day")).toHaveCount(7);

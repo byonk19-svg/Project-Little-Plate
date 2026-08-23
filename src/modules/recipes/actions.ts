@@ -41,6 +41,21 @@ async function getHouseholdClient() {
   return context.status === "authenticated" ? context : null;
 }
 
+function actionPath(recipeId: string, requestedPath?: string): string {
+  if (
+    requestedPath?.startsWith("/recipes") &&
+    !requestedPath.startsWith("//")
+  ) {
+    return requestedPath;
+  }
+  return `/recipes/${recipeId}`;
+}
+
+function actionRedirect(path: string, key: string, value: string): never {
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}${key}=${value}`);
+}
+
 function databaseErrorState(message: string): RecipeFormState {
   return { status: "error", message };
 }
@@ -377,30 +392,52 @@ export async function updateRecipe(
   redirect(`/recipes/${recipeId}?updated=1`);
 }
 
-export async function toggleRecipeFavorite(recipeId: string): Promise<void> {
+export async function toggleRecipeFavorite(
+  recipeId: string,
+  requestedPath?: string
+): Promise<void> {
+  const returnPath = actionPath(recipeId, requestedPath);
   const context = await getHouseholdClient();
-  if (!context) return;
+  if (!context) actionRedirect(returnPath, "actionError", "setup");
 
   const current = await context.supabase
     .from("recipes")
     .select("is_favorite")
     .eq("id", recipeId)
     .maybeSingle();
-  if (current.error || !current.data) return;
+  if (current.error || !current.data) {
+    actionRedirect(returnPath, "actionError", "favorite");
+  }
 
-  await context.supabase
+  const result = await context.supabase
     .from("recipes")
     .update({ is_favorite: !current.data.is_favorite })
     .eq("id", recipeId);
+  if (result.error) actionRedirect(returnPath, "actionError", "favorite");
   revalidatePath("/recipes");
   revalidatePath(`/recipes/${recipeId}`);
+  actionRedirect(
+    returnPath,
+    returnPath === `/recipes/${recipeId}` ? "favorite" : "favoriteChanged",
+    returnPath === `/recipes/${recipeId}`
+      ? current.data.is_favorite
+        ? "removed"
+        : "added"
+      : "1"
+  );
 }
 
 export async function deleteRecipe(recipeId: string): Promise<void> {
   const context = await getHouseholdClient();
-  if (!context) return;
+  if (!context) actionRedirect(`/recipes/${recipeId}`, "actionError", "setup");
 
-  await context.supabase.from("recipes").delete().eq("id", recipeId);
+  const result = await context.supabase
+    .from("recipes")
+    .delete()
+    .eq("id", recipeId);
+  if (result.error) {
+    actionRedirect(`/recipes/${recipeId}`, "actionError", "delete");
+  }
   revalidatePath("/recipes");
   revalidatePath("/week");
   revalidatePath("/today");

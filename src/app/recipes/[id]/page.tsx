@@ -3,6 +3,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import {
+  recipeActionErrorMessage,
+  recipeFavoriteMessage
+} from "@/modules/recipes/action-feedback";
 import { deleteRecipe, toggleRecipeFavorite } from "@/modules/recipes/actions";
 import {
   getRecipePageResult,
@@ -40,6 +44,8 @@ export default async function RecipeDetailPage({
     updated?: string;
     imageError?: string;
     imageSaved?: string;
+    favorite?: string;
+    actionError?: string;
   }>;
 }) {
   const { id } = await params;
@@ -78,6 +84,16 @@ export default async function RecipeDetailPage({
             "The cover image could not be updated. Try again."}
         </p>
       ) : null}
+      {recipeFavoriteMessage(query.favorite) ? (
+        <p className="form-message form-message--success" role="status">
+          {recipeFavoriteMessage(query.favorite)}
+        </p>
+      ) : null}
+      {query.actionError ? (
+        <p className="form-message form-message--error" role="alert">
+          {recipeActionErrorMessage(query.actionError)}
+        </p>
+      ) : null}
       <header>
         <p className="destination-page__eyebrow">{recipeSourceLabel(recipe)}</p>
         <h1>{recipe.title}</h1>
@@ -97,7 +113,13 @@ export default async function RecipeDetailPage({
           >
             Edit
           </Link>
-          <form action={toggleRecipeFavorite.bind(null, recipe.id)}>
+          <form
+            action={toggleRecipeFavorite.bind(
+              null,
+              recipe.id,
+              `/recipes/${recipe.id}`
+            )}
+          >
             <button className="secondary-action" type="submit">
               {recipe.isFavorite ? "Unfavorite" : "Favorite"}
             </button>

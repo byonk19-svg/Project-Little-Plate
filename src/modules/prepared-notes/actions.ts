@@ -43,10 +43,10 @@ export async function archivePreparedNote(noteId: string): Promise<void> {
   if (!/^[0-9a-f-]{36}$/i.test(noteId)) return;
   const context = await householdContext();
   if (!context) return;
-  await context.supabase
+  const result = await context.supabase
     .from("prepared_notes")
     .update({ status: "archived" })
     .eq("id", noteId);
   revalidatePath("/kitchen");
-  redirect("/kitchen?archived=1");
+  redirect(`/kitchen?${result.error ? "error=archive" : "archived=1"}`);
 }

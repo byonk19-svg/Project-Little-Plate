@@ -41,6 +41,8 @@ describe("RecipeForm validation recovery", () => {
     expect(
       screen.getByRole("textbox", { name: "Ingredients" })
     ).toHaveAttribute("aria-describedby", "ingredients-error");
-    expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
+    await waitFor(() => {
+      expect(screen.getByRole("textbox", { name: "Title" })).toHaveFocus();
+    });
   });
 });

@@ -87,6 +87,9 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await page.getByRole("button", { name: "Save note" }).click();
   await expect(page).toHaveURL(/\/kitchen\?saved=1$/);
   await expect(page.getByText("Made before the busy morning.")).toBeVisible();
+  await page.getByRole("button", { name: "Archive note" }).click();
+  await expect(page).toHaveURL(/\/kitchen\?archived=1$/);
+  await expect(page.getByText("Kitchen note archived.")).toBeVisible();
 
   await page.goto("/recipes?q=does-not-exist");
   await expect(
@@ -110,6 +113,7 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     .fill("A bowl of oatmeal with banana");
   await page.getByRole("button", { name: "Save image URL" }).click();
   await expect(page).toHaveURL(/imageSaved=1/);
+  await expect(page.getByText("Cover image saved.")).toBeVisible();
   await expect(
     page.getByRole("status", { name: "Recipe image unavailable" })
   ).toBeVisible();
@@ -122,6 +126,7 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
 
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Remove image" }).click();
+  await expect(page.getByText("Cover image removed.")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Save image URL" })
   ).toBeVisible();

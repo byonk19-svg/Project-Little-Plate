@@ -48,5 +48,5 @@ export async function archivePreparedNote(noteId: string): Promise<void> {
     .update({ status: "archived" })
     .eq("id", noteId);
   revalidatePath("/kitchen");
-  redirect("/kitchen?saved=1");
+  redirect("/kitchen?archived=1");
 }

@@ -15,7 +15,11 @@ export const metadata: Metadata = { title: "Kitchen" };
 export default async function KitchenPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    archived?: string;
+  }>;
 }) {
   const params = await searchParams;
   const [notesResult, recipes] = await Promise.all([
@@ -34,9 +38,11 @@ export default async function KitchenPage({
         </p>
       </header>
 
-      {params.saved === "1" ? (
+      {params.saved === "1" || params.archived === "1" ? (
         <p className="form-message form-message--success" role="status">
-          Kitchen note saved.
+          {params.archived === "1"
+            ? "Kitchen note archived."
+            : "Kitchen note saved."}
         </p>
       ) : null}
       {params.error ? (

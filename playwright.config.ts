@@ -6,6 +6,10 @@ const recipeImportFixtureDirectory = path.resolve(
 );
 const port = process.env.PLAYWRIGHT_PORT ?? "3000";
 const baseURL = `http://localhost:${port}`;
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:56321";
+const mailpitUrl =
+  process.env.NEXT_PUBLIC_LOCAL_MAIL_URL ?? "http://127.0.0.1:56324";
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -35,9 +39,10 @@ export default defineConfig({
     command: "pnpm dev",
     env: {
       NEXT_PUBLIC_APP_URL: baseURL,
-      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:56321",
+      NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
         "sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH",
+      NEXT_PUBLIC_LOCAL_MAIL_URL: mailpitUrl,
       RECIPE_IMPORT_TEST_FIXTURES: "1",
       RECIPE_IMPORT_TEST_FIXTURE_DIR: recipeImportFixtureDirectory,
       PORT: port

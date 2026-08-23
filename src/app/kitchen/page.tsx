@@ -5,6 +5,7 @@ import {
   archivePreparedNote,
   createPreparedNote
 } from "@/modules/prepared-notes/actions";
+import { preparedNoteErrorMessage } from "@/modules/prepared-notes/feedback";
 import { getPreparedNotes } from "@/modules/prepared-notes/queries";
 import { getRecipePlanningOptions } from "@/modules/meals/recipe-week";
 
@@ -47,7 +48,7 @@ export default async function KitchenPage({
       ) : null}
       {params.error ? (
         <p className="form-message form-message--error" role="alert">
-          That kitchen note could not be saved.
+          {preparedNoteErrorMessage(params.error)}
         </p>
       ) : null}
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import {
   removeRecipeWeekSlot,
   saveRecipeWeekSlot,
@@ -95,9 +96,12 @@ function RecipeSlotPicker({
         <span className="sr-only">Note for {mealSlot}</span>
         <input name="note" placeholder="Meal note (optional)" type="text" />
       </label>
-      <button className="secondary-action" type="submit">
+      <PendingSubmitButton
+        className="secondary-action"
+        pendingLabel="Planning…"
+      >
         Plan recipe
-      </button>
+      </PendingSubmitButton>
     </form>
   );
 }
@@ -122,9 +126,12 @@ function SlotStatusActions({
             windowStart
           )}
         >
-          <button className="secondary-action" type="submit">
+          <PendingSubmitButton
+            className="secondary-action"
+            pendingLabel="Updating…"
+          >
             Mark complete
-          </button>
+          </PendingSubmitButton>
         </form>
       ) : (
         <form
@@ -135,9 +142,12 @@ function SlotStatusActions({
             windowStart
           )}
         >
-          <button className="secondary-action" type="submit">
+          <PendingSubmitButton
+            className="secondary-action"
+            pendingLabel="Updating…"
+          >
             Mark planned
-          </button>
+          </PendingSubmitButton>
         </form>
       )}
       {status === "planned" ? (
@@ -149,15 +159,19 @@ function SlotStatusActions({
             windowStart
           )}
         >
-          <button className="secondary-action" type="submit">
+          <PendingSubmitButton
+            className="secondary-action"
+            pendingLabel="Updating…"
+          >
             Skip
-          </button>
+          </PendingSubmitButton>
         </form>
       ) : null}
       <form action={removeRecipeWeekSlot.bind(null, slotId, windowStart)}>
         <ConfirmSubmitButton
           className="danger-action"
           confirmation="Remove this recipe from the Week slot? The recipe itself will stay saved."
+          pendingLabel="Removing…"
         >
           Remove
         </ConfirmSubmitButton>

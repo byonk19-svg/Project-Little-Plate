@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { PendingSubmitButton } from "@/components/pending-submit-button";
 import {
   archivePreparedNote,
   createPreparedNote
@@ -104,9 +105,12 @@ export default async function KitchenPage({
                   <span>Notes (optional)</span>
                   <textarea maxLength={4000} name="notes" rows={3} />
                 </label>
-                <button className="primary-action" type="submit">
+                <PendingSubmitButton
+                  className="primary-action"
+                  pendingLabel="Saving…"
+                >
                   Save note
-                </button>
+                </PendingSubmitButton>
               </form>
             )}
           </section>
@@ -134,9 +138,12 @@ export default async function KitchenPage({
                     ) : null}
                     {note.status !== "archived" ? (
                       <form action={archivePreparedNote.bind(null, note.id)}>
-                        <button className="secondary-action" type="submit">
+                        <PendingSubmitButton
+                          className="secondary-action"
+                          pendingLabel="Archiving…"
+                        >
                           Archive note
-                        </button>
+                        </PendingSubmitButton>
                       </form>
                     ) : null}
                   </article>

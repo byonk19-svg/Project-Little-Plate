@@ -14,6 +14,9 @@ type MailpitMessage = {
   Text: string;
 };
 
+const mailpitUrl =
+  process.env.NEXT_PUBLIC_LOCAL_MAIL_URL ?? "http://127.0.0.1:56324";
+
 export async function waitForMagicLink(
   request: APIRequestContext,
   email: string
@@ -30,9 +33,7 @@ export async function waitForMagicLinkMessage(
   await expect
     .poll(
       async () => {
-        const response = await request.get(
-          "http://127.0.0.1:56324/api/v1/messages"
-        );
+        const response = await request.get(`${mailpitUrl}/api/v1/messages`);
         const mailbox = (await response.json()) as MailpitMessages;
 
         return mailbox.messages.find(
@@ -45,9 +46,7 @@ export async function waitForMagicLinkMessage(
     )
     .toBeTruthy();
 
-  const mailboxResponse = await request.get(
-    "http://127.0.0.1:56324/api/v1/messages"
-  );
+  const mailboxResponse = await request.get(`${mailpitUrl}/api/v1/messages`);
   const mailbox = (await mailboxResponse.json()) as MailpitMessages;
   const messageId = mailbox.messages.find(
     (message) =>
@@ -55,7 +54,7 @@ export async function waitForMagicLinkMessage(
       message.To.some((recipient) => recipient.Address === email)
   )!.ID;
   const messageResponse = await request.get(
-    `http://127.0.0.1:56324/api/v1/message/${messageId}`
+    `${mailpitUrl}/api/v1/message/${messageId}`
   );
   const message = (await messageResponse.json()) as MailpitMessage;
   const match = `${message.HTML}\n${message.Text}`.match(

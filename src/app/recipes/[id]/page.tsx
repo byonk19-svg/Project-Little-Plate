@@ -17,6 +17,15 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Recipe" };
 
+const imageErrorMessages: Record<string, string> = {
+  alt: "Add a short description for the cover image.",
+  file: "Choose a valid JPG, PNG, or WebP image under 5 MB.",
+  save: "The cover image could not be saved. Try again.",
+  setup: "The cover image could not be saved until account setup is complete.",
+  upload: "The cover image upload failed. Try again.",
+  url: "Enter a valid public HTTPS image URL."
+};
+
 function RecipeText({ value }: { value: string }) {
   return <p className="recipe-text">{value}</p>;
 }
@@ -26,7 +35,12 @@ export default async function RecipeDetailPage({
   searchParams
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string; updated?: string }>;
+  searchParams: Promise<{
+    created?: string;
+    updated?: string;
+    imageError?: string;
+    imageSaved?: string;
+  }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -46,6 +60,22 @@ export default async function RecipeDetailPage({
       {query.created === "1" || query.updated === "1" ? (
         <p className="form-message form-message--success" role="status">
           {query.created === "1" ? "Recipe saved." : "Recipe updated."}
+        </p>
+      ) : null}
+      {query.imageSaved === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          Cover image saved.
+        </p>
+      ) : null}
+      {query.imageSaved === "deleted" ? (
+        <p className="form-message form-message--success" role="status">
+          Cover image removed.
+        </p>
+      ) : null}
+      {query.imageError ? (
+        <p className="form-message form-message--error" role="alert">
+          {imageErrorMessages[query.imageError] ??
+            "The cover image could not be updated. Try again."}
         </p>
       ) : null}
       <header>

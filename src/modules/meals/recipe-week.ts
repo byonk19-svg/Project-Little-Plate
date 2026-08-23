@@ -16,7 +16,7 @@ export type RecipeWeekSlot = {
   note: string | null;
   recipe: Pick<
     Recipe,
-    "id" | "title" | "description" | "sourceUrl" | "sourceType"
+    "id" | "title" | "description" | "sourceTitle" | "sourceUrl" | "sourceType"
   >;
 };
 
@@ -34,7 +34,7 @@ export type RecipeWeek = {
 
 const mealSlots: RecipeMealSlot[] = ["breakfast", "lunch", "dinner"];
 const recipeSelect =
-  "id, local_date, meal_slot, status, note, recipe_id, recipe:recipes!recipe_week_slots_recipe_household_fk(id, title, description, source_url, source_type)";
+  "id, local_date, meal_slot, status, note, recipe_id, recipe:recipes!recipe_week_slots_recipe_household_fk(id, title, description, source_title, source_url, source_type)";
 
 function validDate(value: string | undefined): value is string {
   return !!value && /^\d{4}-\d{2}-\d{2}$/.test(value);
@@ -73,6 +73,10 @@ function mapSlot(value: unknown): RecipeWeekSlot | null {
       description:
         typeof recipeRow.description === "string"
           ? recipeRow.description
+          : null,
+      sourceTitle:
+        typeof recipeRow.source_title === "string"
+          ? recipeRow.source_title
           : null,
       sourceUrl:
         typeof recipeRow.source_url === "string" ? recipeRow.source_url : null,

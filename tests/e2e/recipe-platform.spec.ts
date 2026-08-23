@@ -38,6 +38,10 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
   await page.getByLabel("Title").fill("Weeknight Oatmeal");
   await page.getByLabel("Ingredients").fill("Oats\nMilk\nBanana");
   await page.getByLabel("Instructions").fill("Cook oats.\nTop with banana.");
+  await page
+    .getByLabel("Recipe link (optional)")
+    .fill("https://example.com/weeknight-oatmeal");
+  await page.getByLabel("Source name (optional)").fill("Family Kitchen");
   await page.getByLabel("Tags (optional)").fill("quick, breakfast");
   await page.getByRole("button", { name: "Save recipe" }).click();
   await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]+\?created=1$/, {
@@ -78,6 +82,9 @@ test("the private recipe workflow works on a narrow mobile viewport", async ({
     page.getByRole("heading", { name: "Weeknight Oatmeal", level: 2 })
   ).toBeVisible();
   await expect(page.getByText("Open recipe")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Family Kitchen" })
+  ).toHaveAttribute("href", "https://example.com/weeknight-oatmeal");
 
   await page.goto("/week");
   page.once("dialog", (dialog) => dialog.accept());

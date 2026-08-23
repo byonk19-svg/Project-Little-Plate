@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { toggleRecipeFavorite } from "@/modules/recipes/actions";
+import { recipeActionErrorMessage } from "@/modules/recipes/action-feedback";
 import {
   getRecipes,
   recipeSourceLabel,
@@ -23,10 +24,18 @@ type RecipesPageProps = {
     tag?: string;
     deleted?: string;
     imported?: string;
+    favoriteChanged?: string;
+    actionError?: string;
   }>;
 };
 
-function RecipeCard({ recipe }: { recipe: Recipe }) {
+function RecipeCard({
+  recipe,
+  returnPath
+}: {
+  recipe: Recipe;
+  returnPath: string;
+}) {
   return (
     <article className="recipe-card">
       {recipe.image ? (
@@ -50,7 +59,7 @@ function RecipeCard({ recipe }: { recipe: Recipe }) {
         ) : null}
       </div>
       <div className="recipe-card__actions">
-        <form action={toggleRecipeFavorite.bind(null, recipe.id)}>
+        <form action={toggleRecipeFavorite.bind(null, recipe.id, returnPath)}>
           <button className="secondary-action" type="submit">
             {recipe.isFavorite ? "Unfavorite" : "Favorite"}
           </button>
@@ -73,6 +82,11 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
   const hasActiveFilters = Boolean(
     params.q?.trim() || params.favorite === "1" || params.tag
   );
+  const listQuery = new URLSearchParams();
+  if (params.q) listQuery.set("q", params.q);
+  if (params.favorite === "1") listQuery.set("favorite", "1");
+  if (params.tag) listQuery.set("tag", params.tag);
+  const returnPath = `/recipes${listQuery.size ? `?${listQuery}` : ""}`;
 
   return (
     <div className="recipes-page">
@@ -107,6 +121,16 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
         <p className="form-message form-message--success" role="status">
           {params.imported} imported recipe
           {params.imported === "1" ? "" : "s"} saved.
+        </p>
+      ) : null}
+      {params.favoriteChanged === "1" ? (
+        <p className="form-message form-message--success" role="status">
+          Favorite updated.
+        </p>
+      ) : null}
+      {params.actionError ? (
+        <p className="form-message form-message--error" role="alert">
+          {recipeActionErrorMessage(params.actionError)}
         </p>
       ) : null}
 
@@ -184,7 +208,11 @@ export default async function RecipesPage({ searchParams }: RecipesPageProps) {
           ) : (
             <div className="recipe-list">
               {result.recipes.map((recipe) => (
-                <RecipeCard key={recipe.id} recipe={recipe} />
+                <RecipeCard
+                  key={recipe.id}
+                  recipe={recipe}
+                  returnPath={returnPath}
+                />
               ))}
             </div>
           )}

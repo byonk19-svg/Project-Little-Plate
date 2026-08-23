@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import { RecipeImagePreview } from "@/app/recipes/recipe-image-preview";
 import {
@@ -37,9 +37,37 @@ type RecipeFormProps = {
   submitLabel: string;
 };
 
-function FieldError({ message }: { message?: string }) {
+const fieldLabels = {
+  title: "Title",
+  description: "Short description (optional)",
+  ingredients: "Ingredients",
+  instructions: "Instructions",
+  prepMinutes: "Prep minutes (optional)",
+  cookMinutes: "Cook minutes (optional)",
+  servings: "Servings (optional)",
+  notes: "Personal notes (optional)",
+  sourceUrl: "Recipe link (optional)",
+  sourceTitle: "Source name (optional)",
+  tags: "Tags (optional)"
+} as const;
+
+function fieldProps(name: string, message?: string) {
+  return {
+    "aria-label": fieldLabels[name as keyof typeof fieldLabels],
+    id: name,
+    "aria-describedby": message ? `${name}-error` : undefined,
+    "aria-invalid": message ? true : undefined
+  };
+}
+
+function FieldError({ name, message }: { name: string; message?: string }) {
   return message ? (
-    <small className="field-error" role="alert">
+    <small
+      aria-label={`${fieldLabels[name as keyof typeof fieldLabels]} error`}
+      className="field-error"
+      id={`${name}-error`}
+      role="alert"
+    >
       {message}
     </small>
   ) : null;
@@ -52,12 +80,21 @@ export function RecipeForm({ action, defaults, submitLabel }: RecipeFormProps) {
   );
   const errors = state.fieldErrors ?? {};
   const existingMatches = defaults?.existingMatches ?? [];
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.status !== "error") return;
+    formRef.current
+      ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+      ?.focus();
+  }, [state.status, state.fieldErrors]);
 
   return (
-    <form action={formAction} className="recipe-form">
-      <label className="field">
+    <form ref={formRef} action={formAction} className="recipe-form">
+      <label className="field" htmlFor="title">
         <span>Title</span>
         <input
+          {...fieldProps("title", errors.title)}
           autoComplete="off"
           defaultValue={defaults?.title}
           maxLength={160}
@@ -65,23 +102,25 @@ export function RecipeForm({ action, defaults, submitLabel }: RecipeFormProps) {
           required
           type="text"
         />
-        <FieldError message={errors.title} />
+        <FieldError name="title" message={errors.title} />
       </label>
 
-      <label className="field">
+      <label className="field" htmlFor="description">
         <span>Short description (optional)</span>
         <textarea
+          {...fieldProps("description", errors.description)}
           defaultValue={defaults?.description ?? ""}
           maxLength={2000}
           name="description"
           rows={3}
         />
-        <FieldError message={errors.description} />
+        <FieldError name="description" message={errors.description} />
       </label>
 
-      <label className="field">
+      <label className="field" htmlFor="ingredients">
         <span>Ingredients</span>
         <textarea
+          {...fieldProps("ingredients", errors.ingredients)}
           defaultValue={defaults?.ingredients}
           maxLength={12000}
           name="ingredients"
@@ -89,89 +128,96 @@ export function RecipeForm({ action, defaults, submitLabel }: RecipeFormProps) {
           rows={8}
         />
         <small>One ingredient per line works well.</small>
-        <FieldError message={errors.ingredients} />
+        <FieldError name="ingredients" message={errors.ingredients} />
       </label>
 
-      <label className="field">
+      <label className="field" htmlFor="instructions">
         <span>Instructions</span>
         <textarea
+          {...fieldProps("instructions", errors.instructions)}
           defaultValue={defaults?.instructions}
           maxLength={20000}
           name="instructions"
           required
           rows={10}
         />
-        <FieldError message={errors.instructions} />
+        <FieldError name="instructions" message={errors.instructions} />
       </label>
 
       <div className="recipe-form__compact-fields">
-        <label className="field">
+        <label className="field" htmlFor="prepMinutes">
           <span>Prep minutes (optional)</span>
           <input
+            {...fieldProps("prepMinutes", errors.prepMinutes)}
             defaultValue={defaults?.prepMinutes ?? ""}
             inputMode="numeric"
             min="0"
             name="prepMinutes"
             type="number"
           />
-          <FieldError message={errors.prepMinutes} />
+          <FieldError name="prepMinutes" message={errors.prepMinutes} />
         </label>
-        <label className="field">
+        <label className="field" htmlFor="cookMinutes">
           <span>Cook minutes (optional)</span>
           <input
+            {...fieldProps("cookMinutes", errors.cookMinutes)}
             defaultValue={defaults?.cookMinutes ?? ""}
             inputMode="numeric"
             min="0"
             name="cookMinutes"
             type="number"
           />
-          <FieldError message={errors.cookMinutes} />
+          <FieldError name="cookMinutes" message={errors.cookMinutes} />
         </label>
-        <label className="field">
+        <label className="field" htmlFor="servings">
           <span>Servings (optional)</span>
           <input
+            {...fieldProps("servings", errors.servings)}
             defaultValue={defaults?.servings ?? ""}
             inputMode="numeric"
             min="1"
             name="servings"
             type="number"
           />
-          <FieldError message={errors.servings} />
+          <FieldError name="servings" message={errors.servings} />
         </label>
       </div>
 
-      <label className="field">
+      <label className="field" htmlFor="notes">
         <span>Personal notes (optional)</span>
         <textarea
+          {...fieldProps("notes", errors.notes)}
           defaultValue={defaults?.notes ?? ""}
           maxLength={4000}
           name="notes"
           rows={4}
         />
-        <FieldError message={errors.notes} />
+        <FieldError name="notes" message={errors.notes} />
       </label>
 
       <fieldset>
         <legend>Source</legend>
-        <label className="field">
+        <label className="field" htmlFor="sourceUrl">
           <span>Recipe link (optional)</span>
           <input
+            {...fieldProps("sourceUrl", errors.sourceUrl)}
             defaultValue={defaults?.sourceUrl ?? ""}
             name="sourceUrl"
             placeholder="https://"
             type="url"
           />
-          <FieldError message={errors.sourceUrl} />
+          <FieldError name="sourceUrl" message={errors.sourceUrl} />
         </label>
-        <label className="field">
+        <label className="field" htmlFor="sourceTitle">
           <span>Source name (optional)</span>
           <input
+            {...fieldProps("sourceTitle", errors.sourceTitle)}
             defaultValue={defaults?.sourceTitle ?? ""}
             maxLength={240}
             name="sourceTitle"
             type="text"
           />
-          <FieldError message={errors.sourceTitle} />
+          <FieldError name="sourceTitle" message={errors.sourceTitle} />
         </label>
       </fieldset>
 
@@ -239,16 +285,17 @@ export function RecipeForm({ action, defaults, submitLabel }: RecipeFormProps) {
         />
       ) : null}
 
-      <label className="field">
+      <label className="field" htmlFor="tags">
         <span>Tags (optional)</span>
         <input
+          {...fieldProps("tags", errors.tags)}
           defaultValue={defaults?.tags?.join(", ")}
           name="tags"
           placeholder="quick, family"
           type="text"
         />
         <small>Separate simple tags with commas.</small>
-        <FieldError message={errors.tags} />
+        <FieldError name="tags" message={errors.tags} />
       </label>
 
       <label className="choice">

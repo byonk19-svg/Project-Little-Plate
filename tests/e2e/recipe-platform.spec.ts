@@ -4,6 +4,7 @@ import {
   type APIRequestContext,
   type Page
 } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 import { waitForMagicLink } from "./support/passwordless-auth";
 
@@ -172,6 +173,26 @@ test("signed-out navigation names the active recipe product", async ({
 
   await page.goto("/recipes/00000000-0000-0000-0000-000000000000/edit");
   await expect(page).toHaveURL(/\/login$/);
+});
+
+test("active signed-out routes have no serious accessibility violations", async ({
+  page
+}) => {
+  for (const path of [
+    "/login",
+    "/recipes",
+    "/recipes/import",
+    "/today",
+    "/week",
+    "/kitchen"
+  ]) {
+    await page.goto(path);
+    const results = await new AxeBuilder({ page }).analyze();
+    const seriousViolations = results.violations.filter((violation) =>
+      ["critical", "serious"].includes(violation.impact ?? "")
+    );
+    expect(seriousViolations, `${path} accessibility violations`).toEqual([]);
+  }
 });
 
 test("edits a saved recipe from its detail page", async ({ page, request }) => {
